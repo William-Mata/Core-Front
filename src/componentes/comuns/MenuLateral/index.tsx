@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import { usarTraducao } from '../../../hooks/usarTraducao';
@@ -94,14 +94,14 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
       id: 'admin',
       label: t('menu.administracao'),
       icone: '\u2699\uFE0F',
-      rota: '/principal/admin',
+      rota: '/principal/administracao',
       requerModuloId: '2',
       filhos: [
-        { id: 'admin-visao-geral', label: t('menu.administracao'), rota: '/principal/admin', requerTelaId: '30' },
-        { id: 'admin-usuarios', label: t('menu.usuarios'), rota: '/principal/admin/usuario', requerTelaId: '31' },
-        { id: 'admin-documentos', label: t('menu.documentos'), rota: '/principal/admin/documentos', requerTelaId: '33' },
-        { id: 'admin-avisos', label: t('menu.avisos'), rota: '/principal/admin/avisos', requerTelaId: '34' },
-        { id: 'admin-documentacao', label: t('documentacao.acao'), rota: '/principal/admin/documentacao', requerTelaId: '35' },
+        { id: 'admin-visao-geral', label: t('menu.administracao'), rota: '/principal/administracao', requerTelaId: '30' },
+        { id: 'admin-usuarios', label: t('menu.usuarios'), rota: '/principal/administracao/usuario', requerTelaId: '31' },
+        { id: 'admin-documentos', label: t('menu.documentos'), rota: '/principal/administracao/documentos', requerTelaId: '33' },
+        { id: 'admin-avisos', label: t('menu.avisos'), rota: '/principal/administracao/avisos', requerTelaId: '34' },
+        { id: 'admin-documentacao', label: t('documentacao.acao'), rota: '/principal/administracao/documentacao', requerTelaId: '35' },
       ],
     },
   ];
@@ -148,7 +148,7 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
   };
 
   const filhoEstaAtivo = (rota: string) => {
-    const rotasExatas = ['/principal/amigos', '/principal/admin'];
+    const rotasExatas = ['/principal/amigos', '/principal/administracao'];
     if (pathname === rota) return true;
     if (rotasExatas.includes(rota)) return false;
     return pathname.startsWith(`${rota}/`) || pathname.startsWith(`${rota}?`);

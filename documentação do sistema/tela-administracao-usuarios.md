@@ -5,7 +5,7 @@ Orientar o usuario administrador no uso da tela de gerenciamento de usuarios.
 
 ## Onde acessar
 - Menu lateral -> `Administracao` -> `Usuarios`
-- Rota interna: `/principal/admin/usuario`
+- Rota interna: `/principal/administracao/usuario`
 
 ## O que voce pode fazer nesta tela
 - visualizar usuarios cadastrados

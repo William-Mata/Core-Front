@@ -173,7 +173,7 @@ describe('MenuLateral', () => {
     fireEvent.press(getByText('menu.administracao'));
     fireEvent.press(getByText('menu.usuarios'));
 
-    expect(mockPush).toHaveBeenCalledWith('/principal/admin/usuario');
+    expect(mockPush).toHaveBeenCalledWith('/principal/administracao/usuario');
   });
 
   it('deve deslogar e redirecionar ao clicar em sair', async () => {

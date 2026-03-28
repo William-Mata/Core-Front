@@ -27,7 +27,7 @@ export default function GerenciadorDocumentos() {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => router.push(`/principal/admin/documento?id=${item.id}`)} style={{ backgroundColor: COLORS.bgTertiary, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.borderColor }}>
+          <TouchableOpacity onPress={() => router.push(`/principal/administracao/documento?id=${item.id}`)} style={{ backgroundColor: COLORS.bgTertiary, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.borderColor }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: 'white', fontSize: 14, fontWeight: '600', marginBottom: 4 }}>{item.titulo}</Text>
@@ -53,7 +53,7 @@ export default function GerenciadorDocumentos() {
         ListEmptyComponent={<Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 32 }}>{t('documentacao.vazio')}</Text>}
       />
 
-      <TouchableOpacity onPress={() => router.push('/principal/admin/documento')} style={{ position: 'absolute', bottom: 24, right: 24, backgroundColor: COLORS.accent, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: COLORS.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 }}>
+      <TouchableOpacity onPress={() => router.push('/principal/administracao/documento')} style={{ position: 'absolute', bottom: 24, right: 24, backgroundColor: COLORS.accent, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: COLORS.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 }}>
         <Text style={{ color: 'white', fontSize: 28, fontWeight: 'bold' }}>+</Text>
       </TouchableOpacity>
     </View>

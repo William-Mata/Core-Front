@@ -4,12 +4,12 @@
 Documentar o comportamento atual do front-end da tela de usuarios do modulo de administracao e o contrato recomendado para integracao com API.
 
 Arquivo principal:
-- `app/principal/admin/usuario.tsx`
+- `app/principal/administracao/usuario.tsx`
 
 ## Rotas do front
-- lista de usuarios: `/principal/admin/usuario`
-- novo usuario: `/principal/admin/usuario?novo=1`
-- editar usuario: `/principal/admin/usuario?id={id}`
+- lista de usuarios: `/principal/administracao/usuario`
+- novo usuario: `/principal/administracao/usuario?novo=1`
+- editar usuario: `/principal/administracao/usuario?id={id}`
 
 ## Modos da tela
 - Modo lista:

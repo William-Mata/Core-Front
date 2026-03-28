@@ -11,11 +11,11 @@ interface Estatisticas {
 }
 
 const atalhos = [
-  { rota: '/principal/admin/usuario', icone: '\uD83D\uDC64', titulo: 'admin.usuarios.lista' },
-  { rota: '/principal/admin/documentos', icone: '\uD83D\uDCD6', titulo: 'admin.documentacao.gerenciar' },
-  { rota: '/principal/admin/avisos', icone: '\uD83D\uDCE3', titulo: 'admin.avisos.titulo' },
-  { rota: '/principal/admin/simulacao', icone: '\uD83D\uDD04', titulo: 'admin.simulacao.titulo' },
-  { rota: '/principal/admin/documentacao', icone: '\u2139\uFE0F', titulo: 'documentacao.acao' },
+  { rota: '/principal/administracao/usuario', icone: '\uD83D\uDC64', titulo: 'admin.usuarios.lista' },
+  { rota: '/principal/administracao/documentos', icone: '\uD83D\uDCD6', titulo: 'admin.documentacao.gerenciar' },
+  { rota: '/principal/administracao/avisos', icone: '\uD83D\uDCE3', titulo: 'admin.avisos.titulo' },
+  { rota: '/principal/administracao/simulacao', icone: '\uD83D\uDD04', titulo: 'admin.simulacao.titulo' },
+  { rota: '/principal/administracao/documentacao', icone: '\u2139\uFE0F', titulo: 'documentacao.acao' },
 ] as const;
 
 export default function Administracao() {

@@ -232,7 +232,7 @@ export default function FormUsuario() {
     } catch (erro) {
       if (erroApiJaNotificado(erro)) return;
       notificarErro(extrairMensagemErroApi(erro, t('admin.usuario.erros.falhaSalvar')));
-      router.replace('/principal/admin/usuario');
+      router.replace('/principal/administracao/usuario');
     } finally {
       setCarregandoDetalhe(false);
     }
@@ -255,16 +255,16 @@ export default function FormUsuario() {
 
   const abrirNovo = () => {
     resetarFormulario();
-    router.push('/principal/admin/usuario?novo=1');
+    router.push('/principal/administracao/usuario?novo=1');
   };
 
   const abrirEdicao = (usuario: UsuarioRegistro) => {
-    router.push(`/principal/admin/usuario?id=${usuario.id}`);
+    router.push(`/principal/administracao/usuario?id=${usuario.id}`);
   };
 
   const voltarParaLista = () => {
     resetarFormulario();
-    router.replace('/principal/admin/usuario');
+    router.replace('/principal/administracao/usuario');
   };
 
   const atualizarStatusModulo = (moduloId: string, status: boolean) => {

@@ -958,7 +958,7 @@ const MODULOS = [
   { id: 'financeiro', titulo: 'Financeiro', icone: '💰', rota: '/principal/financeiro' },
   { id: 'amigos', titulo: 'Amigos', icone: '👥', rota: '/principal/amigos' },
   { id: 'compras', titulo: 'Compras', icone: '🛒', rota: '/principal/compras' }, // [NEW]
-  { id: 'admin', titulo: 'Admin', icone: '⚙️', rota: '/principal/admin' },
+  { id: 'admin', titulo: 'Admin', icone: '⚙️', rota: '/principal/administracao' },
 ];
 ```
 

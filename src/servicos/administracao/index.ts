@@ -1,5 +1,5 @@
-import { api } from './api';
-import { InterfaceModuloUsuario, InterfaceTelaModulo } from '../tipos/usuario.tipos';
+import { api } from '../api';
+import { InterfaceModuloUsuario, InterfaceTelaModulo } from '../../tipos/usuario.tipos';
 
 interface EnvelopeApi<T> {
   sucesso?: boolean;

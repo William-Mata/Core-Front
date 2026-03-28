@@ -1,4 +1,4 @@
-﻿import { View, Text, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
@@ -50,7 +50,7 @@ export default function GerenciadorAvisos() {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => router.push(`/principal/admin/aviso?id=${item.id}`)} style={{ backgroundColor: COLORS.bgTertiary, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, borderLeftWidth: 3, borderLeftColor: getTipoBadgeColor(item.tipo) }}>
+          <TouchableOpacity onPress={() => router.push(`/principal/administracao/aviso?id=${item.id}`)} style={{ backgroundColor: COLORS.bgTertiary, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, borderLeftWidth: 3, borderLeftColor: getTipoBadgeColor(item.tipo) }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -80,7 +80,7 @@ export default function GerenciadorAvisos() {
         ListEmptyComponent={carregando ? null : <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 32 }}>{t('admin.avisos.vazio')}</Text>}
       />
 
-      <TouchableOpacity onPress={() => router.push('/principal/admin/aviso')} style={{ position: 'absolute', bottom: 24, right: 24, backgroundColor: COLORS.accent, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: COLORS.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 }}>
+      <TouchableOpacity onPress={() => router.push('/principal/administracao/aviso')} style={{ position: 'absolute', bottom: 24, right: 24, backgroundColor: COLORS.accent, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: COLORS.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 }}>
         <Text style={{ color: 'white', fontSize: 28, fontWeight: 'bold' }}>+</Text>
       </TouchableOpacity>
     </View>
