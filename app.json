@@ -1,15 +1,21 @@
 {
   "expo": {
-    "name": "financeiro-frontend3",
-    "slug": "financeiro-frontend3",
+    "name": "Core",
+    "slug": "core",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#090909"
+    },
+    "entryPoint": "node_modules/expo-router/entry" ,
+    "extra": {
+      "eas": {
+        "projectId": "00000000-0000-0000-0000-000000000000"
+      }
     },
     "ios": {
       "supportsTablet": true
