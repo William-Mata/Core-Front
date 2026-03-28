@@ -1,0 +1,315 @@
+﻿{
+  "saudacao": "Olá",
+  "carregando": "Carregando...",
+  "erro": "Ocorreu um erro",  "senha": "Senha",  "entrar": "Entrar",  "sair": "Sair",  "sucesso": "Sucesso",  "confirmacao": "Confirmação",
+  "email": "Email",
+  "login": {
+    "titulo": "Entrar no Core",
+    "email": "Email",
+    "senha": "Senha",
+    "entrar": "Entrar"
+  },
+  "menu": {
+    "dashboard": "Dashboard",
+    "financeiro": "Financeiro",
+    "despesas": "Despesas",
+    "receitas": "Receitas",
+    "reembolsos": "Reembolsos",
+    "contasBancarias": "Contas Bancárias",
+    "cartoesCredito": "Cartões de Crédito",
+    "centrosCusto": "Centros de Custo",
+    "amigos": "Amigos",
+    "listaAmigos": "Lista de Amigos",
+    "convites": "Convites",
+    "administracao": "Administração",
+    "usuarios": "Usuários",
+    "permissoes": "Permissões",
+    "documentos": "Documentos",
+    "avisos": "Avisos",
+    "sistemaGestao": "Sistema de Gestão",
+    "navegacao": "Navegação",
+    "sair": "Sair"
+  },
+  "acoes": {
+    "adicionar": "Adicionar",
+    "cancelar": "Cancelar",
+    "salvar": "Salvar",
+    "editar": "Editar",
+    "remover": "Remover",
+    "confirmar": "Confirmar",
+    "novo": "Novo"
+  },
+  "filtros": {
+    "titulo": "Filtros",
+    "id": "Filtrar por ID",
+    "descricao": "Filtrar por descrição",
+    "dataInicio": "Data início (dd/MM/yyyy)",
+    "dataFim": "Data fim (dd/MM/yyyy)"
+  },
+  "cabecalho": {
+    "bemVindo": "Bem-vindo"
+  },
+  "notificacoes": {
+    "titulo": "Notificações",
+    "nenhuma": "Nenhuma notificação",
+    "marcarTodasComoLidas": "Marcar todas como lidas"
+  },
+  "dashboard": {
+    "titulo": "Dashboard",
+    "globalTitle": "Dashboard Global",
+    "globalDescription": "Consolidação do módulo Financeiro com widgets reordenáveis e visão das últimas transações.",
+    "reordenarHint": "Reordene os widgets por arrastar e soltar (web) ou pelos botões ↑/↓.",
+    "widget": "Widget",
+    "resumoFinanceiro": "Resumo Financeiro",
+    "graficoPorTipo": "Gráfico Financeiro por Tipo",
+    "widgetGraficoInfo": "Widget preparado para consolidar dados do Financeiro em formato de gráfico.",
+    "evolucaoMensal": "Evolução Mensal (6 meses)",
+    "ultimasTransacoes": "Últimas Transações",
+    "cards": {
+      "receitas": "Receitas",
+      "despesas": "Despesas",
+      "reembolsos": "Reembolsos",
+      "estornos": "Estornos",
+      "saldo": "Saldo"
+    },
+    "colunas": {
+      "id": "ID",
+      "tipo": "Tipo",
+      "valor": "Valor",
+      "descricao": "Descrição",
+      "dataEfetivacao": "Data Efetivação",
+      "tipoPagamento": "Tipo Pagamento",
+      "contaBancaria": "Conta Bancária"
+    },
+    "tipos": {
+      "despesa": "Despesa",
+      "receita": "Receita",
+      "reembolso": "Reembolso",
+      "estorno": "Estorno"
+    },
+    "widgets": {
+      "resumo": "Resumo",
+      "graficoTipos": "Gráfico por Tipo",
+      "graficoMensal": "Gráfico Mensal",
+      "ultimasTransacoes": "Últimas Transações"
+    },
+    "pagamento": {
+      "PIX": "PIX",
+      "TRANSFERENCIA": "Transferência",
+      "CARTAO_CREDITO": "Cartão de Crédito",
+      "BOLETO": "Boleto",
+      "DINHEIRO": "Dinheiro"
+    },
+    "contas": {
+      "BANCO_XP": "Banco XP",
+      "BANCO_DIGITAL": "Banco Digital",
+      "ITAU": "Itaú",
+      "NUBANK": "Nubank",
+      "INTER": "Inter"
+    },
+    "descricoes": {
+      "ALMOCO_CLIENTE": "Almoço com cliente",
+      "VENDA_SERVICO": "Venda de serviço",
+      "REEMBOLSO_VIAGEM": "Reembolso de viagem",
+      "ESTORNO_COBRANCA": "Estorno de cobrança",
+      "ASSINATURA": "Assinatura software",
+      "SUPERMERCADO": "Supermercado",
+      "COMBUSTIVEL": "Combustível",
+      "RECEBIMENTO": "Recebimento projeto"
+    }
+  },
+  "amigos": {
+    "titulo": "Amigos",
+    "acoes": {
+      "convidar": "+ Convidar"
+    },
+    "abas": {
+      "meusAmigos": "Meus Amigos",
+      "convites": "Convites"
+    },
+    "total": "Total de Amigos",
+    "carregando": "Carregando amigos...",
+    "vazioAmigos": "Nenhum amigo encontrado com os filtros",
+    "vazioConvites": "Nenhum convite encontrado com os filtros",
+    "status": {
+      "amigo": "Amigo",
+      "pendente": "Pendente",
+      "bloqueado": "Bloqueado",
+      "desconhecido": "Desconhecido"
+    },
+    "form": {
+      "titulo": "Convidar Amigo",
+      "subtitulo": "Convite de Amigo",
+      "descricao": "Convide um amigo para usar o Core e gerenciar finanças juntos.",
+      "emailLabel": "Email do Amigo",
+      "emailPlaceholder": "amigo@email.com",
+      "msgLabel": "Mensagem Pessoal (opcional)",
+      "msgPlaceholder": "Deixe uma mensagem",
+      "infoTitulo": "Informação",
+      "infoTexto": "Um convite será enviado para o email informado. O amigo poderá aceitar ou rejeitar a solicitação.",
+      "enviar": "Enviar Convite",
+      "enviando": "Enviando...",
+      "sucesso": "Convite enviado com sucesso!",
+      "erros": {
+        "emailObrigatorio": "Email é obrigatório",
+        "emailInvalido": "Email inválido",
+        "falhaEnvio": "Falha ao enviar convite"
+      }
+    }
+  },
+  "admin": {
+    "titulo": "Administração",
+    "painel": "Painel Administrativo",
+    "estatisticas": "Estatísticas do Sistema",
+    "usuariosTotais": "Usuários Totais",
+    "ativosHoje": "Ativos Hoje",
+    "acoesRapidas": "Ações Rápidas",
+    "carregandoUsuarios": "Carregando usuários...",
+    "usuarios": {
+      "lista": "Usuários do Sistema",
+      "vazio": "Nenhum usuário encontrado com os filtros",
+      "criar": "Criar Novo Usuário"
+    },
+    "simulacao": {
+      "titulo": "Simular Usuário",
+      "oQue": "O que é Simulação?",
+      "descricao": "A simulação permite acessar o sistema como outro usuário para testes.",
+      "avisoSeguranca": "Aviso de Segurança",
+      "avisoTexto": "Todas as ações durante a simulação serão registradas.",
+      "selecione": "Selecione o Usuário a Simular",
+      "usuarioSelecionado": "Usuário Selecionado",
+      "iniciar": "Iniciar Simulação de Usuário",
+      "iniciando": "Iniciando...",
+      "iniciada": "Simulação Iniciada",
+      "msgSucesso": "Agora você está simulando o acesso de: {{nome}}",
+      "erros": {
+        "selecioneUsuario": "Selecione um usuário para simular",
+        "falha": "Falha ao iniciar simulação"
+      }
+    },
+    "usuario": {
+      "novo": "Novo Usuário",
+      "editar": "Editar Usuário",
+      "nomeCompleto": "Nome Completo",
+      "nomePlaceholder": "Ex: João Silva",
+      "perfilAcesso": "Perfil de Acesso",
+      "perfilUser": "Usuário",
+      "perfilAdmin": "Admin",
+      "privilegiosTitulo": "Privilégios de Administrador",
+      "privilegiosTexto": "Este usuário terá acesso completo ao painel administrativo.",
+      "salvando": "Salvando...",
+      "deletar": "Deletar",
+      "confirmarExclusaoTitulo": "Confirmar Exclusão",
+      "confirmarExclusaoTexto": "Tem certeza que deseja deletar este usuário?",
+      "sucessoDeletado": "Usuário deletado com sucesso",
+      "sucessoSalvo": "Usuário {{acao}} com sucesso",
+      "criado": "criado",
+      "atualizado": "atualizado",
+      "erros": {
+        "nomeEmailObrigatorio": "Nome e email são obrigatórios",
+        "emailInvalido": "Email inválido",
+        "falhaSalvar": "Falha ao salvar usuário"
+      }
+    },
+    "permissoes": {
+      "titulo": "Árvore de Permissões",
+      "moduloFinanceiro": "Módulo Financeiro",
+      "moduloAmigos": "Módulo Amigos e Contatos",
+      "moduloAdmin": "Módulo Administração",
+      "infoTitulo": "Informação",
+      "infoTexto": "Alterações nas permissões serão aplicadas no próximo login.",
+      "sucesso": "Permissões atualizadas com sucesso!",
+      "acoes": {
+        "visualizarDespesas": "Visualizar Despesas",
+        "criarDespesas": "Criar Despesas",
+        "editarDespesas": "Editar Despesas",
+        "visualizarContatos": "Visualizar Contatos",
+        "criarContatos": "Criar Contatos",
+        "enviarConvites": "Enviar Convites",
+        "visualizarUsuarios": "Visualizar Usuários",
+        "criarUsuarios": "Criar Usuários",
+        "gerenciarDocumentos": "Gerenciar Documentos"
+      }
+    },
+    "avisos": {
+      "titulo": "Avisos",
+      "destinatarios": "Destinatários",
+      "ciencia": "Ciência",
+      "publicado": "Publicado",
+      "rascunho": "Rascunho",
+      "vazio": "Nenhum aviso registrado",
+      "tipos": {
+        "INFO": "Info",
+        "AVISO": "Aviso",
+        "CRITICO": "Crítico"
+      },
+      "mock": {
+        "manutencao": "Manutenção do Sistema",
+        "atualizacao": "Atualização Importante",
+        "recurso": "Novo Recurso: Reembolsos"
+      }
+    },
+    "aviso": {
+      "novo": "Novo Aviso",
+      "editar": "Editar Aviso",
+      "titulo": "Título",
+      "conteudo": "Conteúdo",
+      "placeholderTitulo": "Digite o título do aviso",
+      "placeholderConteudo": "Digite o conteúdo do aviso",
+      "tipo": "Tipo",
+      "destinatarios": "Destinatários",
+      "requerCiencia": "Requer Ciência",
+      "requerCienciaTexto": "Usuários devem confirmar que leram",
+      "publicar": "Publicar Aviso",
+      "publicadoSucesso": "Aviso publicado com sucesso",
+      "salvoSucesso": "Aviso salvo com sucesso",
+      "deletadoSucesso": "Aviso deletado",
+      "confirmarDelete": "Tem certeza que deseja deletar este aviso?",
+      "conteudoExemplo": "Estou feliz em anunciar que a funcionalidade de reembolsos está disponível!",
+      "destino": {
+        "TODOS": "Todos os usuários",
+        "MODULO": "Por módulo",
+        "USUARIO": "Usuários específicos"
+      },
+      "erros": {
+        "preenchaTituloConteudo": "Preencha o título e conteúdo",
+        "tituloObrigatorio": "Título é obrigatório"
+      }
+    },
+    "documentos": {
+      "titulo": "Documentos",
+      "vazio": "Nenhum documento registrado",
+      "por": "Por",
+      "mock": {
+        "politica": "Política de Privacidade",
+        "manual": "Manual do Usuário",
+        "termos": "Termos de Serviço"
+      }
+    },
+    "documento": {
+      "novo": "Novo Documento",
+      "editar": "Editar Documento",
+      "titulo": "Título",
+      "descricao": "Descrição",
+      "placeholderTitulo": "Digite o título do documento",
+      "placeholderDescricao": "Digite uma descrição (opcional)",
+      "arquivo": "Arquivo",
+      "selecioneArquivo": "Clique para selecionar ou arraste um arquivo",
+      "arquivoInfo": "PDF, imagens ou documentos até 50MB",
+      "arquivoSelecionado": "Arquivo selecionado: documento.pdf (2.4 MB)",
+      "arquivoExemplo": "Arquivo: politica-privacidade-v2.pdf",
+      "descricaoExemplo": "Política de privacidade da aplicação",
+      "publicar": "Publicar Documento",
+      "publicadoSucesso": "Documento publicado com sucesso",
+      "salvoSucesso": "Documento salvo com sucesso",
+      "deletadoSucesso": "Documento deletado",
+      "confirmarDelete": "Tem certeza que deseja deletar este documento?",
+      "erros": {
+        "tituloObrigatorio": "Título é obrigatório"
+      }
+    }
+  }
+}
+
+
+

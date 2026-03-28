@@ -1,0 +1,195 @@
+﻿{
+  "despesa": {
+    "titulo": "Gastos",
+    "nova": "Nuevo Gasto",
+    "vazio": "No se encontraron gastos.",
+    "campos": {
+      "titulo": "Título",
+      "categoria": "Categoría",
+      "descricao": "Descripción",
+      "valor": "Valor",
+      "efetivacao": "Fecha de liquidación",
+      "desdobramento": "Desglose (cuotas)",
+      "rateio": "Prorrateo"
+    },
+    "placeholders": {
+      "titulo": "Ej: Almuerzo",
+      "descricao": "Detalles",
+      "valor": "0.00",
+      "data": "AAAA-MM-DD",
+      "desdobramento": "1"
+    },
+    "acoes": {
+      "efetivar": "Liquidar",
+      "estornar": "Revertir",
+      "documentacao": "Documentación"
+    },
+    "status": {
+      "pendente": "PENDIENTE",
+      "efetivada": "LIQUIDADA",
+      "estornada": "REVERTIDA"
+    },
+    "rateio": {
+      "nenhum": "Ninguno",
+      "amigos": "Amigos",
+      "area": "Área"
+    },
+    "categorias": {
+      "alimentacao": "Alimentación",
+      "transporte": "Transporte",
+      "utilidades": "Servicios",
+      "saude": "Salud",
+      "educacao": "Educación",
+      "lazer": "Ocio",
+      "outros": "Otros"
+    },
+    "mensagens": {
+      "obrigatorio": "Título, categoría y valor son obligatorios.",
+      "confirmarRemocao": "¿Desea eliminar este gasto?",
+      "semDescricao": "Sin descripción",
+      "criada": "Gasto creado con éxito.",
+      "atualizada": "Gasto actualizado con éxito."
+    }
+  },
+  "receita": {
+    "titulo": "Ingresos",
+    "nova": "Nuevo Ingreso",
+    "campos": {
+      "titulo": "Título",
+      "categoria": "Categoría",
+      "descricao": "Descripción",
+      "valor": "Valor",
+      "efetivacao": "Fecha de liquidación"
+    },
+    "placeholders": {
+      "titulo": "Ej: Salario",
+      "descricao": "Detalles",
+      "valor": "0.00",
+      "data": "AAAA-MM-DD"
+    },
+    "mensagens": {
+      "obrigatorio": "Título, categoría y valor son obligatorios."
+    },
+    "categorias": {
+      "salario": "Salario",
+      "freelance": "Freelance",
+      "reembolso": "Reembolso",
+      "investimento": "Inversión",
+      "outros": "Otros"
+    }
+  },
+  "reembolso": {
+    "titulo": "Reembolsos",
+    "novo": "Nuevo Reembolso",
+    "editar": "Editar Reembolso",
+    "vazio": "No se encontraron reembolsos.",
+    "descricao": "Descripción",
+    "placeholderDescricao": "Ingrese la descripción del reembolso",
+    "solicitante": "Solicitante",
+    "dataSolicitacao": "Fecha de Solicitud",
+    "placeholderData": "AAAA-MM-DD",
+    "despesasVinculadas": "Gastos vinculados",
+    "despesasSelecionadas": "{{count}} gasto(s) vinculado(s)",
+    "valorTotal": "Valor Total de la Solicitud",
+    "statusLista": {
+      "aguardando": "PENDIENTE",
+      "aprovado": "APROBADO"
+    },
+    "mensagens": {
+      "descricaoObrigatoria": "La descripción es obligatoria",
+      "adicionarDespesa": "Agregue al menos un gasto",
+      "despesaJaVinculada": "El gasto {{despesa}} ya está vinculado a otro reembolso.",
+      "confirmarRemocao": "¿Desea eliminar este reembolso?",
+      "criado": "Reembolso creado con éxito.",
+      "atualizado": "Reembolso actualizado con éxito.",
+      "removido": "Reembolso eliminado con éxito.",
+      "falhaSalvar": "No se pudo guardar el reembolso.",
+      "falhaCarregar": "No se pudieron cargar los datos de reembolso."
+    }
+  },
+  "contaBancaria": {
+    "titulo": "Cuentas Bancarias",
+    "nova": "Nueva Cuenta Bancaria",
+    "vazio": "No se encontraron cuentas bancarias.",
+    "saldoAtual": "Saldo actual",
+    "extratoTitulo": "Extracto de la Cuenta",
+    "extratoVazio": "No hay movimientos de extracto para esta cuenta.",
+    "campos": {
+      "nome": "Nombre de la Cuenta",
+      "banco": "Banco",
+      "agencia": "Agencia",
+      "numero": "Número",
+      "saldoInicial": "Saldo Inicial",
+      "dataAbertura": "Fecha de Apertura"
+    },
+    "placeholders": {
+      "nome": "Ej: Cuenta Principal",
+      "banco": "Ej: Itaú",
+      "agencia": "Ej: 1234",
+      "numero": "Ej: 12345-6",
+      "saldoInicial": "0.00",
+      "dataAbertura": "AAAA-MM-DD"
+    },
+    "tipos": {
+      "credito": "Crédito",
+      "debito": "Débito"
+    },
+    "acoes": {
+      "extrato": "Extracto"
+    },
+    "mensagens": {
+      "obrigatorio": "Nombre, banco, agencia y número son obligatorios.",
+      "confirmarRemocao": "¿Desea eliminar esta cuenta bancaria?",
+      "criada": "Cuenta bancaria creada con éxito.",
+      "atualizada": "Cuenta bancaria actualizada con éxito."
+    }
+  },
+  "cartao": {
+    "titulo": "Tarjetas",
+    "novo": "Nueva Tarjeta",
+    "vazio": "No se encontraron tarjetas.",
+    "faturaTitulo": "Factura de la Tarjeta",
+    "faturaVazia": "No hay movimientos de factura para esta tarjeta.",
+    "totalFatura": "Total de la Factura",
+    "limiteDisponivel": "Límite",
+    "campos": {
+      "nome": "Nombre de la Tarjeta",
+      "bandeira": "Marca",
+      "tipo": "Tipo",
+      "limite": "Límite",
+      "diaVencimento": "Día de Vencimiento",
+      "dataCadastro": "Fecha de Registro"
+    },
+    "placeholders": {
+      "nome": "Ej: Nubank Gold",
+      "bandeira": "Ej: Mastercard",
+      "limite": "0.00",
+      "diaVencimento": "Ej: 12",
+      "dataCadastro": "AAAA-MM-DD"
+    },
+    "tipos": {
+      "credito": "Crédito",
+      "debito": "Débito"
+    },
+    "acoes": {
+      "fatura": "Factura"
+    },
+    "mensagens": {
+      "obrigatorio": "Nombre y marca son obligatorios.",
+      "creditoObrigatorio": "Para tarjetas de crédito, informe límite y día de vencimiento.",
+      "confirmarRemocao": "¿Desea eliminar esta tarjeta?",
+      "faturaSomenteCredito": "La factura solo está disponible para tarjetas de crédito.",
+      "cartaoDebito": "La tarjeta de débito no tiene factura mensual.",
+      "criado": "Tarjeta creada con éxito.",
+      "atualizado": "Tarjeta actualizada con éxito."
+    }
+  },
+  "seletorDespesas": {
+    "titulo": "Seleccionar Gastos",
+    "buscar": "Buscar gasto...",
+    "nenhuma": "No se encontraron gastos",
+    "selecioneUma": "Seleccione al menos un gasto",
+    "selecionadas": "{{count}} gasto{{s}} seleccionado{{s}}"
+  }
+}
+

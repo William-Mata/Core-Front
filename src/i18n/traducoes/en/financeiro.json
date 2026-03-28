@@ -1,0 +1,195 @@
+﻿{
+  "despesa": {
+    "titulo": "Expenses",
+    "nova": "New Expense",
+    "vazio": "No expenses found.",
+    "campos": {
+      "titulo": "Title",
+      "categoria": "Category",
+      "descricao": "Description",
+      "valor": "Amount",
+      "efetivacao": "Settlement Date",
+      "desdobramento": "Installments",
+      "rateio": "Split"
+    },
+    "placeholders": {
+      "titulo": "Ex: Lunch",
+      "descricao": "Details",
+      "valor": "0.00",
+      "data": "YYYY-MM-DD",
+      "desdobramento": "1"
+    },
+    "acoes": {
+      "efetivar": "Settle",
+      "estornar": "Reverse",
+      "documentacao": "Documentation"
+    },
+    "status": {
+      "pendente": "PENDING",
+      "efetivada": "SETTLED",
+      "estornada": "REVERSED"
+    },
+    "rateio": {
+      "nenhum": "None",
+      "amigos": "Friends",
+      "area": "Area"
+    },
+    "categorias": {
+      "alimentacao": "Food",
+      "transporte": "Transport",
+      "utilidades": "Utilities",
+      "saude": "Health",
+      "educacao": "Education",
+      "lazer": "Leisure",
+      "outros": "Others"
+    },
+    "mensagens": {
+      "obrigatorio": "Title, category and amount are required.",
+      "confirmarRemocao": "Do you want to remove this expense?",
+      "semDescricao": "No description",
+      "criada": "Expense created successfully.",
+      "atualizada": "Expense updated successfully."
+    }
+  },
+  "receita": {
+    "titulo": "Income",
+    "nova": "New Income",
+    "campos": {
+      "titulo": "Title",
+      "categoria": "Category",
+      "descricao": "Description",
+      "valor": "Amount",
+      "efetivacao": "Settlement Date"
+    },
+    "placeholders": {
+      "titulo": "Ex: Salary",
+      "descricao": "Details",
+      "valor": "0.00",
+      "data": "YYYY-MM-DD"
+    },
+    "mensagens": {
+      "obrigatorio": "Title, category and amount are required."
+    },
+    "categorias": {
+      "salario": "Salary",
+      "freelance": "Freelance",
+      "reembolso": "Reimbursement",
+      "investimento": "Investment",
+      "outros": "Others"
+    }
+  },
+  "reembolso": {
+    "titulo": "Reimbursements",
+    "novo": "New Reimbursement",
+    "editar": "Edit Reimbursement",
+    "vazio": "No reimbursements found.",
+    "descricao": "Description",
+    "placeholderDescricao": "Enter reimbursement description",
+    "solicitante": "Requester",
+    "dataSolicitacao": "Request Date",
+    "placeholderData": "YYYY-MM-DD",
+    "despesasVinculadas": "Linked Expenses",
+    "despesasSelecionadas": "{{count}} linked expense(s)",
+    "valorTotal": "Total Request Amount",
+    "statusLista": {
+      "aguardando": "PENDING",
+      "aprovado": "APPROVED"
+    },
+    "mensagens": {
+      "descricaoObrigatoria": "Description is required",
+      "adicionarDespesa": "Add at least one expense",
+      "despesaJaVinculada": "Expense {{despesa}} is already linked to another reimbursement.",
+      "confirmarRemocao": "Do you want to remove this reimbursement?",
+      "criado": "Reimbursement created successfully.",
+      "atualizado": "Reimbursement updated successfully.",
+      "removido": "Reimbursement removed successfully.",
+      "falhaSalvar": "Unable to save reimbursement.",
+      "falhaCarregar": "Unable to load reimbursement data."
+    }
+  },
+  "contaBancaria": {
+    "titulo": "Bank Accounts",
+    "nova": "New Bank Account",
+    "vazio": "No bank accounts found.",
+    "saldoAtual": "Current balance",
+    "extratoTitulo": "Account Statement",
+    "extratoVazio": "No statement entries for this account.",
+    "campos": {
+      "nome": "Account Name",
+      "banco": "Bank",
+      "agencia": "Agency",
+      "numero": "Number",
+      "saldoInicial": "Starting Balance",
+      "dataAbertura": "Opening Date"
+    },
+    "placeholders": {
+      "nome": "Ex: Main Account",
+      "banco": "Ex: Itaú",
+      "agencia": "Ex: 1234",
+      "numero": "Ex: 12345-6",
+      "saldoInicial": "0.00",
+      "dataAbertura": "YYYY-MM-DD"
+    },
+    "tipos": {
+      "credito": "Credit",
+      "debito": "Debit"
+    },
+    "acoes": {
+      "extrato": "Statement"
+    },
+    "mensagens": {
+      "obrigatorio": "Account name, bank, agency and number are required.",
+      "confirmarRemocao": "Do you want to remove this bank account?",
+      "criada": "Bank account created successfully.",
+      "atualizada": "Bank account updated successfully."
+    }
+  },
+  "cartao": {
+    "titulo": "Cards",
+    "novo": "New Card",
+    "vazio": "No cards found.",
+    "faturaTitulo": "Card Bill",
+    "faturaVazia": "No bill transactions for this card.",
+    "totalFatura": "Bill Total",
+    "limiteDisponivel": "Limit",
+    "campos": {
+      "nome": "Card Name",
+      "bandeira": "Brand",
+      "tipo": "Type",
+      "limite": "Limit",
+      "diaVencimento": "Due Day",
+      "dataCadastro": "Register Date"
+    },
+    "placeholders": {
+      "nome": "Ex: Nubank Gold",
+      "bandeira": "Ex: Mastercard",
+      "limite": "0.00",
+      "diaVencimento": "Ex: 12",
+      "dataCadastro": "YYYY-MM-DD"
+    },
+    "tipos": {
+      "credito": "Credit",
+      "debito": "Debit"
+    },
+    "acoes": {
+      "fatura": "Bill"
+    },
+    "mensagens": {
+      "obrigatorio": "Name and brand are required.",
+      "creditoObrigatorio": "For credit cards, provide limit and due day.",
+      "confirmarRemocao": "Do you want to remove this card?",
+      "faturaSomenteCredito": "Bill is available only for credit cards.",
+      "cartaoDebito": "Debit cards do not have monthly bill.",
+      "criado": "Card created successfully.",
+      "atualizado": "Card updated successfully."
+    }
+  },
+  "seletorDespesas": {
+    "titulo": "Select Expenses",
+    "buscar": "Search expense...",
+    "nenhuma": "No expenses found",
+    "selecioneUma": "Select at least one expense",
+    "selecionadas": "{{count}} expense{{s}} selected"
+  }
+}
+
