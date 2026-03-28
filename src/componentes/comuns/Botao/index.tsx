@@ -1,5 +1,5 @@
-﻿import { useState } from 'react';
-import { Pressable, Text, StyleSheet, ViewStyle, Platform } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import type { BotaoProps } from './Botao.tipos';
 import { COLORS, LAYOUT } from '../../../styles/variables';
 
@@ -38,12 +38,24 @@ const estilos = StyleSheet.create({
   desabilitado: {
     opacity: 0.5,
   },
+  conteudo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
   texto: {
     color: COLORS.textPrimary,
     fontWeight: '600',
     fontSize: 14,
   },
 });
+
+const corLoaderPorTipo: Record<NonNullable<BotaoProps['tipo']>, string> = {
+  primario: COLORS.textPrimary,
+  secundario: COLORS.accent,
+  perigo: COLORS.textPrimary,
+};
 
 export function Botao({
   label,
@@ -53,11 +65,12 @@ export function Botao({
   tipo = 'primario',
   desabilitado,
   disabled,
+  carregando,
   estilo,
 }: BotaoProps) {
   const [hover, setHover] = useState(false);
-  const isDisabled = desabilitado || disabled;
-  const text = label || titulo;
+  const isDisabled = desabilitado || disabled || carregando;
+  const text = label || titulo || '';
   const hoverNoWeb = hover && !isDisabled && Platform.OS === 'web';
 
   return (
@@ -91,8 +104,10 @@ export function Botao({
         return estiloFinal;
       }}
     >
-      <Text style={estilos.texto}>{text}</Text>
+      <View style={estilos.conteudo}>
+        {carregando ? <ActivityIndicator size="small" color={corLoaderPorTipo[tipo]} /> : null}
+        <Text style={estilos.texto}>{text}</Text>
+      </View>
     </Pressable>
   );
 }
-

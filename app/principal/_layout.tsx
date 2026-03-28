@@ -20,7 +20,7 @@ export default function PrincipalLayout() {
   const rotaAtual = (() => {
     if (pathname.includes('/financeiro')) return 'financeiro';
     if (pathname.includes('/amigos')) return 'amigos';
-    if (pathname.includes('/admin')) return 'admin';
+    if (pathname.includes('/administracao')) return 'admin';
     if (pathname.includes('/usuario')) return 'usuario';
     return 'dashboard';
   })();
@@ -52,15 +52,15 @@ export default function PrincipalLayout() {
     if (pathname.startsWith('/principal/financeiro/documentacao')) return telaAtiva('3', '105');
     if (pathname.startsWith('/principal/financeiro')) return moduloAtivo('3');
 
-    if (pathname.startsWith('/principal/admin/usuario')) return telaAtiva('2', '31');
-    if (pathname.startsWith('/principal/admin/documentos') || pathname.startsWith('/principal/admin/documento')) {
+    if (pathname.startsWith('/principal/administracao/usuario')) return telaAtiva('2', '31');
+    if (pathname.startsWith('/principal/administracao/documentos') || pathname.startsWith('/principal/administracao/documento')) {
       return telaAtiva('2', '33');
     }
-    if (pathname.startsWith('/principal/admin/avisos') || pathname.startsWith('/principal/admin/aviso')) {
+    if (pathname.startsWith('/principal/administracao/avisos') || pathname.startsWith('/principal/administracao/aviso')) {
       return telaAtiva('2', '34');
     }
-    if (pathname.startsWith('/principal/admin/documentacao')) return telaAtiva('2', '35');
-    if (pathname.startsWith('/principal/admin')) return telaAtiva('2', '30');
+    if (pathname.startsWith('/principal/administracao/documentacao')) return telaAtiva('2', '35');
+    if (pathname.startsWith('/principal/administracao')) return telaAtiva('2', '30');
 
     return true;
   }, [pathname, usuario]);
@@ -89,11 +89,11 @@ export default function PrincipalLayout() {
     if (telaAtiva('3', '104')) return '/principal/financeiro/cartao';
     if (telaAtiva('3', '105')) return '/principal/financeiro/documentacao';
 
-    if (telaAtiva('2', '30')) return '/principal/admin';
-    if (telaAtiva('2', '31')) return '/principal/admin/usuario';
-    if (telaAtiva('2', '33')) return '/principal/admin/documentos';
-    if (telaAtiva('2', '34')) return '/principal/admin/avisos';
-    if (telaAtiva('2', '35')) return '/principal/admin/documentacao';
+    if (telaAtiva('2', '30')) return '/principal/administracao';
+    if (telaAtiva('2', '31')) return '/principal/administracao/usuario';
+    if (telaAtiva('2', '33')) return '/principal/administracao/documentos';
+    if (telaAtiva('2', '34')) return '/principal/administracao/avisos';
+    if (telaAtiva('2', '35')) return '/principal/administracao/documentacao';
 
     return '/auth/entrar';
   }, [usuario]);

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, useWindowDimensions, Platform
 import { useRouter } from 'expo-router';
 import { LineChart, PieChart } from 'react-native-gifted-charts';
 import { Cabecalho } from '../../src/componentes/comuns/Cabecalho';
+import { EsqueletoCarregamento } from '../../src/componentes/comuns/EsqueletoCarregamento';
 import { usarTraducao } from '../../src/hooks/usarTraducao';
 import { formatarDataPorIdioma, formatarMesPorIdioma, formatarValorPorIdioma } from '../../src/utils/formatacaoLocale';
 import { COLORS } from '../../src/styles/variables';
@@ -132,13 +133,16 @@ export default function Dashboard() {
     reembolsos: true,
     estornos: true,
   });
+  const [larguraGraficoAnualDisponivel, setLarguraGraficoAnualDisponivel] = useState(0);
   const [transacoesApi, setTransacoesApi] = useState<Transacao[]>([]);
+  const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
     let ativo = true;
     const controller = new AbortController();
 
     const carregarDashboard = async () => {
+      setCarregando(true);
       try {
         const [despesasApi, receitasApi, reembolsosApi] = await Promise.all([
           listarDespesasApi({ signal: controller.signal }),
@@ -160,6 +164,8 @@ export default function Dashboard() {
         if (erroCancelado(erro)) return;
         if (!ativo) return;
         setTransacoesApi([]);
+      } finally {
+        if (ativo) setCarregando(false);
       }
     };
 
@@ -226,12 +232,19 @@ export default function Dashboard() {
     };
   }, [transacoesFiltradas]);
 
-  const larguraGraficoAnual = useMemo(() => {
-    if (width >= 1400) return width - 220;
-    if (width >= 1100) return width - 180;
-    if (width >= 900) return width - 120;
-    return Math.max(width - 72, 300);
-  }, [width]);
+  const larguraContainerGraficoAnual = useMemo(() => {
+    if (larguraGraficoAnualDisponivel > 0) {
+      return Math.max(larguraGraficoAnualDisponivel, 280);
+    }
+    if (width >= 1400) return width - 260;
+    if (width >= 1100) return width - 220;
+    if (width >= 900) return width - 160;
+    return Math.max(width - 84, 300);
+  }, [larguraGraficoAnualDisponivel, width]);
+  const larguraPlotGraficoAnual = useMemo(
+    () => Math.max(larguraContainerGraficoAnual - (width > 900 ? 56 : 48), 220),
+    [larguraContainerGraficoAnual, width],
+  );
 
   const itensAreaSubarea = useMemo<ItemAreaSubarea[]>(() => {
     const mapa = new Map<string, ItemAreaSubarea>();
@@ -366,6 +379,22 @@ export default function Dashboard() {
     </View>
   );
 
+
+  const renderWidgetCarregando = () => (
+    <View style={{ gap: 10 }}>
+      <EsqueletoCarregamento altura={18} largura="42%" estilo={{ marginBottom: 2 }} />
+      <EsqueletoCarregamento altura={14} largura="68%" />
+      <EsqueletoCarregamento altura={14} largura="58%" />
+      <View style={{ marginTop: 4 }}>
+        <EsqueletoCarregamento altura={160} largura="100%" />
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <EsqueletoCarregamento altura={34} largura="32%" />
+        <EsqueletoCarregamento altura={34} largura="32%" />
+        <EsqueletoCarregamento altura={34} largura="32%" />
+      </View>
+    </View>
+  );
   const renderAreaSubareaWidget = (
     titulo: string,
     descricao: string,
@@ -536,6 +565,10 @@ export default function Dashboard() {
         { chave: 'reembolsos' as const, cor: COLORS.info, titulo: t('dashboard.cards.reembolsos') },
         { chave: 'estornos' as const, cor: COLORS.warning, titulo: t('dashboard.cards.estornos') },
       ];
+      const espacamentoGraficoAnual = Math.max(
+        (larguraPlotGraficoAnual - 8) / Math.max(dadosAnuais.length - 1, 1),
+        14,
+      );
 
       return (
         <View>
@@ -566,17 +599,28 @@ export default function Dashboard() {
               ))}
             </View>
 
-            <View testID="dashboard-grafico-anual">
+            <View
+              testID="dashboard-grafico-anual"
+              onLayout={(evento) => {
+                const larguraMedida = evento.nativeEvent.layout.width;
+                if (Math.abs(larguraMedida - larguraGraficoAnualDisponivel) > 2) {
+                  setLarguraGraficoAnualDisponivel(larguraMedida);
+                }
+              }}
+              style={{ width: '100%' }}
+            >
               <LineChart
                 data={dadosReceitas}
                 data2={dadosDespesas}
                 data3={dadosReembolsos}
                 data4={dadosEstornos}
-                width={larguraGraficoAnual}
+                parentWidth={larguraContainerGraficoAnual}
+                width={larguraPlotGraficoAnual}
                 height={280}
-                spacing={Math.max(Math.floor(larguraGraficoAnual / 14), 22)}
-                initialSpacing={10}
-                endSpacing={10}
+                spacing={espacamentoGraficoAnual}
+                initialSpacing={0}
+                endSpacing={0}
+                adjustToWidth
                 curved
                 isAnimated
                 animationDuration={700}
@@ -787,7 +831,7 @@ export default function Dashboard() {
                   </View>
                 </View>
 
-                {renderWidget(id)}
+                {carregando ? renderWidgetCarregando() : renderWidget(id)}
               </View>
             );
           })}
@@ -796,4 +840,5 @@ export default function Dashboard() {
     </View>
   );
 }
+
 

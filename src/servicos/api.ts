@@ -1,8 +1,20 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
-import { obterTokenAcesso, obterRefreshToken, salvarTokens, limparTokens } from '../utils/armazenamento';
+import axios, {
+  AxiosInstance,
+  AxiosRequestConfig,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from 'axios';
+import { usarCarregamentoStore } from '../store/usarCarregamentoStore';
 import { usarAutenticacaoStore } from '../store/usarAutenticacaoStore';
 import { usarNotificacaoStore } from '../store/usarNotificacaoStore';
+import { obterTokenAcesso, obterRefreshToken, salvarTokens, limparTokens } from '../utils/armazenamento';
 import { erroApiJaNotificado, extrairMensagemErroApi, marcarErroApiComoNotificado } from '../utils/erroApi';
+
+interface ConfiguracaoComCarregamento extends InternalAxiosRequestConfig {
+  exibirCarregamentoGlobal?: boolean;
+  _carregamentoGlobalContabilizado?: boolean;
+  _jaRenovado?: boolean;
+}
 
 let estaRenovando = false;
 let filaAguardando: Array<{
@@ -18,6 +30,12 @@ const processarFila = (erro: unknown, token: string | null = null): void => {
   filaAguardando = [];
 };
 
+const finalizarCarregamentoSeNecessario = (config?: ConfiguracaoComCarregamento): void => {
+  if (!config?._carregamentoGlobalContabilizado) return;
+  config._carregamentoGlobalContabilizado = false;
+  usarCarregamentoStore.getState().decrementarRequisicoes();
+};
+
 export const criarInstanciaApi = (): AxiosInstance => {
   const apiUrl = (process.env.EXPO_PUBLIC_API_URL || 'https://localhost:5001/api').trim();
   const instancia = axios.create({
@@ -28,19 +46,30 @@ export const criarInstanciaApi = (): AxiosInstance => {
 
   instancia.interceptors.request.use(
     async (configuracao: InternalAxiosRequestConfig) => {
+      const requisicao = configuracao as ConfiguracaoComCarregamento;
       const tokenAcesso = await obterTokenAcesso();
-      if (tokenAcesso && configuracao.headers) {
-        configuracao.headers.Authorization = `Bearer ${tokenAcesso}`;
+      if (tokenAcesso && requisicao.headers) {
+        requisicao.headers.Authorization = `Bearer ${tokenAcesso}`;
       }
-      return configuracao;
+
+      if (requisicao.exibirCarregamentoGlobal !== false) {
+        usarCarregamentoStore.getState().incrementarRequisicoes();
+        requisicao._carregamentoGlobalContabilizado = true;
+      }
+
+      return requisicao;
     },
     (erro) => Promise.reject(erro),
   );
 
   instancia.interceptors.response.use(
-    (resposta: AxiosResponse) => resposta,
+    (resposta: AxiosResponse) => {
+      finalizarCarregamentoSeNecessario(resposta.config as ConfiguracaoComCarregamento);
+      return resposta;
+    },
     async (erro) => {
-      const requisicaoOriginal = erro.config;
+      const requisicaoOriginal = erro.config as ConfiguracaoComCarregamento | undefined;
+      finalizarCarregamentoSeNecessario(requisicaoOriginal);
 
       if (requisicaoOriginal?.url?.includes('/autenticacao/renovar')) {
         if (!erroApiJaNotificado(erro)) {
@@ -56,6 +85,10 @@ export const criarInstanciaApi = (): AxiosInstance => {
       }
 
       if (erro.response?.status === 401 && !requisicaoOriginal?._jaRenovado) {
+        if (!requisicaoOriginal) {
+          return Promise.reject(erro);
+        }
+
         requisicaoOriginal._jaRenovado = true;
 
         if (estaRenovando) {
@@ -73,7 +106,11 @@ export const criarInstanciaApi = (): AxiosInstance => {
           const refreshToken = await obterRefreshToken();
           if (!refreshToken) throw new Error('Sem refresh token');
 
-          const { data } = await instancia.post('/autenticacao/renovar', { refreshToken });
+          const configuracaoRenovacao: AxiosRequestConfig & { exibirCarregamentoGlobal?: boolean } = {
+            exibirCarregamentoGlobal: false,
+          };
+
+          const { data } = await instancia.post('/autenticacao/renovar', { refreshToken }, configuracaoRenovacao);
           const { accessToken: novoAccessToken, refreshToken: novoRefreshToken } = data;
 
           await salvarTokens(novoAccessToken, novoRefreshToken);

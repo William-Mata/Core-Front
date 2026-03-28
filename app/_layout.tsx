@@ -1,9 +1,16 @@
-import { Stack } from 'expo-router';
-import { useEffect } from 'react';
+import { Stack, usePathname } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
+import { CarregamentoGlobal } from '../src/componentes/comuns/CarregamentoGlobal';
 import { ToastViewport } from '../src/componentes/comuns/ToastViewport';
+import { usarCarregamentoStore } from '../src/store/usarCarregamentoStore';
 
 export default function RootLayout() {
+  const pathname = usePathname();
+  const iniciarCarregamentoNavegacao = usarCarregamentoStore((estado) => estado.iniciarCarregamentoNavegacao);
+  const finalizarCarregamentoNavegacao = usarCarregamentoStore((estado) => estado.finalizarCarregamentoNavegacao);
+  const ultimaRotaRef = useRef(pathname);
+
   useEffect(() => {
     try {
       require('../src/i18n/configuracao');
@@ -21,6 +28,21 @@ export default function RootLayout() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!pathname || ultimaRotaRef.current === pathname) {
+      return;
+    }
+
+    ultimaRotaRef.current = pathname;
+    iniciarCarregamentoNavegacao();
+
+    const timer = setTimeout(() => {
+      finalizarCarregamentoNavegacao();
+    }, 240);
+
+    return () => clearTimeout(timer);
+  }, [finalizarCarregamentoNavegacao, iniciarCarregamentoNavegacao, pathname]);
+
   return (
     <>
       <Stack>
@@ -28,6 +50,7 @@ export default function RootLayout() {
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="principal" options={{ headerShown: false }} />
       </Stack>
+      <CarregamentoGlobal />
       <ToastViewport />
     </>
   );

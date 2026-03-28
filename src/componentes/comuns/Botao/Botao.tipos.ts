@@ -8,5 +8,6 @@ export interface BotaoProps {
   tipo?: 'primario' | 'secundario' | 'perigo';
   desabilitado?: boolean;
   disabled?: boolean;
+  carregando?: boolean;
   estilo?: any;
 }

@@ -1,8 +1,12 @@
 import React from 'react';
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+
 import Dashboard from '../../../app/principal/index';
 
 const mockPush = jest.fn();
+const mockListarDespesasApi = jest.fn();
+const mockListarReceitasApi = jest.fn();
+const mockListarReembolsosApi = jest.fn();
 let ultimoLineChartProps: Record<string, any> | null = null;
 
 jest.mock('expo-router', () => ({
@@ -11,6 +15,12 @@ jest.mock('expo-router', () => ({
     replace: jest.fn(),
     back: jest.fn(),
   }),
+}));
+
+jest.mock('../../../src/servicos/financeiro', () => ({
+  listarDespesasApi: (...args: unknown[]) => mockListarDespesasApi(...args),
+  listarReceitasApi: (...args: unknown[]) => mockListarReceitasApi(...args),
+  listarReembolsosApi: (...args: unknown[]) => mockListarReembolsosApi(...args),
 }));
 
 jest.mock('../../../src/componentes/comuns/Cabecalho', () => ({
@@ -91,28 +101,9 @@ jest.mock('../../../src/hooks/usarTraducao', () => ({
         'dashboard.pagamento.CARTAO_CREDITO': 'Cartao de credito',
         'dashboard.pagamento.BOLETO': 'Boleto',
         'dashboard.pagamento.DINHEIRO': 'Dinheiro',
-        'dashboard.contas.ITAU': 'Itau',
-        'dashboard.contas.NUBANK': 'Nubank',
-        'dashboard.contas.INTER': 'Inter',
-        'dashboard.contas.BANCO_XP': 'Banco XP',
-        'dashboard.contas.BANCO_DIGITAL': 'Banco Digital',
       };
 
       if (mapa[chave]) return mapa[chave];
-      if (chave.startsWith('dashboard.descricoes.')) {
-        const ultimo = chave.split('.').pop();
-        const descricoes: Record<string, string> = {
-          ALMOCO_CLIENTE: 'Almoco com cliente',
-          VENDA_SERVICO: 'Venda de servico',
-          REEMBOLSO_VIAGEM: 'Reembolso de viagem',
-          ESTORNO_COBRANCA: 'Estorno de cobranca',
-          ASSINATURA: 'Assinatura',
-          SUPERMERCADO: 'Supermercado',
-          COMBUSTIVEL: 'Combustivel',
-          RECEBIMENTO: 'Recebimento',
-        };
-        return descricoes[ultimo ?? ''] ?? (ultimo ?? chave);
-      }
       if (chave.startsWith('dashboard.areas.') || chave.startsWith('dashboard.subareas.')) {
         return chave.split('.').pop()?.replaceAll('_', ' ') ?? chave;
       }
@@ -125,9 +116,46 @@ describe('Tela de dashboard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     ultimoLineChartProps = null;
+
+    mockListarDespesasApi.mockResolvedValue([
+      {
+        id: 1,
+        descricao: 'Almoco com cliente',
+        dataEfetivacao: '2026-03-15',
+        tipoPagamento: 'CARTAO_CREDITO',
+        valor: 145,
+        cartao: 'Visa Platinum',
+        area: 'OPERACOES',
+        subarea: 'SUPRIMENTOS',
+      },
+    ]);
+
+    mockListarReceitasApi.mockResolvedValue([
+      {
+        id: 2,
+        descricao: 'Receita recorrente',
+        dataEfetivacao: '2026-03-16',
+        tipoRecebimento: 'PIX',
+        valor: 700,
+        contaBancaria: 'Conta Principal',
+        area: 'COMERCIAL',
+        subarea: 'SERVICOS',
+      },
+    ]);
+
+    mockListarReembolsosApi.mockResolvedValue([
+      {
+        id: 3,
+        descricao: 'Reembolso viagem',
+        dataSolicitacao: '2026-03-17',
+        valor: 300,
+        area: 'OPERACOES',
+        subarea: 'LOGISTICA',
+      },
+    ]);
   });
 
-  it('deve renderizar os widgets principais e a coluna de cartao nas ultimas transacoes', () => {
+  it('deve renderizar os widgets principais e a coluna de cartao nas ultimas transacoes', async () => {
     const { getByText, getAllByText, queryByText } = render(<Dashboard />);
 
     expect(getByText('Dashboard')).toBeTruthy();
@@ -138,8 +166,11 @@ describe('Tela de dashboard', () => {
     expect(getByText('Widget: Ultimas Transacoes')).toBeTruthy();
     expect(getByText('Widget: Balanco Geral')).toBeTruthy();
     expect(queryByText('FiltroPadraoMock')).toBeNull();
-    expect(getAllByText('Cartao').length).toBeGreaterThan(0);
-    expect(getAllByText('Visa Platinum').length).toBeGreaterThan(0);
+
+    await waitFor(() => {
+      expect(getAllByText('Cartao').length).toBeGreaterThan(0);
+      expect(getAllByText('Visa Platinum').length).toBeGreaterThan(0);
+    });
   });
 
   it('deve navegar para a documentacao do modulo ao acionar o botao da tela', () => {
@@ -150,11 +181,13 @@ describe('Tela de dashboard', () => {
     expect(mockPush).toHaveBeenCalledWith('/principal/documentacao');
   });
 
-  it('deve permitir ocultar uma serie do grafico anual sem remover as demais', () => {
+  it('deve permitir ocultar uma serie do grafico anual sem remover as demais', async () => {
     const { getByTestId } = render(<Dashboard />);
 
-    expect(ultimoLineChartProps?.thickness1).toBe(3);
-    expect(ultimoLineChartProps?.thickness2).toBe(3);
+    await waitFor(() => {
+      expect(ultimoLineChartProps?.thickness1).toBe(3);
+      expect(ultimoLineChartProps?.thickness2).toBe(3);
+    });
 
     act(() => {
       fireEvent.press(getByTestId('dashboard-serie-receitas'));
