@@ -1,4 +1,4 @@
-﻿{
+{
   "despesa": {
     "titulo": "Despesas",
     "nova": "Nova Despesa",
@@ -93,7 +93,10 @@
     "valorTotal": "Valor Total da Solicitação",
     "statusLista": {
       "aguardando": "AGUARDANDO",
-      "aprovado": "APROVADO"
+      "aprovado": "APROVADO",
+      "pendente": "PENDENTE",
+      "efetivada": "EFETIVADA",
+      "cancelada": "CANCELADA"
     },
     "mensagens": {
       "descricaoObrigatoria": "Descrição é obrigatória",
@@ -104,7 +107,23 @@
       "atualizado": "Reembolso atualizado com sucesso.",
       "removido": "Reembolso removido com sucesso.",
       "falhaSalvar": "Não foi possível salvar o reembolso.",
-      "falhaCarregar": "Não foi possível carregar os dados de reembolso."
+      "falhaCarregar": "Não foi possível carregar os dados de reembolso.",
+      "edicaoSomentePendente": "O reembolso so pode ser editado enquanto estiver pendente.",
+      "obrigatorioEfetivacao": "Data de efetivacao e obrigatoria.",
+      "efetivacaoSomentePendente": "Apenas reembolsos pendentes podem ser efetivados.",
+      "estornoSomenteEfetivado": "Apenas reembolsos efetivados podem ser estornados.",
+      "dataEfetivacaoMaiorQueSolicitacao": "A data de efetivacao nao pode ser maior que a data de solicitacao.",
+      "efetivado": "Reembolso efetivado com sucesso.",
+      "estornado": "Reembolso estornado com sucesso."
+    },
+    "campos": {
+      "dataEfetivacao": "Data de Efetivacao",
+      "valorEfetivacao": "Valor Efetivacao"
+    },
+    "acoes": {
+      "efetivar": "Efetivar",
+      "estornar": "Estornar",
+      "confirmarEfetivacao": "Confirmar Efetivacao"
     }
   },
   "contaBancaria": {
@@ -192,4 +211,3 @@
     "selecionadas": "{{count}} despesa{{s}} selecionada{{s}}"
   }
 }
-

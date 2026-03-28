@@ -55,10 +55,7 @@ interface ContaForm {
   dataAbertura: string;
 }
 
-const transacoesPendentesPorConta: Record<string, number> = {
-  'Conta Principal': 2,
-  'Conta Reserva': 0,
-};
+const transacoesPendentesPorConta: Record<string, number> = {};
 
 function extrairDigitos(valor: string) {
   return valor.replace(/\D/g, '');
@@ -102,43 +99,7 @@ export default function TelaContaBancaria() {
   const [modoTela, setModoTela] = useState<ModoTela>('lista');
   const [contaSelecionadaId, setContaSelecionadaId] = useState<number | null>(null);
   const [contaExtratoAberta, setContaExtratoAberta] = useState<number | null>(null);
-  const [contas, setContas] = useState<ContaBancaria[]>([
-    {
-      id: 1,
-      descricao: 'Conta Principal',
-      banco: 'Itaú',
-      agencia: '1245',
-      numero: '55667-8',
-      saldoInicial: 3200,
-      saldoAtual: 4850.1,
-      dataAbertura: '2026-01-15',
-      status: 'ativa',
-      extrato: [
-        { id: 1, data: '2026-03-02', descricao: 'Recebimento projeto', tipo: 'credito', valor: 1800 },
-        { id: 2, data: '2026-03-04', descricao: 'Pagamento internet', tipo: 'debito', valor: 149.9 },
-      ],
-      logs: [
-        { id: 1, data: '2026-01-15', acao: 'CRIADA', descricao: 'Conta bancaria criada com status ativa.' },
-        { id: 2, data: '2026-03-04', acao: 'ATUALIZADA', descricao: 'Dados da conta atualizados.' },
-      ],
-    },
-    {
-      id: 2,
-      descricao: 'Conta Reserva',
-      banco: 'Inter',
-      agencia: '0001',
-      numero: '98321-0',
-      saldoInicial: 900,
-      saldoAtual: 1300,
-      dataAbertura: '2026-02-01',
-      status: 'inativa',
-      extrato: [{ id: 3, data: '2026-03-10', descricao: 'Transferencia recebida', tipo: 'credito', valor: 400 }],
-      logs: [
-        { id: 1, data: '2026-02-01', acao: 'CRIADA', descricao: 'Conta bancaria criada com status ativa.' },
-        { id: 2, data: '2026-03-20', acao: 'INATIVADA', descricao: 'Conta bancaria inativada sem transacoes pendentes.' },
-      ],
-    },
-  ]);
+  const [contas, setContas] = useState<ContaBancaria[]>([]);
   const [formulario, setFormulario] = useState<ContaForm>(() => criarFormularioVazio(locale));
   const [camposInvalidos, setCamposInvalidos] = useState<Record<string, boolean>>({});
 
@@ -426,6 +387,8 @@ export default function TelaContaBancaria() {
     </View>
   );
 }
+
+
 
 
 

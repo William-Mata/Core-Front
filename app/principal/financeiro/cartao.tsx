@@ -57,10 +57,7 @@ interface CartaoForm {
 
 const tiposCartao: TipoCartao[] = ['credito', 'debito'];
 
-const transacoesPendentesPorCartao: Record<string, number> = {
-  'Nubank Gold': 1,
-  'Itau Empresas': 0,
-};
+const transacoesPendentesPorCartao: Record<string, number> = {};
 
 function extrairDigitos(valor: string) {
   return valor.replace(/\D/g, '');
@@ -109,50 +106,10 @@ export default function TelaCartao() {
   const [modoTela, setModoTela] = useState<ModoTela>('lista');
   const [cartaoSelecionadoId, setCartaoSelecionadoId] = useState<number | null>(null);
   const [cartaoDetalheAberto, setCartaoDetalheAberto] = useState<number | null>(null);
-  const [mesPorCartao, setMesPorCartao] = useState<Record<number, string>>({ 1: '2026-03', 2: '2026-03' });
+  const [mesPorCartao, setMesPorCartao] = useState<Record<number, string>>({});
   const [camposInvalidos, setCamposInvalidos] = useState<Record<string, boolean>>({});
   const [formulario, setFormulario] = useState<CartaoForm>(() => criarFormularioVazio(locale));
-  const [cartoes, setCartoes] = useState<Cartao[]>([
-    {
-      id: 1,
-      descricao: 'Nubank Gold',
-      bandeira: 'Mastercard',
-      tipo: 'credito',
-      limite: 5000,
-      saldoDisponivel: 3280.45,
-      diaVencimento: '2026-03-12',
-      dataVencimentoCartao: '2026-03-12',
-      status: 'ativo',
-      lancamentos: [
-        { id: 1, data: '2026-03-05', descricao: 'Supermercado', valor: 320.6 },
-        { id: 2, data: '2026-03-07', descricao: 'Combustivel', valor: 190.4 },
-      ],
-      logs: [
-        { id: 1, data: '2026-01-10', acao: 'CRIADO', descricao: 'Cartao criado com status ativo.' },
-        { id: 2, data: '2026-03-07', acao: 'ATUALIZADO', descricao: 'Dados do cartao foram atualizados.' },
-      ],
-    },
-    {
-      id: 2,
-      descricao: 'Itau Empresas',
-      bandeira: 'Visa',
-      tipo: 'debito',
-      limite: 0,
-      saldoDisponivel: 1185.2,
-      diaVencimento: '',
-      dataVencimentoCartao: '',
-      status: 'inativo',
-      lancamentos: [
-        { id: 1, data: '2026-03-02', descricao: 'Combustivel', valor: 240.5 },
-        { id: 2, data: '2026-03-11', descricao: 'Pedagio', valor: 32.9 },
-        { id: 3, data: '2026-02-18', descricao: 'Estacionamento', valor: 45 },
-      ],
-      logs: [
-        { id: 1, data: '2026-02-05', acao: 'CRIADO', descricao: 'Cartao criado com status ativo.' },
-        { id: 2, data: '2026-03-20', acao: 'INATIVADO', descricao: 'Cartao inativado sem transacoes pendentes.' },
-      ],
-    },
-  ]);
+  const [cartoes, setCartoes] = useState<Cartao[]>([]);
 
   const cartaoSelecionado = cartoes.find((item) => item.id === cartaoSelecionadoId) ?? null;
 
@@ -516,6 +473,8 @@ export default function TelaCartao() {
     </View>
   );
 }
+
+
 
 
 

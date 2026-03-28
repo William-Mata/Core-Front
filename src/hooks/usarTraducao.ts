@@ -281,6 +281,8 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'financeiro.despesa.mensagens.obrigatorio': 'Descricao, datas, tipo de despesa e tipo de pagamento sao obrigatorios.',
     'financeiro.despesa.mensagens.valorObrigatorio': 'Informe o valor total da despesa.',
     'financeiro.despesa.mensagens.obrigatorioEfetivacao': 'Data de efetivacao, tipo de pagamento e valores sao obrigatorios.',
+    'financeiro.despesa.mensagens.dataVencimentoMaiorQueLancamento': 'A data de vencimento nao pode ser maior que a data de lancamento.',
+    'financeiro.despesa.mensagens.dataEfetivacaoMaiorQueLancamento': 'A data de efetivacao nao pode ser maior que a data de lancamento.',
     'financeiro.despesa.mensagens.edicaoSomentePendente': 'A despesa so pode ser editada enquanto estiver pendente.',
     'financeiro.despesa.mensagens.efetivacaoSomentePendente': 'Apenas despesas pendentes podem ser efetivadas.',
     'financeiro.despesa.mensagens.cancelamentoSomentePendente': 'Apenas despesas pendentes podem ser canceladas.',
@@ -353,6 +355,8 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'financeiro.receita.mensagens.valorObrigatorio': 'Informe o valor total da receita.',
     'financeiro.receita.mensagens.contaObrigatoria': 'Selecione a conta bancaria para este recebimento.',
     'financeiro.receita.mensagens.obrigatorioEfetivacao': 'Data de efetivacao, tipo de recebimento e valores sao obrigatorios.',
+    'financeiro.receita.mensagens.dataVencimentoMaiorQueLancamento': 'A data de vencimento nao pode ser maior que a data de lancamento.',
+    'financeiro.receita.mensagens.dataEfetivacaoMaiorQueLancamento': 'A data de efetivacao nao pode ser maior que a data de lancamento.',
     'financeiro.receita.mensagens.edicaoSomentePendente': 'A receita so pode ser editada enquanto estiver pendente.',
     'financeiro.receita.mensagens.efetivacaoSomentePendente': 'Apenas receitas pendentes podem ser efetivadas.',
     'financeiro.receita.mensagens.cancelamentoSomentePendente': 'Apenas receitas pendentes podem ser canceladas.',
@@ -686,6 +690,8 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'financeiro.despesa.mensagens.obrigatorio': 'Description, dates, expense type and payment type are required.',
     'financeiro.despesa.mensagens.valorObrigatorio': 'Enter the gross amount.',
     'financeiro.despesa.mensagens.obrigatorioEfetivacao': 'Settlement date, payment type and amounts are required.',
+    'financeiro.despesa.mensagens.dataVencimentoMaiorQueLancamento': 'Due date cannot be greater than launch date.',
+    'financeiro.despesa.mensagens.dataEfetivacaoMaiorQueLancamento': 'Settlement date cannot be greater than launch date.',
     'financeiro.despesa.mensagens.edicaoSomentePendente': 'The expense can only be edited while pending.',
     'financeiro.despesa.mensagens.efetivacaoSomentePendente': 'Only pending expenses can be settled.',
     'financeiro.despesa.mensagens.cancelamentoSomentePendente': 'Only pending expenses can be canceled.',
@@ -758,6 +764,8 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'financeiro.receita.mensagens.valorObrigatorio': 'Enter the gross amount.',
     'financeiro.receita.mensagens.contaObrigatoria': 'Select the bank account for this receiving type.',
     'financeiro.receita.mensagens.obrigatorioEfetivacao': 'Settlement date, receiving type and amounts are required.',
+    'financeiro.receita.mensagens.dataVencimentoMaiorQueLancamento': 'Due date cannot be greater than launch date.',
+    'financeiro.receita.mensagens.dataEfetivacaoMaiorQueLancamento': 'Settlement date cannot be greater than launch date.',
     'financeiro.receita.mensagens.edicaoSomentePendente': 'The income can only be edited while pending.',
     'financeiro.receita.mensagens.efetivacaoSomentePendente': 'Only pending income can be settled.',
     'financeiro.receita.mensagens.cancelamentoSomentePendente': 'Only pending income can be canceled.',
@@ -1090,6 +1098,8 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'financeiro.despesa.mensagens.obrigatorio': 'Descripcion, fechas, tipo de gasto y tipo de pago son obligatorios.',
     'financeiro.despesa.mensagens.valorObrigatorio': 'Ingrese el valor total del gasto.',
     'financeiro.despesa.mensagens.obrigatorioEfetivacao': 'Fecha de liquidacion, tipo de pago y valores son obligatorios.',
+    'financeiro.despesa.mensagens.dataVencimentoMaiorQueLancamento': 'La fecha de vencimiento no puede ser mayor que la fecha de lanzamiento.',
+    'financeiro.despesa.mensagens.dataEfetivacaoMaiorQueLancamento': 'La fecha de liquidacion no puede ser mayor que la fecha de lanzamiento.',
     'financeiro.despesa.mensagens.edicaoSomentePendente': 'El gasto solo puede editarse mientras este pendiente.',
     'financeiro.despesa.mensagens.efetivacaoSomentePendente': 'Solo los gastos pendientes pueden liquidarse.',
     'financeiro.despesa.mensagens.cancelamentoSomentePendente': 'Solo los gastos pendientes pueden cancelarse.',
@@ -1162,6 +1172,8 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'financeiro.receita.mensagens.valorObrigatorio': 'Ingrese el valor total del ingreso.',
     'financeiro.receita.mensagens.contaObrigatoria': 'Seleccione la cuenta bancaria para este tipo de cobro.',
     'financeiro.receita.mensagens.obrigatorioEfetivacao': 'Fecha de liquidacion, tipo de cobro y valores son obligatorios.',
+    'financeiro.receita.mensagens.dataVencimentoMaiorQueLancamento': 'La fecha de vencimiento no puede ser mayor que la fecha de lanzamiento.',
+    'financeiro.receita.mensagens.dataEfetivacaoMaiorQueLancamento': 'La fecha de liquidacion no puede ser mayor que la fecha de lanzamiento.',
     'financeiro.receita.mensagens.edicaoSomentePendente': 'El ingreso solo puede editarse mientras este pendiente.',
     'financeiro.receita.mensagens.efetivacaoSomentePendente': 'Solo los ingresos pendientes pueden liquidarse.',
     'financeiro.receita.mensagens.cancelamentoSomentePendente': 'Solo los ingresos pendientes pueden cancelarse.',
@@ -1296,6 +1308,7 @@ export const usarTraducao = () => {
 
   return { t };
 };
+
 
 
 

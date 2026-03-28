@@ -1,4 +1,4 @@
-﻿{
+{
   "despesa": {
     "titulo": "Expenses",
     "nova": "New Expense",
@@ -93,7 +93,10 @@
     "valorTotal": "Total Request Amount",
     "statusLista": {
       "aguardando": "PENDING",
-      "aprovado": "APPROVED"
+      "aprovado": "APPROVED",
+      "pendente": "PENDING",
+      "efetivada": "SETTLED",
+      "cancelada": "CANCELED"
     },
     "mensagens": {
       "descricaoObrigatoria": "Description is required",
@@ -104,7 +107,23 @@
       "atualizado": "Reimbursement updated successfully.",
       "removido": "Reimbursement removed successfully.",
       "falhaSalvar": "Unable to save reimbursement.",
-      "falhaCarregar": "Unable to load reimbursement data."
+      "falhaCarregar": "Unable to load reimbursement data.",
+      "edicaoSomentePendente": "Reimbursement can only be edited while pending.",
+      "obrigatorioEfetivacao": "Settlement date is required.",
+      "efetivacaoSomentePendente": "Only pending reimbursements can be settled.",
+      "estornoSomenteEfetivado": "Only settled reimbursements can be reversed.",
+      "dataEfetivacaoMaiorQueSolicitacao": "Settlement date cannot be greater than request date.",
+      "efetivado": "Reimbursement settled successfully.",
+      "estornado": "Reimbursement reversed successfully."
+    },
+    "campos": {
+      "dataEfetivacao": "Settlement Date",
+      "valorEfetivacao": "Settlement Amount"
+    },
+    "acoes": {
+      "efetivar": "Settle",
+      "estornar": "Reverse",
+      "confirmarEfetivacao": "Confirm Settlement"
     }
   },
   "contaBancaria": {
@@ -192,4 +211,3 @@
     "selecionadas": "{{count}} expense{{s}} selected"
   }
 }
-

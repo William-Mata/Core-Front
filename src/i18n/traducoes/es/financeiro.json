@@ -1,4 +1,4 @@
-﻿{
+{
   "despesa": {
     "titulo": "Gastos",
     "nova": "Nuevo Gasto",
@@ -93,7 +93,10 @@
     "valorTotal": "Valor Total de la Solicitud",
     "statusLista": {
       "aguardando": "PENDIENTE",
-      "aprovado": "APROBADO"
+      "aprovado": "APROBADO",
+      "pendente": "PENDIENTE",
+      "efetivada": "LIQUIDADA",
+      "cancelada": "CANCELADA"
     },
     "mensagens": {
       "descricaoObrigatoria": "La descripción es obligatoria",
@@ -104,7 +107,23 @@
       "atualizado": "Reembolso actualizado con éxito.",
       "removido": "Reembolso eliminado con éxito.",
       "falhaSalvar": "No se pudo guardar el reembolso.",
-      "falhaCarregar": "No se pudieron cargar los datos de reembolso."
+      "falhaCarregar": "No se pudieron cargar los datos de reembolso.",
+      "edicaoSomentePendente": "El reembolso solo puede editarse mientras este pendiente.",
+      "obrigatorioEfetivacao": "La fecha de liquidacion es obligatoria.",
+      "efetivacaoSomentePendente": "Solo los reembolsos pendientes pueden liquidarse.",
+      "estornoSomenteEfetivado": "Solo los reembolsos liquidados pueden revertirse.",
+      "dataEfetivacaoMaiorQueSolicitacao": "La fecha de liquidacion no puede ser mayor que la fecha de solicitud.",
+      "efetivado": "Reembolso liquidado con exito.",
+      "estornado": "Reembolso revertido con exito."
+    },
+    "campos": {
+      "dataEfetivacao": "Fecha de Liquidacion",
+      "valorEfetivacao": "Valor de Liquidacion"
+    },
+    "acoes": {
+      "efetivar": "Liquidar",
+      "estornar": "Revertir",
+      "confirmarEfetivacao": "Confirmar Liquidacion"
     }
   },
   "contaBancaria": {
@@ -192,4 +211,3 @@
     "selecionadas": "{{count}} gasto{{s}} seleccionado{{s}}"
   }
 }
-

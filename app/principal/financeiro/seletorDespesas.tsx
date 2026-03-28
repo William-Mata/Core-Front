@@ -1,11 +1,13 @@
 ﻿import { View, Text, TouchableOpacity, FlatList, TextInput, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { formatarDataPorIdioma, formatarValorPorIdioma } from '../../../src/utils/formatacaoLocale';
 import { COLORS } from '../../../src/styles/variables';
 import { notificarErro } from '../../../src/utils/notificacao';
+import { erroApiJaNotificado, extrairMensagemErroApi } from '../../../src/utils/erroApi';
+import { listarDespesasApi, type RegistroFinanceiroApi } from '../../../src/servicos/financeiro';
 
 interface Despesa {
   id: number;
@@ -16,26 +18,75 @@ interface Despesa {
   status: string;
 }
 
+function paraNumero(valor: unknown, padrao = 0): number {
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? numero : padrao;
+}
+
+function normalizarDespesaApi(item: RegistroFinanceiroApi): Despesa {
+  const statusTexto = String(item.status ?? item.situacao ?? 'PENDENTE')
+    .trim()
+    .toLowerCase();
+
+  const categoria = String(item.tipoDespesa ?? item.categoria ?? 'outros')
+    .trim()
+    .toLowerCase();
+
+  return {
+    id: paraNumero(item.id),
+    titulo: String(item.titulo ?? item.descricao ?? `#${item.id}`),
+    categoria,
+    valor: paraNumero(item.valor ?? item.valorLiquido ?? item.valorTotal),
+    data: String(item.data ?? item.dataLancamento ?? item.dataEfetivacao ?? new Date().toISOString().split('T')[0]),
+    status: statusTexto,
+  };
+}
+
+const STATUS_EFETIVADO = new Set(['efetivada', 'efetivado', 'paid', 'concluida', 'concluido']);
+
 export default function SeletorDespesas() {
   const router = useRouter();
   const { t } = usarTraducao();
 
-  const despesasDisponiveis: Despesa[] = [
-    { id: 1, titulo: 'Almoço', categoria: 'alimentacao', valor: 45.5, data: '2024-03-15', status: 'EFETIVADA' },
-    { id: 2, titulo: 'Mensalidade Internet', categoria: 'utilidades', valor: 99.9, data: '2024-03-10', status: 'EFETIVADA' },
-    { id: 3, titulo: 'Uber', categoria: 'transporte', valor: 35.0, data: '2024-03-14', status: 'EFETIVADA' },
-    { id: 4, titulo: 'Farmácia', categoria: 'saude', valor: 78.0, data: '2024-03-13', status: 'EFETIVADA' },
-    { id: 5, titulo: 'Combustível', categoria: 'transporte', valor: 150.0, data: '2024-03-12', status: 'EFETIVADA' },
-  ];
-
   const [selecionadas, setSelecionadas] = useState<number[]>([]);
   const [busca, setBusca] = useState('');
   const [focoBusca, setFocoBusca] = useState(false);
+  const [carregando, setCarregando] = useState(false);
+  const [despesasDisponiveis, setDespesasDisponiveis] = useState<Despesa[]>([]);
 
-  const despesasFiltradas = despesasDisponiveis.filter(
-    (d) =>
-      d.titulo.toLowerCase().includes(busca.toLowerCase()) ||
-      t(`financeiro.despesa.categorias.${d.categoria}`).toLowerCase().includes(busca.toLowerCase()),
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const carregar = async () => {
+      setCarregando(true);
+      try {
+        const resposta = await listarDespesasApi({ signal: controller.signal });
+        const despesasNormalizadas = resposta
+          .map(normalizarDespesaApi)
+          .filter((despesa) => STATUS_EFETIVADO.has(despesa.status));
+        setDespesasDisponiveis(despesasNormalizadas);
+      } catch (erro) {
+        if (erroApiJaNotificado(erro)) return;
+        setDespesasDisponiveis([]);
+        notificarErro(extrairMensagemErroApi(erro, t('financeiro.seletorDespesas.nenhuma')));
+      } finally {
+        setCarregando(false);
+      }
+    };
+
+    void carregar();
+
+    return () => controller.abort();
+  }, []);
+
+  const despesasFiltradas = useMemo(
+    () =>
+      despesasDisponiveis.filter(
+        (d) =>
+          d.titulo.toLowerCase().includes(busca.toLowerCase()) ||
+          t(`financeiro.despesa.categorias.${d.categoria}`).toLowerCase().includes(busca.toLowerCase()),
+      ),
+    [busca, despesasDisponiveis, t],
   );
 
   const isSelected = (id: number) => selecionadas.includes(id);
@@ -46,7 +97,7 @@ export default function SeletorDespesas() {
 
   const handleConfirmar = () => {
     if (selecionadas.length === 0) {
-      notificarErro( t('financeiro.seletorDespesas.selecioneUma'));
+      notificarErro(t('financeiro.seletorDespesas.selecioneUma'));
       return;
     }
 
@@ -136,7 +187,11 @@ export default function SeletorDespesas() {
             </View>
           </TouchableOpacity>
         )}
-        ListEmptyComponent={<Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 32 }}>{t('financeiro.seletorDespesas.nenhuma')}</Text>}
+        ListEmptyComponent={
+          <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 32 }}>
+            {carregando ? t('comum.carregando') : t('financeiro.seletorDespesas.nenhuma')}
+          </Text>
+        }
       />
 
       <View style={{ backgroundColor: COLORS.bgTertiary, padding: 16, borderTopWidth: 1, borderTopColor: COLORS.borderColor, gap: 10 }}>
@@ -154,12 +209,3 @@ export default function SeletorDespesas() {
     </View>
   );
 }
-
-
-
-
-
-
-
-
-
