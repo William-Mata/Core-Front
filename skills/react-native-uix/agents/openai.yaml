@@ -1,0 +1,4 @@
+interface:
+  display_name: "RN UIX"
+  short_description: "UIX React Native para Web, Android e iOS"
+  default_prompt: "Use $react-native-uix para projetar ou revisar uma interface React Native multiplataforma com foco em usabilidade, acessibilidade e consistencia visual."

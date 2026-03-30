@@ -1,0 +1,4 @@
+interface:
+  display_name: "i18n Traducao Segura"
+  short_description: "Traducao PT-BR, EN-US e ES-ES sem quebrar encoding"
+  default_prompt: "Use $i18n-traducao-segura para adicionar ou revisar traducoes em PT-BR, EN-US e ES-ES com alteracao minima e validacao anti-mojibake."

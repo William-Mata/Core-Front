@@ -1,0 +1,4 @@
+interface:
+  display_name: "Semantic Commit"
+  short_description: "Commits semanticos em PT-BR com staging seguro"
+  default_prompt: "Use $semantic-commit para revisar alteracoes locais, fazer staging seguro e criar um commit semantico em PT-BR."

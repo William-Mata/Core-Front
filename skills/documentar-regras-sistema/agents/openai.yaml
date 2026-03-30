@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: Documentar Regras
+  short_description: Atualiza docs técnica e de usuário do sistema
+  default_prompt: Mapear regras do front e API e atualizar documentação técnica e documentação para usuário final

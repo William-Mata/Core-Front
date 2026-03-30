@@ -1,0 +1,4 @@
+interface:
+  display_name: "RN Senior"
+  short_description: "Engenharia senior React Native para Web, Android e iOS"
+  default_prompt: "Use $react-native-senior para implementar ou revisar uma funcionalidade React Native multiplataforma com foco em arquitetura, integracao e confiabilidade."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "SDET RN Tests"
+  short_description: "Testes SDET para React Native com melhores praticas"
+  default_prompt: "Use $sdet-react-native-tests para criar ou melhorar testes unitarios, integracao e contrato em React Native com foco em confiabilidade e anti-flaky."
