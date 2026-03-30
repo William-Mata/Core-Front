@@ -1,4 +1,4 @@
-﻿import { http, HttpResponse } from 'msw';
+import { http, HttpResponse } from 'msw';
 
 let usuariosAdmin = [
   {
@@ -103,8 +103,8 @@ let usuariosAdmin = [
 const mockDocumentos = [
   {
     id: 1,
-    titulo: 'PolÃ­tica de Privacidade',
-    descricao: 'Ãšltima atualizaÃ§Ã£o da polÃ­tica de privacidade',
+    titulo: 'Política de Privacidade',
+    descricao: 'Última atualização da política de privacidade',
     tipo: 'PDF',
     status: 'PUBLICADO',
     modulo: 'GERAL',
@@ -113,14 +113,14 @@ const mockDocumentos = [
     criadoPor: 'Admin User',
     atualizadoPor: 'Admin User',
     versoes: [
-      { numero: 1, data: '2024-02-15T08:00:00Z', alteracoes: 'VersÃ£o inicial', usuarioId: 1, usuarioNome: 'Admin User' },
-      { numero: 2, data: '2024-03-10T14:30:00Z', alteracoes: 'AtualizaÃ§Ã£o geral', usuarioId: 1, usuarioNome: 'Admin User' },
+      { numero: 1, data: '2024-02-15T08:00:00Z', alteracoes: 'Versão inicial', usuarioId: 1, usuarioNome: 'Admin User' },
+      { numero: 2, data: '2024-03-10T14:30:00Z', alteracoes: 'Atualização geral', usuarioId: 1, usuarioNome: 'Admin User' },
     ],
     arquivo: { nome: 'politica-privacidade-v2.pdf', url: '/docs/politica.pdf', tamanho: 2.5, tipo: 'PDF' },
   },
   {
     id: 2,
-    titulo: 'Manual do UsuÃ¡rio',
+    titulo: 'Manual do Usuário',
     descricao: 'Guia completo de funcionamento do sistema',
     tipo: 'PDF',
     status: 'PUBLICADO',
@@ -129,13 +129,13 @@ const mockDocumentos = [
     dataAtualizacao: '2024-03-01T10:00:00Z',
     criadoPor: 'Admin User',
     atualizadoPor: 'Admin User',
-    versoes: [{ numero: 1, data: '2024-03-01T10:00:00Z', alteracoes: 'VersÃ£o inicial', usuarioId: 1, usuarioNome: 'Admin User' }],
+    versoes: [{ numero: 1, data: '2024-03-01T10:00:00Z', alteracoes: 'Versão inicial', usuarioId: 1, usuarioNome: 'Admin User' }],
     arquivo: { nome: 'manual-usuario-v1.pdf', url: '/docs/manual.pdf', tamanho: 5.8, tipo: 'PDF' },
   },
   {
     id: 3,
-    titulo: 'Termos de ServiÃ§o',
-    descricao: 'Termos e condiÃ§Ãµes de uso do aplicativo',
+    titulo: 'Termos de Serviço',
+    descricao: 'Termos e condições de uso do aplicativo',
     tipo: 'PDF',
     status: 'RASCUNHO',
     modulo: 'GERAL',
@@ -144,9 +144,9 @@ const mockDocumentos = [
     criadoPor: 'Admin User',
     atualizadoPor: 'Admin User',
     versoes: [
-      { numero: 1, data: '2024-02-20T08:00:00Z', alteracoes: 'VersÃ£o inicial', usuarioId: 1, usuarioNome: 'Admin User' },
-      { numero: 2, data: '2024-02-28T11:30:00Z', alteracoes: 'RevisÃ£o geral', usuarioId: 1, usuarioNome: 'Admin User' },
-      { numero: 3, data: '2024-03-10T09:00:00Z', alteracoes: 'AtualizaÃ§Ã£o final', usuarioId: 1, usuarioNome: 'Admin User' },
+      { numero: 1, data: '2024-02-20T08:00:00Z', alteracoes: 'Versão inicial', usuarioId: 1, usuarioNome: 'Admin User' },
+      { numero: 2, data: '2024-02-28T11:30:00Z', alteracoes: 'Revisão geral', usuarioId: 1, usuarioNome: 'Admin User' },
+      { numero: 3, data: '2024-03-10T09:00:00Z', alteracoes: 'Atualização final', usuarioId: 1, usuarioNome: 'Admin User' },
     ],
     arquivo: { nome: 'termos-servico-v3.pdf', url: '/docs/termos.pdf', tamanho: 3.2, tipo: 'PDF' },
   },
@@ -156,8 +156,8 @@ const mockDocumentos = [
 const mockAvisos = [
   {
     id: 1,
-    titulo: 'ManutenÃ§Ã£o Programada',
-    conteudo: 'O sistema serÃ¡ desativado no domingo (15/03) entre 02:00-04:00 para manutenÃ§Ã£o.',
+    titulo: 'Manutenção Programada',
+    conteudo: 'O sistema será desativado no domingo (15/03) entre 02:00-04:00 para manutenção.',
     tipo: 'AVISO',
     destinatarios: 'TODOS',
     status: 'PUBLICADO',
@@ -172,8 +172,8 @@ const mockAvisos = [
   },
   {
     id: 2,
-    titulo: 'AtualizaÃ§Ã£o CrÃ­tica de SeguranÃ§a',
-    conteudo: 'Uma vulnerabilidade foi corrigida. Todos os usuÃ¡rios devem fazer logout e login novamente.',
+    titulo: 'Atualização Crítica de Segurança',
+    conteudo: 'Uma vulnerabilidade foi corrigida. Todos os usuários devem fazer logout e login novamente.',
     tipo: 'CRITICO',
     destinatarios: 'TODOS',
     status: 'PUBLICADO',
@@ -188,7 +188,7 @@ const mockAvisos = [
   {
     id: 3,
     titulo: 'Novo Recurso: Reembolsos',
-    conteudo: 'Agora vocÃª pode rastrear e gerenciar reembolsos de despesas entre amigos.',
+    conteudo: 'Agora você pode rastrear e gerenciar reembolsos de despesas entre amigos.',
     tipo: 'INFO',
     destinatarios: 'TODOS',
     status: 'RASCUNHO',
@@ -200,7 +200,7 @@ const mockAvisos = [
   },
 ];
 
-// Mock data para permissÃµes
+// Mock data para permissões
 const mockPermissoes = {
   modulos: [
     {
@@ -230,9 +230,9 @@ const mockPermissoes = {
       nome: 'Admin',
       expandido: false,
       permissoes: [
-        { id: 'adm_vis_usu', acao: 'Visualizar UsuÃ¡rios', ativo: true },
-        { id: 'adm_cri_usu', acao: 'Criar UsuÃ¡rios', ativo: true },
-        { id: 'adm_edi_per', acao: 'Editar PermissÃµes', ativo: false },
+        { id: 'adm_vis_usu', acao: 'Visualizar Usuários', ativo: true },
+        { id: 'adm_cri_usu', acao: 'Criar Usuários', ativo: true },
+        { id: 'adm_edi_per', acao: 'Editar Permissões', ativo: false },
         { id: 'adm_cri_doc', acao: 'Criar Documentos', ativo: true },
         { id: 'adm_pub_avi', acao: 'Publicar Avisos', ativo: true },
       ],
@@ -359,7 +359,7 @@ export const manipuladorAdministracao = [
     usuariosAdmin = usuariosAdmin.filter((u) => u.id !== id);
     return HttpResponse.json({ sucesso: true, mensagem: 'Usuario removido com sucesso' });
   }),
-  // Obter estatÃ­sticas
+  // Obter estatísticas
   http.get('/api/admin/estatisticas', () => {
     return HttpResponse.json({
       sucesso: true,
@@ -374,12 +374,12 @@ export const manipuladorAdministracao = [
     });
   }),
 
-  // Iniciar simulaÃ§Ã£o
+  // Iniciar simulação
   http.post('/api/admin/simulacao/iniciar', async ({ request }) => {
     const data = await request.json();
     return HttpResponse.json({
       sucesso: true,
-      mensagem: 'SimulaÃ§Ã£o iniciada',
+      mensagem: 'Simulação iniciada',
       dados: {
         simulacao_id: 'sim_' + Date.now(),
         usuario_simulado_id: (data as any).usuario_id,
@@ -388,11 +388,11 @@ export const manipuladorAdministracao = [
     });
   }),
 
-  // Finalizar simulaÃ§Ã£o
+  // Finalizar simulação
   http.post('/api/admin/simulacao/finalizar', () => {
     return HttpResponse.json({
       sucesso: true,
-      mensagem: 'SimulaÃ§Ã£o finalizada',
+      mensagem: 'Simulação finalizada',
     });
   }),
 
@@ -405,7 +405,7 @@ export const manipuladorAdministracao = [
           id: 1,
           usuario_id: 1,
           acao: 'LOGIN',
-          descricao: 'UsuÃ¡rio realizou login',
+          descricao: 'Usuário realizou login',
           data: '2024-03-15T10:30:00Z',
         },
         {
@@ -420,8 +420,8 @@ export const manipuladorAdministracao = [
     });
   }),
 
-  // ===== PHASE 10: PERMISSÃ•ES =====
-  // Listar permissÃµes
+  // ===== PHASE 10: PERMISSÕES =====
+  // Listar permissões
   http.get('/api/admin/permissoes', async () => {
     await new Promise((resolve) => setTimeout(resolve, 500));
     return HttpResponse.json({
@@ -430,13 +430,13 @@ export const manipuladorAdministracao = [
     });
   }),
 
-  // Salvar permissÃµes
+  // Salvar permissões
   http.post('/api/admin/permissoes', async ({ request }) => {
     const data = await request.json();
     await new Promise((resolve) => setTimeout(resolve, 500));
     return HttpResponse.json({
       sucesso: true,
-      mensagem: 'PermissÃµes atualizadas com sucesso',
+      mensagem: 'Permissões atualizadas com sucesso',
       dados: data,
     });
   }),
@@ -467,7 +467,7 @@ export const manipuladorAdministracao = [
             {
               numero: 1,
               data: new Date().toISOString(),
-              alteracoes: 'VersÃ£o inicial',
+              alteracoes: 'Versão inicial',
               usuarioId: 1,
               usuarioNome: 'Admin User',
             },
@@ -482,13 +482,13 @@ export const manipuladorAdministracao = [
     );
   }),
 
-  // Obter documento especÃ­fico
+  // Obter documento específico
   http.get('/api/admin/documentos/:id', async ({ params }) => {
     await new Promise((resolve) => setTimeout(resolve, 300));
     const doc = mockDocumentos.find((d) => d.id === parseInt(params.id as string));
     if (!doc) {
       return HttpResponse.json(
-        { sucesso: false, mensagem: 'Documento nÃ£o encontrado' },
+        { sucesso: false, mensagem: 'Documento não encontrado' },
         { status: 404 }
       );
     }
@@ -569,13 +569,13 @@ export const manipuladorAdministracao = [
     );
   }),
 
-  // Obter aviso especÃ­fico
+  // Obter aviso específico
   http.get('/api/admin/avisos/:id', async ({ params }) => {
     await new Promise((resolve) => setTimeout(resolve, 300));
     const aviso = mockAvisos.find((a) => a.id === parseInt(params.id as string));
     if (!aviso) {
       return HttpResponse.json(
-        { sucesso: false, mensagem: 'Aviso nÃ£o encontrado' },
+        { sucesso: false, mensagem: 'Aviso não encontrado' },
         { status: 404 }
       );
     }
@@ -624,13 +624,13 @@ export const manipuladorAdministracao = [
     });
   }),
 
-  // Dar ciÃªncia de aviso
+  // Dar ciência de aviso
   http.post('/api/admin/avisos/:id/dar-ciencia', async ({ params, request }) => {
     const data = (await request.json()) as Record<string, any>;
     await new Promise((resolve) => setTimeout(resolve, 300));
     return HttpResponse.json({
       sucesso: true,
-      mensagem: 'CiÃªncia registrada com sucesso',
+      mensagem: 'Ciência registrada com sucesso',
       dados: {
         avisoId: params.id,
         usuarioId: (data as any).usuarioId,
@@ -640,7 +640,7 @@ export const manipuladorAdministracao = [
     });
   }),
 
-  // Listar avisos pendentes de ciÃªncia
+  // Listar avisos pendentes de ciência
   http.get('/api/avisos/pendentes-ciencia', async () => {
     await new Promise((resolve) => setTimeout(resolve, 300));
     return HttpResponse.json({

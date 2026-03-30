@@ -90,7 +90,7 @@ function mapearTransacoesApiParaDashboard(
               ? 'BOLETO'
               : 'DINHEIRO';
 
-    const data = String(item.dataEfetivacao ?? item.dataLancamento ?? item.dataSolicitacao ?? item.data ?? new Date().toISOString().split('T')[0]).slice(0, 10);
+    const data = String(item.dataEfetivacao ?? item.dataLancamento ?? item.data ?? new Date().toISOString().split('T')[0]).slice(0, 10);
     const area = String(item.area ?? item.categoria ?? t('dashboard.areas.OPERACOES'));
     const subarea = String(item.subarea ?? item.descricao ?? item.titulo ?? t('dashboard.subareas.SUPRIMENTOS'));
 

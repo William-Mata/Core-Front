@@ -6,6 +6,7 @@ import { Botao } from '../../../src/componentes/comuns/Botao';
 import { useState } from 'react';
 import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
+import { enviarConviteAmizadeApi } from '../../../src/servicos/financeiro';
 
 export default function FormAmigo() {
   const router = useRouter();
@@ -29,10 +30,9 @@ export default function FormAmigo() {
 
     setCarregando(true);
     try {
-      setTimeout(() => {
-        notificarSucesso(t('amigos.form.sucesso'));
-        router.back();
-      }, 500);
+      await enviarConviteAmizadeApi({ email: email.trim(), mensagem: mensagem.trim() || undefined });
+      notificarSucesso(t('amigos.form.sucesso'));
+      router.back();
     } catch {
       notificarErro( t('amigos.form.erros.falhaEnvio'));
     } finally {
