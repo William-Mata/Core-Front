@@ -86,7 +86,6 @@
     "descricao": "Descrição",
     "placeholderDescricao": "Digite a descrição do reembolso",
     "solicitante": "Solicitante",
-    "dataSolicitacao": "Data da Solicitação",
     "placeholderData": "AAAA-MM-DD",
     "despesasVinculadas": "Despesas Vinculadas",
     "despesasSelecionadas": "{{count}} despesa(s) vinculada(s)",
@@ -124,7 +123,8 @@
       "efetivar": "Efetivar",
       "estornar": "Estornar",
       "confirmarEfetivacao": "Confirmar Efetivacao"
-    }
+    },
+    "dataLancamento": "Data de Lançamento"
   },
   "contaBancaria": {
     "titulo": "Contas Bancárias",

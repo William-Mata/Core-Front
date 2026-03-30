@@ -85,8 +85,7 @@
     "vazio": "No reimbursements found.",
     "descricao": "Description",
     "placeholderDescricao": "Enter reimbursement description",
-    "solicitante": "Requester",
-    "dataSolicitacao": "Request Date",
+    "solicitante": "Requester", "dataLancamento": "Issue Date",
     "placeholderData": "YYYY-MM-DD",
     "despesasVinculadas": "Linked Expenses",
     "despesasSelecionadas": "{{count}} linked expense(s)",
@@ -112,7 +111,7 @@
       "obrigatorioEfetivacao": "Settlement date is required.",
       "efetivacaoSomentePendente": "Only pending reimbursements can be settled.",
       "estornoSomenteEfetivado": "Only settled reimbursements can be reversed.",
-      "dataEfetivacaoMaiorQueSolicitacao": "Settlement date cannot be greater than request date.",
+      "dataEfetivacaoMaiorQueSolicitacao": "Settlement date cannot be less than request date.",
       "efetivado": "Reimbursement settled successfully.",
       "estornado": "Reimbursement reversed successfully."
     },

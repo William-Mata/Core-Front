@@ -1,7 +1,12 @@
-﻿{
+{
   "saudacao": "Olá",
   "carregando": "Carregando...",
-  "erro": "Ocorreu um erro",  "senha": "Senha",  "entrar": "Entrar",  "sair": "Sair",  "sucesso": "Sucesso",  "confirmacao": "Confirmação",
+  "erro": "Ocorreu um erro",
+  "senha": "Senha",
+  "entrar": "Entrar",
+  "sair": "Sair",
+  "sucesso": "Sucesso",
+  "confirmacao": "Confirmação",
   "email": "Email",
   "login": {
     "titulo": "Entrar no Core",
@@ -37,7 +42,8 @@
     "editar": "Editar",
     "remover": "Remover",
     "confirmar": "Confirmar",
-    "novo": "Novo"
+    "novo": "Novo",
+    "consultar": "Consultar"
   },
   "filtros": {
     "titulo": "Filtros",
@@ -79,7 +85,8 @@
       "descricao": "Descrição",
       "dataEfetivacao": "Data Efetivação",
       "tipoPagamento": "Tipo Pagamento",
-      "contaBancaria": "Conta Bancária"
+      "contaBancaria": "Conta Bancária",
+      "areaSubarea": "Área / Subárea"
     },
     "tipos": {
       "despesa": "Despesa",
@@ -310,6 +317,3 @@
     }
   }
 }
-
-
-

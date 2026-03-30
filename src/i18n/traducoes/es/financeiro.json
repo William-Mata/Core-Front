@@ -86,7 +86,7 @@
     "descricao": "Descripción",
     "placeholderDescricao": "Ingrese la descripción del reembolso",
     "solicitante": "Solicitante",
-    "dataSolicitacao": "Fecha de Solicitud",
+    "dataLancamento": "Fecha de Emision",
     "placeholderData": "AAAA-MM-DD",
     "despesasVinculadas": "Gastos vinculados",
     "despesasSelecionadas": "{{count}} gasto(s) vinculado(s)",
@@ -112,9 +112,9 @@
       "obrigatorioEfetivacao": "La fecha de liquidacion es obligatoria.",
       "efetivacaoSomentePendente": "Solo los reembolsos pendientes pueden liquidarse.",
       "estornoSomenteEfetivado": "Solo los reembolsos liquidados pueden revertirse.",
-      "dataEfetivacaoMaiorQueSolicitacao": "La fecha de liquidacion no puede ser mayor que la fecha de solicitud.",
-      "efetivado": "Reembolso liquidado con exito.",
-      "estornado": "Reembolso revertido con exito."
+      "dataEfetivacaoMaiorQueSolicitacao": "La fecha de liquidacion no puede ser menor que la fecha de solicitud.",
+      "efetivado": "Reembolso liquidado con éxito.",
+      "estornado": "Reembolso revertido con éxito."
     },
     "campos": {
       "dataEfetivacao": "Fecha de Liquidacion",
