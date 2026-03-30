@@ -12,18 +12,26 @@ import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
+import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterIntervaloCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
+import { rateioConfereValorTotal } from '../../../src/utils/rateioValidacao';
 import {
-  RECORRENCIAS_FINANCEIRAS,
+  RECORRENCIAS_FINANCEIRAS_BASE,
+  LIMITE_RECORRENCIA_NORMAL,
   normalizarQuantidadeRecorrencia,
+  quantidadeRecorrenciaNormalDentroDoLimite,
+  normalizarRecorrenciaBaseFinanceira,
   normalizarRecorrenciaFinanceira,
   obterRotuloRecorrencia,
   obterValorRecorrencia,
   recorrenciaAceitaQuantidade,
   recorrenciaExigeQuantidade,
+  type RecorrenciaFinanceiraBaseChave,
   type RecorrenciaFinanceiraChave,
 } from '../../../src/utils/recorrenciaFinanceira';
 import { SEPARADOR_AREA_SUBAREA, montarChaveAreaSubarea, separarAreaSubarea } from '../../../src/utils/rateioRelacional';
+import { ehPagamentoParcelado } from '../../../src/utils/pagamentoParcelado';
+import { montarDocumentosPayload, normalizarDocumentosApi, type DocumentoFinanceiro } from '../../../src/utils/documentoUpload';
 import {
   atualizarDespesaApi,
   criarDespesaApi,
@@ -35,7 +43,7 @@ import {
   type RegistroFinanceiroApi,
 } from '../../../src/servicos/financeiro';
 
-type StatusDespesa = 'pendente' | 'efetivada' | 'cancelada';
+type StatusDespesa = 'pendente' | 'efetivada' | 'cancelada' | 'pendenteAprovacao' | 'rejeitada';
 type ModoTela = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao';
 
 interface LogDespesa {
@@ -55,6 +63,8 @@ interface DespesaRegistro {
   tipoDespesa: string;
   tipoPagamento: string;
   recorrencia: RecorrenciaFinanceiraChave;
+  recorrenciaBase: RecorrenciaFinanceiraBaseChave;
+  recorrenciaFixa: boolean;
   quantidadeRecorrencia: number | null;
   valorTotal: number;
   valorLiquido: number;
@@ -72,6 +82,7 @@ interface DespesaRegistro {
   rateiosAreaSubarea?: Array<{ area: string; subarea: string; valor: number }>;
   tiposRateio?: string[];
   anexoDocumento: string;
+  documentos: DocumentoFinanceiro[];
   logs: LogDespesa[];
 }
 
@@ -83,7 +94,8 @@ interface DespesaForm {
   dataEfetivacao: string;
   tipoDespesa: string;
   tipoPagamento: string;
-  recorrencia: RecorrenciaFinanceiraChave;
+  recorrenciaBase: RecorrenciaFinanceiraBaseChave;
+  recorrenciaFixa: boolean;
   quantidadeRecorrencia: string;
   valorTotal: string;
   valorLiquido: string;
@@ -97,6 +109,7 @@ interface DespesaForm {
   areasRateio: string[];
   rateioAreasValores: Record<string, string>;
   anexoDocumento: string;
+  documentos: DocumentoFinanceiro[];
 }
 
 const tiposDespesa = ['alimentacao', 'transporte', 'moradia', 'lazer', 'saude', 'educacao', 'servicos'] as const;
@@ -133,7 +146,8 @@ function criarFormularioVazio(locale: string): DespesaForm {
     dataEfetivacao: hoje,
     tipoDespesa: '',
     tipoPagamento: '',
-    recorrencia: 'unica',
+    recorrenciaBase: 'unica',
+    recorrenciaFixa: false,
     quantidadeRecorrencia: '',
     valorTotal: formatarMoedaParaInput(0, locale),
     valorLiquido: formatarMoedaParaInput(0, locale),
@@ -147,6 +161,7 @@ function criarFormularioVazio(locale: string): DespesaForm {
     areasRateio: [],
     rateioAreasValores: {},
     anexoDocumento: '',
+    documentos: [],
   };
 }
 
@@ -162,9 +177,31 @@ function calcularValorLiquido(formulario: DespesaForm, locale: string) {
 
 function normalizarStatusDespesa(status: unknown): StatusDespesa {
   const valor = String(status ?? '').toLowerCase();
+  if (valor.includes('aprov') || valor.includes('pendente_aprovacao') || valor.includes('pendenteaprovacao')) return 'pendenteAprovacao';
+  if (valor.includes('rejeit')) return 'rejeitada';
   if (valor.includes('efetiv')) return 'efetivada';
   if (valor.includes('cancel')) return 'cancelada';
   return 'pendente';
+}
+
+
+function obterRotuloStatusDespesa(status: StatusDespesa, t: (chave: string) => string): string {
+  const chave = `financeiro.despesa.status.${status}`;
+  const traduzido = t(chave);
+  if (traduzido && traduzido !== chave) return traduzido;
+
+  switch (status) {
+    case 'pendenteAprovacao':
+      return t('financeiro.comum.status.pendenteAprovacao') !== 'financeiro.comum.status.pendenteAprovacao'
+        ? t('financeiro.comum.status.pendenteAprovacao')
+        : 'PENDENTE APROVACAO';
+    case 'rejeitada':
+      return t('financeiro.comum.status.rejeitada') !== 'financeiro.comum.status.rejeitada'
+        ? t('financeiro.comum.status.rejeitada')
+        : 'REJEITADA';
+    default:
+      return String(status).toUpperCase();
+  }
 }
 
 function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
@@ -181,7 +218,7 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
   const rateiosAmigosApi = Array.isArray(item.rateiosAmigos)
     ? (item.rateiosAmigos as Array<Record<string, unknown>>)
         .map((rateio) => ({
-          amigo: String(rateio.amigo ?? '').trim(),
+          amigo: String(rateio.amigo ?? rateio.nome ?? rateio.amigoNome ?? (rateio.amigoId ? `#${String(rateio.amigoId)}` : '')).trim(),
           valor: Number(rateio.valor ?? 0),
         }))
         .filter((rateio) => Boolean(rateio.amigo))
@@ -225,6 +262,8 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
           ]),
         );
 
+  const documentos = normalizarDocumentosApi(item.documentos);
+
   return {
     id: Number(item.id),
     descricao: String(item.descricao ?? item.titulo ?? `Despesa ${item.id}`),
@@ -235,7 +274,12 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
     tipoDespesa: String(item.tipoDespesa ?? item.categoria ?? 'servicos'),
     tipoPagamento: String(item.tipoPagamento ?? 'dinheiro'),
     recorrencia: normalizarRecorrenciaFinanceira(item.recorrencia),
-    quantidadeRecorrencia: normalizarQuantidadeRecorrencia(item.quantidadeRecorrencia),
+    recorrenciaBase: normalizarRecorrenciaBaseFinanceira(
+      item.recorrencia ?? item.recorrenciaBase ?? item.frequenciaRecorrencia,
+      'unica',
+    ),
+    recorrenciaFixa: Boolean(item.recorrenciaFixa) && normalizarRecorrenciaFinanceira(item.recorrencia ?? item.recorrenciaBase ?? item.frequenciaRecorrencia) !== 'unica',
+    quantidadeRecorrencia: normalizarQuantidadeRecorrencia(item.quantidadeParcelas ?? item.quantidadeRecorrencia),
     valorTotal: valorBase,
     valorLiquido,
     desconto,
@@ -254,7 +298,8 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
       return { area, subarea, valor: Number(rateioAreasValores[chave] ?? 0) };
     }),
     tiposRateio: areasRateio.map((chave) => separarAreaSubarea(chave).area),
-    anexoDocumento: String(item.anexoDocumento ?? ''),
+    anexoDocumento: documentos[0]?.nomeArquivo ?? String(item.anexoDocumento ?? ''),
+    documentos,
     logs: Array.isArray(item.logs)
       ? (item.logs as LogDespesa[])
       : [{ id: 1, data: dataBase, acao: 'IMPORTADA', descricao: 'Registro carregado da API.' }],
@@ -270,6 +315,8 @@ export default function TelaDespesa() {
   const idParam = idParamBruto ? Number(idParamBruto) : null;
 
   const [filtro, setFiltro] = useState<FiltroPadraoValor>({ id: '', descricao: '', dataInicio: '', dataFim: '' });
+  const [filtroAplicado, setFiltroAplicado] = useState<FiltroPadraoValor>({ id: '', descricao: '', dataInicio: '', dataFim: '' });
+  const [competencia, setCompetencia] = useState<CompetenciaFinanceira>(() => obterCompetenciaAtual());
   const [modoTela, setModoTela] = useState<ModoTela>(idParam ? 'visualizacao' : 'lista');
   const [despesaSelecionadaId, setDespesaSelecionadaId] = useState<number | null>(idParam);
   const [despesas, setDespesas] = useState<DespesaRegistro[]>([]);
@@ -285,10 +332,17 @@ export default function TelaDespesa() {
 
   const despesaSelecionada = despesas.find((despesa) => despesa.id === despesaSelecionadaId) ?? null;
   const areasCatalogo = useMemo(() => opcoesAreasSubareasApi.filter((item) => item.tipo === 'despesa'), [opcoesAreasSubareasApi]);
-  const opcoesAmigosRateio = useMemo(() => Array.from(new Set([...opcoesAmigosRateioApi.map((item) => item.nome), ...despesas.flatMap((despesa) => despesa.amigosRateio).filter(Boolean)])).sort(), [opcoesAmigosRateioApi, despesas]);
+  const opcoesAmigosRateio = useMemo(() => Array.from(new Set(opcoesAmigosRateioApi.map((item) => item.nome).filter(Boolean))).sort(), [opcoesAmigosRateioApi]);
   const opcoesAreasRateio = useMemo(() => Array.from(new Set([...areasCatalogo.map((item) => item.nome), ...despesas.flatMap((despesa) => despesa.areasRateio.map((chave) => separarAreaSubarea(chave).area)).filter(Boolean)])).sort(), [areasCatalogo, despesas]);
-  const quantidadeRecorrenciaObrigatoria = recorrenciaExigeQuantidade(formulario.recorrencia);
-  const exibirQuantidadeRecorrencia = recorrenciaAceitaQuantidade(formulario.recorrencia);
+  const pagamentoComParcelas = ehPagamentoParcelado(formulario.tipoPagamento);
+  const quantidadeRecorrenciaObrigatoria = pagamentoComParcelas || (!formulario.recorrenciaFixa && recorrenciaExigeQuantidade(formulario.recorrenciaBase));
+  const exibirQuantidadeRecorrencia = pagamentoComParcelas || (!formulario.recorrenciaFixa && recorrenciaAceitaQuantidade(formulario.recorrenciaBase));
+  const rotuloQuantidadeRecorrencia = pagamentoComParcelas
+    ? t('financeiro.comum.campos.quantidadeParcelas')
+    : t('financeiro.comum.campos.quantidadeRecorrencia');
+
+  const mensagemLimiteRecorrenciaNormal = t('financeiro.comum.mensagens.limiteRecorrenciaNormal').replace('{limite}', String(LIMITE_RECORRENCIA_NORMAL));
+  const competenciaLabel = useMemo(() => formatarCompetencia(competencia, locale), [competencia, locale]);
 
   const opcoesSubareasRateio = useMemo(() => {
     if (!novaAreaRateio) return [];
@@ -301,9 +355,20 @@ export default function TelaDespesa() {
     return Array.from(new Set([...subareasApi, ...subareasHistoricas].filter(Boolean))).sort();
   }, [novaAreaRateio, areasCatalogo, despesas]);
 
-  const carregarDespesasApi = async () => {
+  const carregarDespesasApi = async (signal?: AbortSignal) => {
     try {
-      const dados = await listarDespesasApi();
+      const periodoCompetencia = obterIntervaloCompetencia(competencia);
+      const dataInicio = filtroAplicado.dataInicio || periodoCompetencia.dataInicio;
+      const dataFim = filtroAplicado.dataFim || periodoCompetencia.dataFim;
+      const dados = await listarDespesasApi({
+        signal,
+        id: filtroAplicado.id.trim() || undefined,
+        descricao: filtroAplicado.descricao.trim() || undefined,
+        dataInicio,
+        dataFim,
+        competenciaMes: competencia.mes,
+        competenciaAno: competencia.ano,
+      });
       setDespesas(dados.map(mapearDespesaApi));
     } catch {
       setDespesas([]);
@@ -311,18 +376,22 @@ export default function TelaDespesa() {
   };
 
   const carregarOpcoesRateioApi = async () => {
-    try {
-      const [amigos, areasSubareas] = await Promise.all([listarAmigosRateioApi(), listarAreasSubareasRateioApi()]);
-      setOpcoesAmigosRateioApi(amigos);
-      setOpcoesAreasSubareasApi(areasSubareas);
-    } catch {
-      setOpcoesAmigosRateioApi([]);
-      setOpcoesAreasSubareasApi([]);
-    }
+    const [resultadoAmigos, resultadoAreas] = await Promise.allSettled([
+      listarAmigosRateioApi(),
+      listarAreasSubareasRateioApi(),
+    ]);
+
+    setOpcoesAmigosRateioApi(resultadoAmigos.status === 'fulfilled' ? resultadoAmigos.value : []);
+    setOpcoesAreasSubareasApi(resultadoAreas.status === 'fulfilled' ? resultadoAreas.value : []);
   };
 
   useEffect(() => {
-    void carregarDespesasApi();
+    const controller = new AbortController();
+    void carregarDespesasApi(controller.signal);
+    return () => controller.abort();
+  }, [competencia.ano, competencia.mes, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim]);
+
+  useEffect(() => {
     void carregarOpcoesRateioApi();
   }, []);
 
@@ -354,20 +423,20 @@ export default function TelaDespesa() {
 
   const despesasFiltradas = useMemo(() => {
     return despesas.filter((despesa) => {
-      const bateId = !filtro.id || String(despesa.id).includes(filtro.id);
-      const termo = filtro.descricao.trim().toLowerCase();
+      const bateId = !filtroAplicado.id || String(despesa.id).includes(filtroAplicado.id);
+      const termo = filtroAplicado.descricao.trim().toLowerCase();
       const tipoTraduzido = t(`financeiro.despesa.tipoDespesa.${despesa.tipoDespesa}`).toLowerCase();
-      const statusTraduzido = t(`financeiro.despesa.status.${despesa.status}`).toLowerCase();
+      const statusTraduzido = obterRotuloStatusDespesa(despesa.status, t).toLowerCase();
       const bateDescricao =
         !termo ||
         despesa.descricao.toLowerCase().includes(termo) ||
         despesa.observacao.toLowerCase().includes(termo) ||
         tipoTraduzido.includes(termo) ||
         statusTraduzido.includes(termo);
-      const bateData = estaDentroIntervalo(despesa.dataLancamento, filtro.dataInicio, filtro.dataFim);
+      const bateData = estaDentroIntervalo(despesa.dataLancamento, filtroAplicado.dataInicio, filtroAplicado.dataFim);
       return bateId && bateDescricao && bateData;
     });
-  }, [despesas, filtro, t]);
+  }, [despesas, filtroAplicado, t]);
 
   const atualizarCampoMoeda = (campo: keyof DespesaForm, valor: string) => {
     setCamposInvalidos((atual) => ({ ...atual, [campo]: false }));
@@ -391,7 +460,8 @@ export default function TelaDespesa() {
       dataEfetivacao: despesa.dataEfetivacao || new Date().toISOString().split('T')[0],
       tipoDespesa: despesa.tipoDespesa,
       tipoPagamento: despesa.tipoPagamento,
-      recorrencia: despesa.recorrencia,
+      recorrenciaBase: despesa.recorrenciaBase,
+      recorrenciaFixa: despesa.recorrenciaFixa,
       quantidadeRecorrencia: despesa.quantidadeRecorrencia ? String(despesa.quantidadeRecorrencia) : '',
       valorTotal: formatarMoedaParaInput(despesa.valorTotal, locale),
       valorLiquido: formatarMoedaParaInput(despesa.valorLiquido, locale),
@@ -405,7 +475,12 @@ export default function TelaDespesa() {
       areasRateio: despesa.areasRateio,
       rateioAreasValores: Object.fromEntries(Object.entries(despesa.rateioAreasValores).map(([chave, valor]) => [chave, formatarMoedaParaInput(valor, locale)])),
       anexoDocumento: despesa.anexoDocumento,
+      documentos: despesa.documentos,
     });
+  };
+
+  const consultarFiltros = () => {
+    setFiltroAplicado({ ...filtro });
   };
 
   const abrirNovo = () => {
@@ -543,19 +618,20 @@ export default function TelaDespesa() {
       return null;
     }
 
-    if (formulario.recorrencia === 'fixa' && formulario.quantidadeRecorrencia.trim()) {
-      setCamposInvalidos((atual) => ({ ...atual, quantidadeRecorrencia: true }));
-      notificarErro(locale.startsWith('en') ? 'Fixed recurrence does not accept quantity.' : locale.startsWith('es') ? 'La recurrencia fija no acepta cantidad.' : 'Recorrencia fixa nao aceita quantidade.');
-      return null;
-    }
-
     if (quantidadeRecorrenciaObrigatoria && !quantidadeRecorrencia) {
       setCamposInvalidos((atual) => ({ ...atual, quantidadeRecorrencia: true }));
-      notificarErro(locale.startsWith('en') ? 'Enter a recurrence quantity greater than zero.' : locale.startsWith('es') ? 'Informe una cantidad de recurrencia mayor que cero.' : 'Informe uma quantidade de recorrencia maior que zero.');
+      notificarErro(t('financeiro.comum.mensagens.quantidadeRecorrenciaMaiorQueZero'));
       return null;
     }
 
-    if (dataIsoMaiorQue(dataVencimento, dataLancamento)) {
+    if (!formulario.recorrenciaFixa && formulario.recorrenciaBase !== 'unica' && !quantidadeRecorrenciaNormalDentroDoLimite(quantidadeRecorrencia)) {
+      setCamposInvalidos((atual) => ({ ...atual, quantidadeRecorrencia: true }));
+      notificarErro(mensagemLimiteRecorrenciaNormal);
+      return null;
+    }
+
+
+    if (dataIsoMaiorQue(dataLancamento, dataVencimento)) {
       setCamposInvalidos((atual) => ({ ...atual, dataVencimento: true }));
       notificarErro(t('financeiro.despesa.mensagens.dataVencimentoMaiorQueLancamento'));
       return null;
@@ -565,6 +641,23 @@ export default function TelaDespesa() {
     if (!valorTotal) {
       setCamposInvalidos((atual) => ({ ...atual, valorTotal: true }));
       notificarErro( t('financeiro.despesa.mensagens.valorObrigatorio'));
+      return null;
+    }
+    const rateioAmigosValores = serializarValores(formulario.rateioAmigosValores);
+    const rateioAreasValores = serializarValores(formulario.rateioAreasValores);
+
+    if (formulario.amigosRateio.some((amigoNome) => !opcoesAmigosRateioApi.some((item) => item.nome === amigoNome))) {
+      notificarErro('amigo_invalido');
+      return;
+    }
+
+    if (!rateioConfereValorTotal(valorTotal, formulario.amigosRateio, rateioAmigosValores)) {
+      notificarErro(t('financeiro.comum.mensagens.rateioDeveBaterValorTotal'));
+      return null;
+    }
+
+    if (!rateioConfereValorTotal(valorTotal, formulario.areasRateio, rateioAreasValores)) {
+      notificarErro(t('financeiro.comum.mensagens.rateioDeveBaterValorTotal'));
       return null;
     }
 
@@ -599,11 +692,14 @@ export default function TelaDespesa() {
     if (!base) return;
 
     const amigos = formulario.amigosRateio
-      .map((amigo) => ({
-        nome: amigo,
-        valor: Number(base.rateioAmigosValores[amigo] ?? 0),
-      }))
-      .filter((item) => item.nome && item.valor > 0);
+      .map((amigoNome) => {
+        const amigoCatalogo = opcoesAmigosRateioApi.find((item) => item.nome === amigoNome);
+        return {
+          amigoId: amigoCatalogo?.id,
+          valor: Number(base.rateioAmigosValores[amigoNome] ?? 0),
+        };
+      })
+      .filter((item) => Number(item.amigoId) > 0 && item.valor > 0) as Array<{ amigoId: number; valor: number }>;
 
     const areasRateioPayload = formulario.areasRateio
       .map((chave) => {
@@ -628,25 +724,32 @@ export default function TelaDespesa() {
       dataVencimento: base.dataVencimento,
       tipoDespesa: formulario.tipoDespesa,
       tipoPagamento: formulario.tipoPagamento,
-      recorrencia: obterValorRecorrencia(formulario.recorrencia),
-      ...(formulario.recorrencia === 'fixa' ? {} : { quantidadeRecorrencia: base.quantidadeRecorrencia }),
+      recorrencia: obterValorRecorrencia(pagamentoComParcelas ? 'mensal' : formulario.recorrenciaBase),
+      recorrenciaFixa: pagamentoComParcelas || formulario.recorrenciaBase === 'unica' ? false : formulario.recorrenciaFixa,
+      quantidadeRecorrencia:
+        pagamentoComParcelas || formulario.recorrenciaBase === 'unica' || formulario.recorrenciaFixa
+          ? null
+          : base.quantidadeRecorrencia,
+      ...(pagamentoComParcelas ? { quantidadeParcelas: base.quantidadeRecorrencia } : {}),
       valorTotal: base.valorTotal,
       valorLiquido: base.valorLiquido,
       desconto: base.desconto,
       acrescimo: base.acrescimo,
       imposto: base.imposto,
       juros: base.juros,
-      amigos,
-      areasRateio: areasRateioPayload,
-      anexoDocumento: formulario.anexoDocumento,
+      amigosRateio: amigos,
+      areasSubAreasRateio: areasRateioPayload,
+      documentos: montarDocumentosPayload(formulario.documentos),
     };
 
     try {
       if (modoTela === 'novo') {
         await criarDespesaApi(payloadBase);
         await carregarDespesasApi();
-        const criouSerie = formulario.recorrencia === 'fixa' || ((base.quantidadeRecorrencia ?? 0) > 1 && formulario.recorrencia !== 'unica');
-        notificarSucesso(criouSerie ? (locale.startsWith('en') ? 'First occurrence created. Remaining ones are being generated.' : locale.startsWith('es') ? 'Primera ocurrencia creada. Las demas se estan generando.' : 'Primeira ocorrencia criada. Demais estao sendo geradas.') : t('financeiro.despesa.mensagens.criada'));
+        const criouSerie = pagamentoComParcelas
+          ? (base.quantidadeRecorrencia ?? 0) > 1
+          : formulario.recorrenciaBase !== 'unica' && (formulario.recorrenciaFixa || (base.quantidadeRecorrencia ?? 0) > 1);
+        notificarSucesso(criouSerie ? t('financeiro.comum.mensagens.primeiraOcorrenciaGerada') : t('financeiro.despesa.mensagens.criada'));
         resetarTela();
         return;
       }
@@ -690,7 +793,7 @@ export default function TelaDespesa() {
         imposto: base.imposto,
         juros: base.juros,
         valorEfetivacao: base.valorLiquido,
-        anexoDocumento: formulario.anexoDocumento,
+        documentos: montarDocumentosPayload(formulario.documentos),
         status: 'efetivada',
       });
       await carregarDespesasApi();
@@ -821,7 +924,7 @@ export default function TelaDespesa() {
           onChange={setNovaAreaRateio}
         />
         <CampoSelect
-          label="Subarea"
+          label={t('financeiro.comum.campos.subarea')}
           placeholder={t('comum.acoes.selecionar')}
           options={opcoesSubareasRateio.map((subarea) => ({ value: subarea, label: subarea }))}
           value={novaSubareaRateio}
@@ -858,9 +961,10 @@ export default function TelaDespesa() {
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.dataLancamento'), formulario.dataLancamento ? formatarDataPorIdioma(formulario.dataLancamento) : '') : <CampoData label={t('financeiro.despesa.campos.dataLancamento')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataLancamento} onChange={(dataLancamento) => { setCamposInvalidos((atual) => ({ ...atual, dataLancamento: false })); setFormulario((atual) => ({ ...atual, dataLancamento })); }} error={camposInvalidos.dataLancamento} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.dataVencimento'), formulario.dataVencimento ? formatarDataPorIdioma(formulario.dataVencimento) : '') : <CampoData label={t('financeiro.despesa.campos.dataVencimento')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataVencimento} onChange={(dataVencimento) => { setCamposInvalidos((atual) => ({ ...atual, dataVencimento: false })); setFormulario((atual) => ({ ...atual, dataVencimento })); }} error={camposInvalidos.dataVencimento} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoDespesa'), formulario.tipoDespesa ? t(`financeiro.despesa.tipoDespesa.${formulario.tipoDespesa}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoDespesa')} placeholder={t('comum.acoes.selecionar')} options={tiposDespesa.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoDespesa.${tipo}`) }))} value={formulario.tipoDespesa} onChange={(tipoDespesa) => { setCamposInvalidos((atual) => ({ ...atual, tipoDespesa: false })); setFormulario((atual) => ({ ...atual, tipoDespesa })); }} error={camposInvalidos.tipoDespesa} />}
-      {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoPagamento'), formulario.tipoPagamento ? t(`financeiro.despesa.tipoPagamento.${formulario.tipoPagamento}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoPagamento')} placeholder={t('comum.acoes.selecionar')} options={tiposPagamento.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoPagamento.${tipo}`) }))} value={formulario.tipoPagamento} onChange={(tipoPagamento) => { setCamposInvalidos((atual) => ({ ...atual, tipoPagamento: false })); setFormulario((atual) => ({ ...atual, tipoPagamento })); }} error={camposInvalidos.tipoPagamento} />}
-      {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.recorrencia'), obterRotuloRecorrencia(formulario.recorrencia, locale)) : <CampoSelect label={t('financeiro.despesa.campos.recorrencia')} placeholder={t('comum.acoes.selecionar')} options={RECORRENCIAS_FINANCEIRAS.map((item) => ({ value: item.chave, label: obterRotuloRecorrencia(item.chave, locale) }))} value={formulario.recorrencia} onChange={(recorrencia) => setFormulario((atual) => ({ ...atual, recorrencia: recorrencia as RecorrenciaFinanceiraChave, quantidadeRecorrencia: recorrencia === 'fixa' || recorrencia === 'unica' ? '' : atual.quantidadeRecorrencia }))} />}
-      {somenteLeitura ? (exibirQuantidadeRecorrencia ? renderCampoBloqueado('Quantidade de recorrencia', formulario.quantidadeRecorrencia || '-') : null) : (exibirQuantidadeRecorrencia ? <CampoTexto label='Quantidade de recorrencia' placeholder='1' value={formulario.quantidadeRecorrencia} onChangeText={(quantidadeRecorrencia) => { setCamposInvalidos((atual) => ({ ...atual, quantidadeRecorrencia: false })); setFormulario((atual) => ({ ...atual, quantidadeRecorrencia: quantidadeRecorrencia.replace(/[^\d]/g, '') })); }} error={camposInvalidos.quantidadeRecorrencia} keyboardType='numeric' estilo={{ marginBottom: 12 }} /> : null)}
+      {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoPagamento'), formulario.tipoPagamento ? t(`financeiro.despesa.tipoPagamento.${formulario.tipoPagamento}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoPagamento')} placeholder={t('comum.acoes.selecionar')} options={tiposPagamento.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoPagamento.${tipo}`) }))} value={formulario.tipoPagamento} onChange={(tipoPagamento) => { setCamposInvalidos((atual) => ({ ...atual, tipoPagamento: false, quantidadeRecorrencia: false })); setFormulario((atual) => ({ ...atual, tipoPagamento, recorrenciaBase: ehPagamentoParcelado(tipoPagamento) ? 'mensal' : atual.recorrenciaBase })); }} error={camposInvalidos.tipoPagamento} />}
+      {pagamentoComParcelas ? null : (somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.recorrencia'), obterRotuloRecorrencia(formulario.recorrenciaBase, locale)) : <CampoSelect label={t('financeiro.despesa.campos.recorrencia')} placeholder={t('comum.acoes.selecionar')} options={RECORRENCIAS_FINANCEIRAS_BASE.map((item) => ({ value: item.chave, label: obterRotuloRecorrencia(item.chave, locale) }))} value={formulario.recorrenciaBase} onChange={(recorrenciaBase) => setFormulario((atual) => ({ ...atual, recorrenciaBase: recorrenciaBase as RecorrenciaFinanceiraBaseChave, recorrenciaFixa: recorrenciaBase === 'unica' ? false : atual.recorrenciaFixa, quantidadeRecorrencia: recorrenciaBase === 'unica' ? '' : atual.quantidadeRecorrencia }))} />)}
+      {pagamentoComParcelas ? null : (somenteLeitura ? renderCampoBloqueado(t('financeiro.comum.campos.modoRecorrencia'), formulario.recorrenciaFixa ? t('financeiro.comum.opcoesRecorrencia.fixa') : t('financeiro.comum.opcoesRecorrencia.normal')) : <CampoSelect label={t('financeiro.comum.campos.modoRecorrencia')} placeholder={t('comum.acoes.selecionar')} options={formulario.recorrenciaBase === 'unica' ? [{ value: 'normal', label: t('financeiro.comum.opcoesRecorrencia.normal') }] : [{ value: 'normal', label: t('financeiro.comum.opcoesRecorrencia.normal') }, { value: 'fixa', label: t('financeiro.comum.opcoesRecorrencia.fixa') }]} value={formulario.recorrenciaFixa ? 'fixa' : 'normal'} onChange={(modo) => setFormulario((atual) => { const recorrenciaFixa = atual.recorrenciaBase !== 'unica' && modo === 'fixa'; return { ...atual, recorrenciaFixa, quantidadeRecorrencia: recorrenciaFixa ? '' : atual.quantidadeRecorrencia }; })} />)}
+      {somenteLeitura ? (exibirQuantidadeRecorrencia ? renderCampoBloqueado(rotuloQuantidadeRecorrencia, formulario.quantidadeRecorrencia || '-') : null) : (exibirQuantidadeRecorrencia ? <CampoTexto label={rotuloQuantidadeRecorrencia} placeholder='1' value={formulario.quantidadeRecorrencia} onChangeText={(quantidadeRecorrencia) => { setCamposInvalidos((atual) => ({ ...atual, quantidadeRecorrencia: false })); setFormulario((atual) => ({ ...atual, quantidadeRecorrencia: quantidadeRecorrencia.replace(/[^\d]/g, '') })); }} error={camposInvalidos.quantidadeRecorrencia} keyboardType='numeric' estilo={{ marginBottom: 12 }} /> : null)}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.valorTotal'), formulario.valorTotal) : <CampoTexto label={t('financeiro.despesa.campos.valorTotal')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.valorTotal} onChangeText={(valor) => { setCamposInvalidos((atual) => ({ ...atual, valorTotal: false })); atualizarCampoMoeda('valorTotal', valor); }} error={camposInvalidos.valorTotal} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.desconto'), formulario.desconto) : <CampoTexto label={t('financeiro.despesa.campos.desconto')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.desconto} onChangeText={(valor) => atualizarCampoMoeda('desconto', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.acrescimo'), formulario.acrescimo) : <CampoTexto label={t('financeiro.despesa.campos.acrescimo')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.acrescimo} onChangeText={(valor) => atualizarCampoMoeda('acrescimo', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
@@ -869,7 +973,7 @@ export default function TelaDespesa() {
       {renderCampoBloqueado(t('financeiro.despesa.campos.valorLiquido'), formulario.valorLiquido)}
       {renderTabelaRateioAmigos(somenteLeitura)}
       {renderTabelaRateioAreaSubarea(somenteLeitura)}
-      {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.anexoDocumento'), formulario.anexoDocumento) : <CampoArquivo label={t('financeiro.despesa.campos.anexoDocumento')} placeholder={t('financeiro.despesa.placeholders.anexo')} value={formulario.anexoDocumento} onChange={(anexoDocumento) => setFormulario((atual) => ({ ...atual, anexoDocumento }))} estilo={{ marginBottom: 12 }} />}
+      {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.anexoDocumento'), formulario.anexoDocumento) : <CampoArquivo label={t('financeiro.despesa.campos.anexoDocumento')} placeholder={t('financeiro.despesa.placeholders.anexo')} value={formulario.anexoDocumento} onChange={(anexoDocumento) => setFormulario((atual) => ({ ...atual, anexoDocumento, documentos: anexoDocumento ? atual.documentos : [] }))} onSelecionarArquivo={(documento) => setFormulario((atual) => ({ ...atual, documentos: documento ? [documento] : [] }))} estilo={{ marginBottom: 12 }} />}
     </>
   );
 
@@ -886,13 +990,31 @@ export default function TelaDespesa() {
         {modoTela === 'lista' ? (
           <>
             <Botao titulo={`+ ${t('financeiro.despesa.nova')}`} onPress={abrirNovo} tipo="primario" estilo={{ marginBottom: 12 }} />
+            <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 12, padding: 12, marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <TouchableOpacity
+                  onPress={() => setCompetencia((atual) => avancarCompetencia(atual, -1))}
+                  style={{ backgroundColor: COLORS.bgSecondary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
+                >
+                  <Text style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' }}>{'<'}</Text>
+                </TouchableOpacity>
+                <Text style={{ color: COLORS.accent, fontSize: 16, fontWeight: '700' }}>{competenciaLabel}</Text>
+                <TouchableOpacity
+                  onPress={() => setCompetencia((atual) => avancarCompetencia(atual, 1))}
+                  style={{ backgroundColor: COLORS.bgSecondary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
+                >
+                  <Text style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' }}>{'>'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
             <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
+            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo='secundario' estilo={{ marginBottom: 12 }} />
             <View>
               {despesasFiltradas.length === 0 ? <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 24 }}>{t('financeiro.despesa.vazio')}</Text> : despesasFiltradas.map((despesa) => (
                 <View key={despesa.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginBottom: 10 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
                     <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{despesa.id} {despesa.descricao}</Text>
-                    <Text style={{ color: despesa.status === 'efetivada' ? COLORS.success : despesa.status === 'cancelada' ? COLORS.error : COLORS.warning, fontSize: 12, fontWeight: '700' }}>{t(`financeiro.despesa.status.${despesa.status}`)}</Text>
+                    <Text style={{ color: despesa.status === 'efetivada' ? COLORS.success : despesa.status === 'cancelada' ? COLORS.error : COLORS.warning, fontSize: 12, fontWeight: '700' }}>{obterRotuloStatusDespesa(despesa.status, t)}</Text>
                   </View>
                   <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>{t(`financeiro.despesa.tipoDespesa.${despesa.tipoDespesa}`)} | {formatarDataPorIdioma(despesa.dataVencimento)} | {formatarValorPorIdioma(despesa.valorLiquido)}</Text>
                   <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>{despesa.observacao || t('financeiro.despesa.mensagens.semObservacao')}</Text>
@@ -929,7 +1051,7 @@ export default function TelaDespesa() {
             <CampoTexto label={t('financeiro.despesa.campos.acrescimo')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.acrescimo} onChangeText={(valor) => atualizarCampoMoeda('acrescimo', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
             <CampoTexto label={t('financeiro.despesa.campos.imposto')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.imposto} onChangeText={(valor) => atualizarCampoMoeda('imposto', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
             <CampoTexto label={t('financeiro.despesa.campos.juros')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.juros} onChangeText={(valor) => atualizarCampoMoeda('juros', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
-            <CampoArquivo label={t('financeiro.despesa.campos.anexoDocumento')} placeholder={t('financeiro.despesa.placeholders.anexo')} value={formulario.anexoDocumento} onChange={(anexoDocumento) => setFormulario((atual) => ({ ...atual, anexoDocumento }))} estilo={{ marginBottom: 20 }} />
+            <CampoArquivo label={t('financeiro.despesa.campos.anexoDocumento')} placeholder={t('financeiro.despesa.placeholders.anexo')} value={formulario.anexoDocumento} onChange={(anexoDocumento) => setFormulario((atual) => ({ ...atual, anexoDocumento, documentos: anexoDocumento ? atual.documentos : [] }))} onSelecionarArquivo={(documento) => setFormulario((atual) => ({ ...atual, documentos: documento ? [documento] : [] }))} estilo={{ marginBottom: 20 }} />
             <View style={{ flexDirection: 'row', marginHorizontal: -5 }}>
               <Botao titulo={t('comum.acoes.cancelar')} onPress={resetarTela} tipo="secundario" estilo={{ flex: 1, marginHorizontal: 5 }} />
               <Botao titulo={t('financeiro.despesa.acoes.confirmarEfetivacao')} onPress={efetivarDespesa} tipo="primario" estilo={{ flex: 1, marginHorizontal: 5 }} />
@@ -940,7 +1062,7 @@ export default function TelaDespesa() {
         {modoTela === 'visualizacao' && despesaSelecionada ? (
           <>
             {renderFormularioBase(true)}
-            {renderCampoBloqueado(t('financeiro.despesa.campos.status'), t(`financeiro.despesa.status.${despesaSelecionada.status}`))}
+            {renderCampoBloqueado(t('financeiro.despesa.campos.status'), obterRotuloStatusDespesa(despesaSelecionada.status, t))}
             {renderCampoBloqueado(t('financeiro.despesa.campos.dataEfetivacao'), despesaSelecionada.dataEfetivacao ? formatarDataPorIdioma(despesaSelecionada.dataEfetivacao) : '')}
             <View style={{ marginBottom: 16 }}>
               <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{t('financeiro.despesa.logs.titulo')}</Text>

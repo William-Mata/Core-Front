@@ -1,31 +1,73 @@
-import { useRef, useState } from 'react';
+﻿import { useRef, useState } from 'react';
 import { Platform, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { COLORS } from '../../../styles/variables';
 import { usarTraducao } from '../../../hooks/usarTraducao';
+import { extrairConteudoBase64SemPrefixo, type DocumentoFinanceiro } from '../../../utils/documentoUpload';
 
 interface CampoArquivoProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  onSelecionarArquivo?: (arquivo: DocumentoFinanceiro | null) => void;
   placeholder?: string;
   estilo?: ViewStyle;
   error?: string | boolean;
 }
 
-export function CampoArquivo({ label, value, onChange, placeholder, estilo, error }: CampoArquivoProps) {
+function lerArquivoWebComoBase64(arquivo: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(new Error('falha_leitura_arquivo_web'));
+    reader.readAsDataURL(arquivo);
+  });
+}
+
+async function montarDocumentoNativo(asset: DocumentPicker.DocumentPickerAsset): Promise<DocumentoFinanceiro | null> {
+  const nomeArquivo = String(asset.name || '').trim();
+  if (!nomeArquivo) return null;
+
+  let conteudoBase64 = extrairConteudoBase64SemPrefixo(String(asset.base64 ?? ''));
+  if (!conteudoBase64 && asset.uri) {
+    try {
+      const leitura = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+      conteudoBase64 = extrairConteudoBase64SemPrefixo(leitura);
+    } catch {
+      conteudoBase64 = '';
+    }
+  }
+
+  if (!conteudoBase64) return null;
+
+  return {
+    nomeArquivo,
+    conteudoBase64,
+    contentType: asset.mimeType || undefined,
+  };
+}
+
+export function CampoArquivo({ label, value, onChange, onSelecionarArquivo, placeholder, estilo, error }: CampoArquivoProps) {
   const { t } = usarTraducao();
   const [focadoWeb, setFocadoWeb] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const selecionarArquivoNativo = async () => {
     const resultado = await DocumentPicker.getDocumentAsync({
-      copyToCacheDirectory: false,
+      copyToCacheDirectory: true,
       multiple: false,
+      base64: false,
     });
 
     if (resultado.canceled || !resultado.assets?.length) return;
-    onChange(resultado.assets[0].name || '');
+
+    const asset = resultado.assets[0];
+    onChange(asset.name || '');
+
+    if (!onSelecionarArquivo) return;
+    const documento = await montarDocumentoNativo(asset);
+    onSelecionarArquivo(documento);
   };
 
   if (Platform.OS === 'web') {
@@ -36,9 +78,32 @@ export function CampoArquivo({ label, value, onChange, placeholder, estilo, erro
           ref={inputRef}
           type="file"
           style={{ display: 'none' }}
-          onChange={(event) => {
+          onChange={async (event) => {
             const arquivo = event.target.files?.[0];
-            onChange(arquivo?.name || '');
+            if (!arquivo) {
+              onChange('');
+              onSelecionarArquivo?.(null);
+              return;
+            }
+
+            onChange(arquivo.name || '');
+
+            if (!onSelecionarArquivo) return;
+            try {
+              const dataUrl = await lerArquivoWebComoBase64(arquivo);
+              const conteudoBase64 = extrairConteudoBase64SemPrefixo(dataUrl);
+              if (!conteudoBase64) {
+                onSelecionarArquivo(null);
+                return;
+              }
+              onSelecionarArquivo({
+                nomeArquivo: arquivo.name,
+                conteudoBase64,
+                contentType: arquivo.type || undefined,
+              });
+            } catch {
+              onSelecionarArquivo(null);
+            }
           }}
         />
         <button

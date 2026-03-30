@@ -1,18 +1,21 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CampoData } from '../../../src/componentes/comuns/CampoData';
+import { CampoArquivo } from '../../../src/componentes/comuns/CampoArquivo';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
-import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
-import { formatarDataPorIdioma, formatarValorPorIdioma } from '../../../src/utils/formatacaoLocale';
+import { estaDentroIntervalo } from '../../../src/utils/filtroData';
+import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
+import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterIntervaloCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { erroApiJaNotificado, extrairMensagemErroApi } from '../../../src/utils/erroApi';
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
+import { montarDocumentosPayload, normalizarDocumentosApi, type DocumentoFinanceiro } from '../../../src/utils/documentoUpload';
 import {
   listarDespesasApi,
   listarReembolsosApi,
@@ -42,10 +45,11 @@ interface Reembolso {
   id: number;
   descricao: string;
   solicitante: string;
-  dataSolicitacao: string;
+  dataLancamento: string;
   dataEfetivacao?: string;
   despesasVinculadas: number[];
   valorEfetivacao?: number;
+  documentos: DocumentoFinanceiro[];
   status: StatusReembolso;
 }
 
@@ -76,10 +80,11 @@ function normalizarReembolsoApi(item: RegistroFinanceiroApi): Reembolso {
     id: paraNumero(item.id),
     descricao: String(item.descricao ?? item.titulo ?? ''),
     solicitante: String(item.solicitante ?? item.solicitanteName ?? ''),
-    dataSolicitacao: String(item.dataSolicitacao ?? item.data_solicitacao ?? item.data ?? '').slice(0, 10),
+    dataLancamento: String(item.dataLancamento ?? item.data ?? '').slice(0, 10),
     dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : undefined,
     despesasVinculadas,
     valorEfetivacao: item.valorEfetivacao ? paraNumero(item.valorEfetivacao) : undefined,
+    documentos: normalizarDocumentosApi(item.documentos),
     status: parseStatusReembolso(item.status),
   };
 }
@@ -99,10 +104,11 @@ function criarReembolsoVazio(): Reembolso {
     id: 0,
     descricao: '',
     solicitante: '',
-    dataSolicitacao: hoje,
+    dataLancamento: hoje,
     dataEfetivacao: hoje,
     despesasVinculadas: [],
     valorEfetivacao: 0,
+    documentos: [],
     status: 'pendente',
   };
 }
@@ -112,18 +118,34 @@ export default function TelaReembolso() {
   const { t } = usarTraducao();
 
   const [filtro, setFiltro] = useState<FiltroPadraoValor>({ id: '', descricao: '', dataInicio: '', dataFim: '' });
+  const [filtroAplicado, setFiltroAplicado] = useState<FiltroPadraoValor>({ id: '', descricao: '', dataInicio: '', dataFim: '' });
+  const locale = obterLocaleAtivo();
+  const [competencia, setCompetencia] = useState<CompetenciaFinanceira>(() => obterCompetenciaAtual());
   const [modoFormulario, setModoFormulario] = useState<ModoFormulario>('lista');
   const [carregando, setCarregando] = useState(false);
   const [despesasDisponiveis, setDespesasDisponiveis] = useState<DespesaDisponivel[]>([]);
   const [reembolsos, setReembolsos] = useState<Reembolso[]>([]);
   const [reembolsoAtual, setReembolsoAtual] = useState<Reembolso>(criarReembolsoVazio());
+  const competenciaLabel = useMemo(() => formatarCompetencia(competencia, locale), [competencia, locale]);
 
   const carregarDados = async (signal?: AbortSignal) => {
     setCarregando(true);
     try {
+      const periodoCompetencia = obterIntervaloCompetencia(competencia);
+      const dataInicio = filtroAplicado.dataInicio || periodoCompetencia.dataInicio;
+      const dataFim = filtroAplicado.dataFim || periodoCompetencia.dataFim;
+      const opcoesConsulta = {
+        signal,
+        id: filtroAplicado.id.trim() || undefined,
+        descricao: filtroAplicado.descricao.trim() || undefined,
+        dataInicio,
+        dataFim,
+        competenciaMes: competencia.mes,
+        competenciaAno: competencia.ano,
+      };
       const [resReembolsos, resDespesas] = await Promise.all([
-        listarReembolsosApi({ signal }),
-        listarDespesasApi({ signal }),
+        listarReembolsosApi(opcoesConsulta),
+        listarDespesasApi(opcoesConsulta),
       ]);
 
       setReembolsos(resReembolsos.map(normalizarReembolsoApi));
@@ -140,17 +162,21 @@ export default function TelaReembolso() {
     const controller = new AbortController();
     void carregarDados(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [competencia.ano, competencia.mes, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim]);
 
   const reembolsosFiltrados = useMemo(() => {
     return reembolsos.filter((r) => {
-      const bateId = !filtro.id || String(r.id).includes(filtro.id);
-      const termo = filtro.descricao.trim().toLowerCase();
+      const bateId = !filtroAplicado.id || String(r.id).includes(filtroAplicado.id);
+      const termo = filtroAplicado.descricao.trim().toLowerCase();
       const bateDescricao = !termo || r.descricao.toLowerCase().includes(termo) || r.solicitante.toLowerCase().includes(termo);
-      const bateData = estaDentroIntervalo(r.dataSolicitacao, filtro.dataInicio, filtro.dataFim);
+      const bateData = estaDentroIntervalo(r.dataLancamento, filtroAplicado.dataInicio, filtroAplicado.dataFim);
       return bateId && bateDescricao && bateData;
     });
-  }, [filtro, reembolsos]);
+  }, [filtroAplicado, reembolsos]);
+
+  const consultarFiltros = () => {
+    setFiltroAplicado({ ...filtro });
+  };
 
   const obterDespesaPorId = (id: number) => despesasDisponiveis.find((despesa) => despesa.id === id);
 
@@ -222,9 +248,10 @@ export default function TelaReembolso() {
     const payload: Record<string, unknown> = {
       descricao: reembolsoAtual.descricao.trim(),
       solicitante: reembolsoAtual.solicitante.trim(),
-      dataSolicitacao: reembolsoAtual.dataSolicitacao,
+      dataLancamento: reembolsoAtual.dataLancamento,
       despesasVinculadas: reembolsoAtual.despesasVinculadas,
       valorTotal,
+      documentos: montarDocumentosPayload(reembolsoAtual.documentos),
       status: serializarStatusReembolso('pendente'),
     };
 
@@ -256,7 +283,7 @@ export default function TelaReembolso() {
       return;
     }
 
-    if (dataIsoMaiorQue(reembolsoAtual.dataEfetivacao, reembolsoAtual.dataSolicitacao)) {
+    if (dataIsoMaiorQue(reembolsoAtual.dataLancamento, reembolsoAtual.dataEfetivacao)) {
       notificarErro(t('financeiro.reembolso.mensagens.dataEfetivacaoMaiorQueSolicitacao'));
       return;
     }
@@ -268,6 +295,7 @@ export default function TelaReembolso() {
         status: serializarStatusReembolso('efetivada'),
         dataEfetivacao: reembolsoAtual.dataEfetivacao,
         valorEfetivacao,
+        documentos: montarDocumentosPayload(reembolsoAtual.documentos),
       });
 
       notificarSucesso(t('financeiro.reembolso.mensagens.efetivado'));
@@ -358,7 +386,25 @@ export default function TelaReembolso() {
         {modoFormulario === 'lista' ? (
           <>
             <Botao titulo={`+ ${t('financeiro.reembolso.novo')}`} onPress={abrirNovo} tipo="primario" estilo={{ marginBottom: 12 }} disabled={carregando} />
+            <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 12, padding: 12, marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <TouchableOpacity
+                  onPress={() => setCompetencia((atual) => avancarCompetencia(atual, -1))}
+                  style={{ backgroundColor: COLORS.bgSecondary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
+                >
+                  <Text style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' }}>{'<'}</Text>
+                </TouchableOpacity>
+                <Text style={{ color: COLORS.accent, fontSize: 16, fontWeight: '700' }}>{competenciaLabel}</Text>
+                <TouchableOpacity
+                  onPress={() => setCompetencia((atual) => avancarCompetencia(atual, 1))}
+                  style={{ backgroundColor: COLORS.bgSecondary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
+                >
+                  <Text style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' }}>{'>'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
             <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
+            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo='secundario' estilo={{ marginBottom: 12 }} disabled={carregando} />
 
             <View style={{ gap: 10 }}>
               {reembolsosFiltrados.length === 0 ? (
@@ -386,7 +432,7 @@ export default function TelaReembolso() {
                       </Text>
                     </View>
                     <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>
-                      {reembolso.solicitante || '-'} | {formatarDataPorIdioma(reembolso.dataSolicitacao)} | {formatarValorPorIdioma(calcularTotal(reembolso.despesasVinculadas))}
+                      {reembolso.solicitante || '-'} | {formatarDataPorIdioma(reembolso.dataLancamento)} | {formatarValorPorIdioma(calcularTotal(reembolso.despesasVinculadas))}
                     </Text>
                     <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
                       {t('financeiro.reembolso.despesasSelecionadas', { count: String(reembolso.despesasVinculadas.length) })}
@@ -438,10 +484,10 @@ export default function TelaReembolso() {
             />
 
             <CampoData
-              label={t('financeiro.reembolso.dataSolicitacao')}
+              label={t('financeiro.reembolso.dataLancamento')}
               placeholder={t('financeiro.reembolso.placeholderData')}
-              value={reembolsoAtual.dataSolicitacao}
-              onChange={(dataSolicitacao) => setReembolsoAtual((atual) => ({ ...atual, dataSolicitacao }))}
+              value={reembolsoAtual.dataLancamento}
+              onChange={(dataLancamento) => setReembolsoAtual((atual) => ({ ...atual, dataLancamento }))}
               estilo={{ marginBottom: 14 }}
             />
 
@@ -460,6 +506,25 @@ export default function TelaReembolso() {
                   despesasVinculadas: values.map((value) => Number(value)),
                 }))
               }
+            />
+
+            <CampoArquivo
+              label={t('financeiro.despesa.campos.anexoDocumento')}
+              placeholder={t('financeiro.despesa.placeholders.anexo')}
+              value={reembolsoAtual.documentos[0]?.nomeArquivo || ''}
+              onChange={(nomeArquivo) =>
+                setReembolsoAtual((atual) => ({
+                  ...atual,
+                  documentos: nomeArquivo ? atual.documentos : [],
+                }))
+              }
+              onSelecionarArquivo={(documento) =>
+                setReembolsoAtual((atual) => ({
+                  ...atual,
+                  documentos: documento ? [documento] : [],
+                }))
+              }
+              estilo={{ marginBottom: 12 }}
             />
 
             <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderAccent, borderRadius: 10, padding: 12, marginBottom: 20 }}>
@@ -486,6 +551,25 @@ export default function TelaReembolso() {
               placeholder={t('financeiro.reembolso.placeholderData')}
               value={reembolsoAtual.dataEfetivacao || ''}
               onChange={(dataEfetivacao) => setReembolsoAtual((atual) => ({ ...atual, dataEfetivacao }))}
+              estilo={{ marginBottom: 12 }}
+            />
+
+            <CampoArquivo
+              label={t('financeiro.despesa.campos.anexoDocumento')}
+              placeholder={t('financeiro.despesa.placeholders.anexo')}
+              value={reembolsoAtual.documentos[0]?.nomeArquivo || ''}
+              onChange={(nomeArquivo) =>
+                setReembolsoAtual((atual) => ({
+                  ...atual,
+                  documentos: nomeArquivo ? atual.documentos : [],
+                }))
+              }
+              onSelecionarArquivo={(documento) =>
+                setReembolsoAtual((atual) => ({
+                  ...atual,
+                  documentos: documento ? [documento] : [],
+                }))
+              }
               estilo={{ marginBottom: 20 }}
             />
 

@@ -14,9 +14,10 @@ export interface FiltroPadraoValor {
 interface FiltroPadraoProps {
   valor: FiltroPadraoValor;
   aoMudar: (valor: FiltroPadraoValor) => void;
+  exibirIntervaloData?: boolean;
 }
 
-export function FiltroPadrao({ valor, aoMudar }: FiltroPadraoProps) {
+export function FiltroPadrao({ valor, aoMudar, exibirIntervaloData = true }: FiltroPadraoProps) {
   const { t } = usarTraducao();
   const [foco, setFoco] = useState<keyof FiltroPadraoValor | null>(null);
 
@@ -59,7 +60,7 @@ export function FiltroPadrao({ valor, aoMudar }: FiltroPadraoProps) {
           onFocus={() => setFoco('id')}
           onBlur={() => setFoco(null)}
           onChangeText={(id) => aoMudar({ ...valor, id })}
-          keyboardType="numeric"
+          keyboardType='numeric'
           style={estiloInput('id')}
         />
 
@@ -73,16 +74,15 @@ export function FiltroPadrao({ valor, aoMudar }: FiltroPadraoProps) {
           style={estiloInput('descricao')}
         />
 
-        <CampoDataIntervalo
-          label={`${t('comum.filtros.dataInicio')} - ${t('comum.filtros.dataFim')}`}
-          dataInicio={valor.dataInicio}
-          dataFim={valor.dataFim}
-          onChange={({ dataInicio, dataFim }) => aoMudar({ ...valor, dataInicio, dataFim })}
-        />
+        {exibirIntervaloData ? (
+          <CampoDataIntervalo
+            label={`${t('comum.filtros.dataInicio')} - ${t('comum.filtros.dataFim')}`}
+            dataInicio={valor.dataInicio}
+            dataFim={valor.dataFim}
+            onChange={({ dataInicio, dataFim }) => aoMudar({ ...valor, dataInicio, dataFim })}
+          />
+        ) : null}
       </View>
     </View>
   );
 }
-
-
-

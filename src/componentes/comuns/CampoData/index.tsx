@@ -316,6 +316,15 @@ export function CampoDataIntervalo({ label, dataInicio, dataFim, onChange, place
   const { focadoWeb, setFocadoWeb, posicaoPopover, containerRef, portalRef } = usePopoverData(aberto, () => setAberto(false));
   const localeDatePicker = useMemo(() => obterLocaleDatePicker(), []);
   const textoPlaceholder = placeholder || t('comum.acoes.selecionar');
+  const possuiIntervaloSelecionado = Boolean(dataInicio || dataFim);
+
+  const limparIntervalo = () => {
+    onChange({ dataInicio: '', dataFim: '' });
+    setAberto(false);
+    if (Platform.OS === 'web') {
+      setFocadoWeb(false);
+    }
+  };
 
   const renderPicker = () => (
     <View
@@ -401,6 +410,23 @@ export function CampoDataIntervalo({ label, dataInicio, dataFim, onChange, place
           fontWeight: '700',
         }}
       />
+      {possuiIntervaloSelecionado ? (
+        <TouchableOpacity
+          onPress={limparIntervalo}
+          style={{
+            alignSelf: 'flex-end',
+            marginTop: 8,
+            borderWidth: 1,
+            borderColor: COLORS.borderColor,
+            borderRadius: 8,
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            backgroundColor: COLORS.bgTertiary,
+          }}
+        >
+          <Text style={{ color: COLORS.accent, fontSize: 13, fontWeight: '600' }}>{'\u2715'}</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 

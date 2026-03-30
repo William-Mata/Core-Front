@@ -147,7 +147,7 @@ describe('Tela de dashboard', () => {
       {
         id: 3,
         descricao: 'Reembolso viagem',
-        dataSolicitacao: '2026-03-17',
+        dataLancamento: '2026-03-17',
         valor: 300,
         area: 'OPERACOES',
         subarea: 'LOGISTICA',
