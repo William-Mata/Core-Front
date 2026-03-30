@@ -1,26 +1,56 @@
 # Tela de Despesa
 
 ## Objetivo
-Documentar o contrato atual do front-end da tela de despesa para integracao com API.
+Documentar o contrato atual do front-end da tela de despesa para integração com a API.
 
 Arquivo principal:
 - `app/principal/financeiro/despesa.tsx`
 
-## Rota do front
-- listagem da tela: `/principal/financeiro/despesa`
-- visualizacao por id: `/principal/financeiro/despesa?id={id}`
+## Rotas do front
+- listagem: `/principal/financeiro/despesa`
+- visualização: `/principal/financeiro/despesa?id={id}`
 
 ## Modos da tela
-A tela trabalha com cinco modos internos:
 - `lista`
 - `novo`
 - `edicao`
 - `visualizacao`
 - `efetivacao`
 
-## Estrutura esperada de despesa
-Campos usados pelo front:
+## Catálogos consumidos ao abrir a tela
+### Amigos
+- `GET /api/financeiro/amigos`
 
+Exemplo:
+```json
+[
+  { "id": 2, "nome": "Alex", "email": "alex@email.com" }
+]
+```
+
+### Áreas e subáreas
+- `GET /api/financeiro/areas-subareas`
+
+Exemplo:
+```json
+[
+  {
+    "id": 1,
+    "nome": "Alimentacao",
+    "tipo": "despesa",
+    "subAreas": [
+      { "id": 10, "nome": "Almoco" }
+    ]
+  }
+]
+```
+
+Regra no front:
+- a tela de despesa usa apenas áreas com `tipo = "despesa"`
+- ao selecionar uma área, o front lista apenas as subáreas daquela área
+- se o par `areaId` e `subAreaId` não for válido, o front bloqueia o envio
+
+## Campos da despesa usados pelo front
 ```json
 {
   "id": 1,
@@ -31,7 +61,9 @@ Campos usados pelo front:
   "dataEfetivacao": "2026-03-15",
   "tipoDespesa": "alimentacao",
   "tipoPagamento": "pix",
-  "recorrencia": "unica",
+  "recorrencia": "Mensal",
+  "recorrenciaFixa": false,
+  "quantidadeRecorrencia": 6,
   "valorTotal": 150.0,
   "valorLiquido": 145.0,
   "desconto": 5.0,
@@ -40,35 +72,22 @@ Campos usados pelo front:
   "juros": 0.0,
   "valorEfetivacao": 145.0,
   "status": "efetivada",
-  "amigosRateio": ["Ana", "Bruno"],
-  "tiposRateio": ["alimentacao"],
+  "rateiosAmigos": [
+    { "amigo": "Alex", "valor": 50.0 }
+  ],
+  "rateiosAreaSubarea": [
+    { "area": "Alimentacao", "subarea": "Almoco", "valor": 100.0 }
+  ],
   "anexoDocumento": "recibo-almoco.pdf",
-  "logs": [
-    {
-      "id": 1,
-      "data": "2026-03-10",
-      "acao": "CRIADA",
-      "descricao": "Despesa criada com status pendente."
-    }
-  ]
+  "logs": []
 }
 ```
 
-## Enumeracoes esperadas pelo front
-
+## Enumeradores usados no front
 ### Status
 - `pendente`
 - `efetivada`
 - `cancelada`
-
-### Tipo de despesa
-- `alimentacao`
-- `transporte`
-- `moradia`
-- `lazer`
-- `saude`
-- `educacao`
-- `servicos`
 
 ### Tipo de pagamento
 - `pix`
@@ -78,26 +97,138 @@ Campos usados pelo front:
 - `transferencia`
 - `dinheiro`
 
-### Recorrencia
-- `unica`
-- `semanal`
-- `mensal`
-- `anual`
+### Frequência de recorrência
+- `Unica`
+- `Diaria`
+- `Semanal`
+- `Quinzenal`
+- `Mensal`
+- `Trimestral`
+- `Semestral`
+- `Anual`
 
-## Filtros da listagem
-A tela usa filtro local com:
-- `id`
-- `descricao`
-- `dataInicio`
-- `dataFim`
+## Regras de recorrência no front
+### Despesa sem cartão
+Payload enviado:
+- `recorrencia`: frequência da série
+- `recorrenciaFixa`: `true` ou `false`
+- `quantidadeRecorrencia`: inteiro ou `null`
 
-Regras do front:
-- `id` filtra por correspondencia parcial
-- `descricao` filtra por descricao, observacao, tipo traduzido e status traduzido
-- o intervalo de data usa `dataLancamento`
+Regras:
+- se `recorrencia = Unica`
+  - `recorrenciaFixa = false`
+  - `quantidadeRecorrencia = null`
+- se `recorrencia != Unica` e `recorrenciaFixa = false`
+  - `quantidadeRecorrencia` é obrigatória
+  - `quantidadeRecorrencia > 0`
+  - `quantidadeRecorrencia <= 100`
+- se `recorrencia != Unica` e `recorrenciaFixa = true`
+  - `quantidadeRecorrencia = null`
 
-## Regras de validacao no cadastro e edicao
-Campos obrigatorios exigidos pelo front:
+### Despesa com cartão
+Quando `tipoPagamento = cartaoCredito` ou `cartaoDebito`:
+- o front oculta o seletor de recorrência
+- o front exibe `quantidadeParcelas`
+- o payload envia:
+  - `tipoPagamento`
+  - `quantidadeParcelas`
+  - `recorrencia = "Mensal"`
+  - `recorrenciaFixa = false`
+  - `quantidadeRecorrencia = null`
+
+## Rateio enviado pelo front
+### Amigos
+```json
+[
+  { "nome": "Alex", "valor": 50.0 }
+]
+```
+
+### Área e subárea
+```json
+[
+  { "areaId": 1, "subAreaId": 10, "valor": 100.0 }
+]
+```
+
+## Payload de criação e edição
+### Despesa recorrente comum
+```json
+{
+  "descricao": "Academia",
+  "observacao": "Plano mensal",
+  "dataLancamento": "2026-03-10",
+  "dataVencimento": "2026-03-10",
+  "tipoDespesa": "saude",
+  "tipoPagamento": "pix",
+  "recorrencia": "Mensal",
+  "recorrenciaFixa": false,
+  "quantidadeRecorrencia": 6,
+  "valorTotal": 120.0,
+  "valorLiquido": 120.0,
+  "desconto": 0.0,
+  "acrescimo": 0.0,
+  "imposto": 0.0,
+  "juros": 0.0,
+  "amigos": [],
+  "areasRateio": [
+    { "areaId": 1, "subAreaId": 10, "valor": 120.0 }
+  ],
+  "anexoDocumento": "academia.pdf"
+}
+```
+
+### Despesa recorrente fixa
+```json
+{
+  "descricao": "Internet",
+  "observacao": "Conta recorrente",
+  "dataLancamento": "2026-03-10",
+  "dataVencimento": "2026-03-10",
+  "tipoDespesa": "servicos",
+  "tipoPagamento": "boleto",
+  "recorrencia": "Mensal",
+  "recorrenciaFixa": true,
+  "quantidadeRecorrencia": null,
+  "valorTotal": 99.9,
+  "valorLiquido": 99.9,
+  "desconto": 0.0,
+  "acrescimo": 0.0,
+  "imposto": 0.0,
+  "juros": 0.0,
+  "amigos": [],
+  "areasRateio": [],
+  "anexoDocumento": ""
+}
+```
+
+### Despesa parcelada no cartão
+```json
+{
+  "descricao": "Notebook",
+  "observacao": "Compra parcelada",
+  "dataLancamento": "2026-03-10",
+  "dataVencimento": "2026-03-10",
+  "tipoDespesa": "servicos",
+  "tipoPagamento": "cartaoCredito",
+  "recorrencia": "Mensal",
+  "recorrenciaFixa": false,
+  "quantidadeRecorrencia": null,
+  "quantidadeParcelas": 10,
+  "valorTotal": 5000.0,
+  "valorLiquido": 5000.0,
+  "desconto": 0.0,
+  "acrescimo": 0.0,
+  "imposto": 0.0,
+  "juros": 0.0,
+  "amigos": [],
+  "areasRateio": [],
+  "anexoDocumento": "nota-fiscal.pdf"
+}
+```
+
+## Validações de front
+Campos obrigatórios:
 - `descricao`
 - `dataLancamento`
 - `dataVencimento`
@@ -105,113 +236,41 @@ Campos obrigatorios exigidos pelo front:
 - `tipoPagamento`
 - `valorTotal`
 
-Comportamento atual:
-- quando um campo obrigatorio nao e preenchido, o front destaca o campo e exibe alerta
-- o calculo de `valorLiquido` e automatico
-- `valorLiquido` e bloqueado na UI
-- formula atual:
+Regras adicionais:
+- `valorLiquido` é calculado automaticamente
+- `valorLiquido` permanece bloqueado
+- `dataVencimento` não pode ser maior que `dataLancamento`
+- na efetivação, `dataEfetivacao` não pode ser maior que `dataLancamento`
+- para cartão, `quantidadeParcelas` é obrigatória e maior que zero
+- para recorrência normal, `quantidadeRecorrencia` deve ser maior que zero e no máximo 100
 
-```txt
-valorLiquido = valorTotal - desconto + acrescimo + imposto + juros
-```
-
-## Regras de cadastro
-Ao salvar uma nova despesa o front:
-- gera o `id` localmente no mock atual
-- define `status = pendente`
-- grava `logs` com acao `CRIADA`
-
-Payload recomendado para criacao:
-
-```json
-{
-  "descricao": "Almoco com cliente",
-  "observacao": "Reuniao comercial no centro.",
-  "dataLancamento": "2026-03-10",
-  "dataVencimento": "2026-03-15",
-  "tipoDespesa": "alimentacao",
-  "tipoPagamento": "pix",
-  "recorrencia": "unica",
-  "valorTotal": 150.0,
-  "desconto": 5.0,
-  "acrescimo": 0.0,
-  "imposto": 0.0,
-  "juros": 0.0,
-  "amigosRateio": ["Ana", "Bruno"],
-  "tiposRateio": ["alimentacao"],
-  "anexoDocumento": "recibo-almoco.pdf"
-}
-```
-
-## Regras de edicao
-- o front so permite editar despesa com `status = pendente`
-- ao editar, grava log com acao `EDITADA`
-- a mesma validacao do cadastro continua valendo
-
-## Regras de visualizacao
-A visualizacao mostra:
-- todos os campos principais
-- status
-- data de efetivacao
-- logs de alteracao
-
-## Regras de efetivacao
-Campos exigidos pelo front:
-- `dataEfetivacao`
-- `tipoPagamento`
-- `valorTotal`
-
-Comportamento atual:
-- `valorLiquido` fica bloqueado
-- `valorEfetivacao` fica bloqueado
-- `valorEfetivacao` recebe o mesmo valor do `valorLiquido`
-- ao efetivar, o front define:
-  - `status = efetivada`
-  - `valorEfetivacao = valorLiquido`
-  - log com acao `EFETIVADA`
-
-Payload recomendado para efetivacao:
-
+## Efetivação
+Payload esperado na efetivação:
 ```json
 {
   "dataEfetivacao": "2026-03-15",
   "tipoPagamento": "pix",
   "valorTotal": 150.0,
+  "valorLiquido": 145.0,
   "desconto": 5.0,
   "acrescimo": 0.0,
   "imposto": 0.0,
   "juros": 0.0,
-  "anexoDocumento": "recibo-almoco.pdf"
+  "anexoDocumento": "comprovante.pdf"
 }
 ```
 
-## Regras de cancelamento
-- o front so permite cancelar despesa com `status = pendente`
-- na web, confirma via `confirm()` nativo
-- no mobile, confirma via `Alert.alert`
-- ao cancelar, o front define:
-  - `status = cancelada`
-  - log com acao `CANCELADA`
+Regras:
+- `valorEfetivacao` é sempre igual a `valorLiquido`
+- `valorLiquido` e `valorEfetivacao` ficam bloqueados
+- apenas despesas pendentes podem ser efetivadas
 
-## Regras de estorno
-- o front so permite estornar despesa com `status = efetivada`
-- ao estornar, o front define:
-  - `status = pendente`
-  - `dataEfetivacao = undefined`
-  - `valorEfetivacao = undefined`
-  - log com acao `ESTORNADA`
+## Cancelamento e estorno
+- cancelamento: apenas `pendente`
+- estorno: apenas `efetivada`
+- após estorno, o front volta o status para `pendente`
 
-## Regras de upload
-- `anexoDocumento` e tratado como seletor de arquivo
-- o front espera receber ou manter o nome do arquivo para exibicao
-
-## Regras de formatacao
-- valores devem ser enviados como numero
-- datas devem ser enviadas em ISO `yyyy-MM-dd`
-- o front aplica formatacao por idioma para exibicao
-- os campos monetarios usam mascara local no cliente
-
-## Fora do escopo atual da tela
-- rateio com percentuais
-- persistencia real dos uploads
-- auditoria de usuario que alterou cada log
+## UX de criação de série
+Se a criação gerar série recorrente ou parcelamento:
+- o front considera sucesso com a primeira ocorrência
+- a mensagem exibida é equivalente a: `Primeira ocorrência criada. As demais estão sendo geradas.`

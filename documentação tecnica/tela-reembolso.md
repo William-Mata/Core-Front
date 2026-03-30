@@ -1,7 +1,7 @@
 # Tela de Reembolso
 
 ## Objetivo
-Documentar o contrato esperado pelo front-end para a tela de reembolso.
+Documentar o contrato atual do front-end para a tela de reembolso.
 
 Arquivo principal:
 - `app/principal/financeiro/reembolso.tsx`
@@ -17,60 +17,80 @@ Arquivo principal:
 - `DELETE /api/financeiro/reembolsos/{id}`
 
 ## Estrutura esperada de Reembolso (resposta)
-Campos lidos pelo front:
-
 ```json
 {
   "id": 1,
   "descricao": "Viagem comercial - semana 2",
-  "solicitante": "João Silva",
+  "solicitante": "Joao Silva",
   "dataSolicitacao": "2026-03-18",
   "despesasVinculadas": [1, 3],
-  "status": "AGUARDANDO"
+  "valorEfetivacao": 274.9,
+  "status": "PENDENTE"
 }
 ```
 
-Observações:
-- `status` pode vir em maiúsculo/minúsculo.
-- Também são aceitas variações como `solicitanteName`.
-- `despesasVinculadas` pode vir como array de ids (`[1,2]`) ou objetos com `id`.
+Observacoes:
+- `status` pode vir em maiusculo ou minusculo.
+- `despesasVinculadas` pode vir como array de ids ou objetos com `id`.
 
-## Estrutura esperada de Despesa (para seleção)
-Campos mínimos:
-
+## Estrutura esperada de Despesa (para selecao)
 ```json
 {
   "id": 10,
-  "titulo": "Combustível viagem",
-  "valor": 185.00,
+  "titulo": "Combustivel viagem",
+  "valor": 185.0,
   "data": "2026-03-15"
 }
 ```
 
-## Payload de criação/edição enviado pelo front
-
+## Payload de criacao/edicao enviado pelo front
 ```json
 {
   "descricao": "Viagem comercial - semana 2",
-  "solicitante": "João Silva",
+  "solicitante": "Joao Silva",
   "dataSolicitacao": "2026-03-18",
   "despesasVinculadas": [1, 3],
   "valorTotal": 274.9,
-  "status": "AGUARDANDO"
+  "status": "PENDENTE"
 }
 ```
 
-## Regras de validação no front
-- `descricao` obrigatória.
-- `despesasVinculadas` deve conter pelo menos 1 item.
-- Regra de unicidade:
-  - uma despesa só pode estar vinculada a um único reembolso.
-  - ao editar, o próprio reembolso é ignorado na checagem.
-  - em conflito, o front bloqueia o save e mostra erro.
+## Efetivacao
+Na efetivacao, o front envia `PUT` com:
+```json
+{
+  "status": "EFETIVADA",
+  "valorEfetivacao": 274.9
+}
+```
 
-## Regras de cálculo
-- `valorTotal` é calculado no front somando o valor das despesas selecionadas.
-- `valorTotal` não é campo digitável.
+Regras de front:
+- apenas reembolso `pendente` pode ser efetivado
+- `valorEfetivacao` e bloqueado e acompanha o total das despesas vinculadas
+
+## Estorno
+No estorno, o front envia `PUT` com:
+```json
+{
+  "status": "PENDENTE"
+}
+```
+
+Regras de front:
+- apenas reembolso `efetivada` pode ser estornado
+- apos estorno, status volta para `pendente`
+
+## Regras de validacao no front
+- `descricao` obrigatoria
+- `despesasVinculadas` com pelo menos 1 item
+- regra de unicidade:
+  - uma despesa so pode estar vinculada a um unico reembolso
+  - em edicao, o reembolso atual e ignorado na checagem
+  - em conflito, o front bloqueia o save e exibe erro
+
+## Regras de calculo
+- `valorTotal` e calculado no front pela soma das despesas vinculadas
+- `valorTotal` nao e digitavel
 
 ## Filtro da listagem
 Campos:
@@ -80,17 +100,16 @@ Campos:
 - `dataFim`
 
 Regras:
-- `id`: correspondência parcial por texto.
-- `descricao`: busca por `descricao` e `solicitante`.
-- período: aplicado sobre `dataSolicitacao`.
+- `id`: correspondencia parcial
+- `descricao`: busca em `descricao` e `solicitante`
+- periodo: aplicado sobre `dataSolicitacao`
 
 ## Tratamento de erro
-- Erros de API são exibidos via notificação usando o parser padrão RFC 7807 do projeto.
-- Mensagens de fallback:
+- erros de API exibidos via parser RFC 7807 do projeto
+- fallback de mensagem:
   - `financeiro.reembolso.mensagens.falhaCarregar`
   - `financeiro.reembolso.mensagens.falhaSalvar`
 
-## Observação de integração
-- O front não usa mais dados mockados locais nesta tela.
-- A API precisa retornar despesas elegíveis em `GET /financeiro/despesas` para o seletor múltiplo funcionar.
-
+## Observacao de integracao
+- a tela usa apenas dados da API
+- `GET /api/financeiro/despesas` deve retornar despesas elegiveis para o seletor multiplo

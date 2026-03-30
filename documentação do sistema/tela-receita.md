@@ -1,115 +1,89 @@
 # Tela de Receita
 
-## Objetivo
-Orientar o usuario final sobre como usar a tela de receita.
-
-## O que a tela permite
+## O que a tela faz
 A tela de receita permite:
 - consultar receitas cadastradas
-- criar nova receita
+- criar receita
 - editar receita pendente
-- visualizar receita com historico
+- visualizar a receita com histórico
 - efetivar receita pendente
 - cancelar receita pendente
 - estornar receita efetivada
 
-## Como usar a lista
-A listagem possui:
-- botao para nova receita
-- filtro por identificador, descricao e periodo
-- cards com resumo da receita e acoes disponiveis
-
-## Campos principais do cadastro
-- Descricao
-- Observacao
-- Data de lancamento
+## Campos principais
+- Descrição
+- Observação
+- Data de lançamento
 - Data de vencimento
 - Tipo de receita
 - Tipo de recebimento
-- Recorrencia
-- Conta bancaria
+- Conta bancária, quando aplicável
+- Modo da recorrência
+- Recorrência
+- Quantidade de recorrências
 - Valor total
 - Desconto
-- Acrescimo
+- Acréscimo
 - Imposto
 - Juros
-- Valor liquido
+- Valor líquido
 - Rateio com amigos
-- Valores por amigo
-- Rateio por area e subarea
-- Valores por area e subarea
+- Rateio por área e subárea
 - Anexo de documento
 
-## Regras importantes da tela
-- `Descricao`, `Data de lancamento`, `Data de vencimento`, `Tipo de receita`, `Tipo de recebimento` e `Valor total` sao obrigatorios
-- `Conta bancaria` passa a ser obrigatoria quando o tipo de recebimento for `Pix` ou `Transferencia`
-- `Valor liquido` e calculado automaticamente
-- `Valor liquido` fica bloqueado para digitacao
-- campos obrigatorios nao preenchidos ficam destacados
+## Regras importantes
+- os campos obrigatórios ficam destacados quando não são preenchidos
+- o valor líquido é calculado automaticamente
+- o valor líquido fica bloqueado para digitação
+- a data de vencimento não pode ser maior que a data de lançamento
+- na efetivação, a data de efetivação não pode ser maior que a data de lançamento
+- quando o tipo de recebimento for `Pix` ou `Transferência`, a conta bancária passa a ser obrigatória
 
-## Como cadastrar uma receita
+## Regras da recorrência
+Você escolhe:
+- a frequência: única, diária, semanal, quinzenal, mensal, trimestral, semestral ou anual
+- se a série é fixa ou normal
+
+Comportamento:
+- se a frequência for `Única`, a série não pode ser fixa
+- se a série for `Normal`, a quantidade é obrigatória e deve ficar entre 1 e 100
+- se a série for `Fixa`, a quantidade não precisa ser informada
+
+## Rateios
+### Rateio com amigos
+Os amigos são carregados pela API.
+
+Você pode incluir um ou mais amigos e informar quanto foi destinado para cada um.
+
+### Rateio por área e subárea
+As áreas e subáreas são carregadas pela API.
+
+Você deve escolher uma área válida e, depois, uma subárea da própria área.
+
+## Como cadastrar
 1. Clique em `Nova receita`.
-2. Preencha os campos obrigatorios.
+2. Preencha os campos obrigatórios.
 3. Escolha o tipo de recebimento.
-4. Se o recebimento for `Pix` ou `Transferencia`, selecione a conta bancaria.
-5. Preencha os rateios, se houver.
-6. Anexe documento, se necessario.
-7. Clique em `Salvar`.
+4. Se o tipo exigir conta bancária, selecione a conta.
+5. Configure a recorrência.
+6. Preencha os rateios, se necessário.
+7. Anexe documento, se houver.
+8. Clique em `Salvar`.
 
-Resultado esperado:
-- a receita entra como `Pendente`
+## Como editar
+- a opção de editar só aparece para receita com status `Pendente`
 
-## Como editar uma receita
-A edicao so aparece para receitas com status `Pendente`.
+## Como efetivar
+- a opção de efetivar só aparece para receita com status `Pendente`
+- o valor de efetivação acompanha o valor líquido
+- se o tipo de recebimento exigir conta bancária, ela também deve ser informada na efetivação
 
-Passos:
-1. Na lista, clique em `Editar`.
-2. Ajuste os dados necessarios.
-3. Clique em `Confirmar`.
+## Como cancelar
+- a opção de cancelar só aparece para receita com status `Pendente`
 
-## Como visualizar uma receita
-1. Na lista, clique em `Visualizar`.
-2. Consulte os campos bloqueados da receita.
-3. Consulte o historico de logs ao final da tela.
-4. Revise os rateios informados.
+## Como estornar
+- a opção de estornar só aparece para receita com status `Efetivada`
+- após o estorno, a receita volta para `Pendente`
 
-## Como efetivar uma receita
-A efetivacao so aparece para receitas com status `Pendente`.
-
-Passos:
-1. Na lista, clique em `Efetivar`.
-2. Informe a data de efetivacao.
-3. Revise o tipo de recebimento.
-4. Se necessario, informe a conta bancaria.
-5. Revise os valores.
-6. Anexe documento, se necessario.
-7. Clique em `Confirmar efetivacao`.
-
-Comportamento importante:
-- `Valor efetivacao` e preenchido automaticamente com o mesmo valor do `Valor liquido`
-- `Valor liquido` e `Valor efetivacao` ficam bloqueados
-
-## Como cancelar uma receita
-O cancelamento so aparece para receitas com status `Pendente`.
-
-Passos:
-1. Na lista, clique em `Cancelar receita`.
-2. Confirme a acao.
-
-Resultado esperado:
-- a receita passa para `Cancelada`
-
-## Como estornar uma receita
-O estorno so aparece para receitas com status `Efetivada`.
-
-Passos:
-1. Na lista, clique em `Estornar`.
-
-Resultado esperado:
-- a receita volta para `Pendente`
-
-## Boas praticas para o usuario
-- escolha corretamente o tipo de recebimento antes de preencher conta bancaria
-- confira se os valores de rateio fazem sentido antes de salvar
-- use o historico para acompanhar alteracoes relevantes
-- anexe comprovantes ou documentos de suporte sempre que houver
+## Observação para séries
+Quando você cria uma receita recorrente, o sistema confirma a primeira ocorrência e informa que as demais estão sendo geradas.

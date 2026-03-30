@@ -8,75 +8,104 @@ Arquivo principal:
 
 ## Rotas do front
 - tela de login: `/auth/entrar`
+- tela de primeiro acesso: `/auth/primeiro-acesso`
 - destino apos autenticacao com sucesso: `/principal`
 
 ## Campos da tela
 - `email`: obrigatorio
-- `senha`: obrigatorio
+- `senha`: obrigatorio no modo login
 
 ## Validacoes aplicadas no front
 - `email` obrigatorio
-- `senha` obrigatoria
+- `senha` obrigatoria no login
 - `email` com validacao de formato
 
-Regex atual usada pelo front:
-
+Regex atual:
 ```txt
 /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 ```
 
-## Regra de bloqueio antes do envio
-O front nao deve chamar autenticacao quando:
-- `email` estiver vazio
-- `senha` estiver vazia
-- `email` estiver com formato invalido
-- o login estiver bloqueado por tentativas invalidas
-
-## Regra de bloqueio por tentativas
-- o front contabiliza tentativas com credenciais invalidas
+## Regras de bloqueio
+- existe bloqueio por tentativas invalidas
 - limite atual: `5`
-- ao atingir a quinta tentativa invalida:
-  - o botao de login fica bloqueado
-  - a tela informa que o login foi bloqueado
-- no estado atual, a acao `Esqueci minha senha` reinicia o bloqueio e zera as tentativas
+- apos atingir o limite, o login fica bloqueado
+- no modo recuperacao (`Esqueci minha senha`), o bloqueio e limpo
 
-## Payload esperado para autenticacao
-Endpoint esperado:
+## Fluxo de login em 2 etapas
+### 1) Tentativa normal de login
+Endpoint:
 - `POST /api/autenticacao/entrar`
 
 Payload:
-
 ```json
 {
-  "email": "usuario@empresa.com",
-  "senha": "123456"
+  "email": "admin@core.com",
+  "senha": "1234567890"
 }
 ```
 
-## Resposta esperada em caso de sucesso
-O contrato atual esperado pelo front e:
+### 2) Primeiro acesso
+Se a API retornar `400` com:
+- `detail = "No primeiro acesso, voce deve criar sua senha."`
 
+o front redireciona para `/auth/primeiro-acesso` com o email informado.
+
+Endpoint para criar senha inicial:
+- `POST /api/autenticacao/criar-primeira-senha`
+
+Payload enviado pelo front:
 ```json
 {
-  "accessToken": "string",
-  "refreshToken": "string",
-  "expiracao": "2026-03-24T12:00:00.000Z",
+  "email": "admin@core.com",
+  "senha": "NovaSenha@123",
+  "confirmarSenha": "NovaSenha@123"
+}
+```
+
+Regra:
+- apos criar senha com sucesso, o usuario deve voltar ao login e autenticar novamente.
+
+## Recuperacao de senha
+Endpoint:
+- `POST /api/autenticacao/esqueci-senha`
+
+Payload:
+```json
+{
+  "email": "usuario@empresa.com"
+}
+```
+
+Comportamento do front:
+- em caso de sucesso ou falha, exibe mensagem generica de sucesso
+- ao final da acao, limpa bloqueio de tentativas
+
+## Resposta esperada em sucesso do login
+```json
+{
+  "accessToken": "jwt",
+  "refreshToken": "jwt",
+  "expiracao": "2026-03-26T12:00:00Z",
   "usuario": {
     "id": 1,
-    "nome": "Usuario",
-    "email": "usuario@empresa.com",
-    "perfil": {
-      "id": "ADMIN",
-      "nome": "Administrador"
-    },
+    "nome": "Nome",
+    "email": "email@dominio.com",
+    "status": true,
+    "perfil": { "id": 1, "nome": "Administrador" },
     "modulosAtivos": [
       {
-        "id": "financeiro",
+        "id": "2",
         "nome": "Financeiro",
         "status": true,
-        "funcionalidades": [
-          { "id": "despesa", "nome": "Despesas", "status": true },
-          { "id": "receita", "nome": "Receitas", "status": true }
+        "telas": [
+          {
+            "id": "100",
+            "nome": "Despesas",
+            "status": true,
+            "funcionalidades": [
+              { "id": "1", "nome": "Visualizar", "status": true }
+            ]
+          }
         ]
       }
     ]
@@ -84,124 +113,25 @@ O contrato atual esperado pelo front e:
 }
 ```
 
-## Estrutura esperada de perfil
-- `perfil.id`: identificador do perfil
-- `perfil.nome`: nome exibivel do perfil
+## Regras de permissao no front
+- modulo, tela e funcionalidade respeitam `status` (`true`/`false`)
+- itens inativos nao sao exibidos no menu
+- tela de administracao nao deve aparecer para usuario comum
 
-Regras:
-- o front nao espera mais `perfil` como string
-- o front consome `perfil.id` e `perfil.nome`
+## Tratamento de erros
+Padrao principal:
+- RFC 7807 (`application/problem+json`)
 
-## Estrutura esperada de modulos
-- `modulosAtivos` deve ser uma lista de objetos
-- cada modulo deve conter:
-  - `id`
-  - `nome`
-  - `funcionalidades`
-  - `status`
-
-Cada funcionalidade deve conter:
-- `id`
-- `nome`
-- `status`
-
-Exemplo:
-
-```json
-{
-  "id": "administracao",
-  "nome": "Administracao",
-  "status": true,
-  "funcionalidades": [
-    { "id": "usuarios", "nome": "Usuarios", "status": true },
-    { "id": "permissoes", "nome": "Permissoes", "status": false }
-  ]
-}
-```
-
-## Regras do front para modulos e funcionalidades
-- o menu lateral verifica acesso por `modulo.id`
-- os subitens do menu verificam acesso por `funcionalidade.id`
-- se um modulo estiver com `status = false`, o modulo nao deve ser exibido
-- se uma funcionalidade estiver com `status = false`, o item correspondente nao deve ser exibido
-
-Mapeamento atual de funcionalidades esperadas pelo menu:
-
-### Modulo `financeiro`
-- `despesa`
-- `receita`
-- `reembolso`
-- `conta-bancaria`
-- `cartao`
-- `documentacao`
-
-### Modulo `amigos`
-- `lista`
-- `convite`
-- `documentacao`
-
-### Modulo `administracao`
-- `visao-geral`
-- `usuarios`
-- `permissoes`
-- `documentos`
-- `avisos`
-- `documentacao`
-
-## Regras de comportamento do front em caso de sucesso
-- chamar `definirSessao(usuario, accessToken)`
-- marcar sessao autenticada
-- navegar para `/principal`
-
-## Regras de comportamento durante o envio
-- botao de login entra em estado de carregamento
-- campos ficam bloqueados
-- botao fica desabilitado
-
-## Credenciais de teste do fluxo mockado atual
-No estado atual do front, o fluxo de sucesso local considera:
-
-```json
-{
-  "email": "admin@core.com",
-  "senha": "123456"
-}
-```
-
-Qualquer outra combinacao valida no formato, mas diferente dessas credenciais, e tratada como credencial invalida para fins de simulacao do login.
-
-## Recuperacao de senha
-Fluxo atual da tela:
-- existe acao `Esqueci minha senha`
-- o front exige `email` preenchido
-- o front exige `email` com formato valido
-- no estado atual, a tela exibe mensagem de sucesso simulada
-- no estado atual, a tela tambem reinicia o contador de tentativas e remove o bloqueio local
-
-Mensagem atual:
-- "Se o email estiver cadastrado, as instrucoes de recuperacao serao enviadas."
-
-### Payload sugerido para integracao futura
-Endpoint sugerido:
-- `POST /api/autenticacao/esqueci-senha`
-
-Payload:
-
-```json
-{
-  "email": "usuario@empresa.com"
-}
-```
+Regra do front:
+- se existir `detail`, exibir `detail`
+- para `401` e `403`, registrar falha de tentativa
 
 ## Renovacao de token
-Ja existe suporte no cliente HTTP:
-- endpoint esperado: `POST /autenticacao/renovar`
-- arquivo: `src/servicos/api.ts`
-
-Payload esperado:
-
+Cliente HTTP possui suporte de renovacao.
+- endpoint esperado: `POST /api/autenticacao/renovar`
+- payload:
 ```json
 {
-  "refreshToken": "string"
+  "refreshToken": "jwt"
 }
 ```

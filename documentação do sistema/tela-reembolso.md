@@ -1,46 +1,60 @@
 # Tela de Reembolso
 
 ## Para que serve
-A tela de Reembolso permite registrar pedidos de reembolso vinculando despesas já cadastradas no sistema.
+A tela de Reembolso permite registrar pedidos de reembolso vinculando despesas ja cadastradas no sistema.
 
-## O que você pode fazer
-- Consultar reembolsos cadastrados.
-- Filtrar por ID, descrição e período.
-- Criar novo reembolso.
-- Editar reembolso existente.
-- Remover reembolso.
+## O que voce pode fazer
+- consultar reembolsos cadastrados
+- filtrar por ID, descricao e periodo
+- criar novo reembolso
+- editar reembolso pendente
+- efetivar reembolso pendente
+- estornar reembolso efetivado
+- remover reembolso
 
 ## Campos do reembolso
-- `Descrição` (obrigatório)
+- `Descricao` (obrigatorio)
 - `Solicitante`
-- `Data da Solicitação`
-- `Despesas Vinculadas` (obrigatório, seleção múltipla)
+- `Data da Solicitacao`
+- `Despesas Vinculadas` (obrigatorio, selecao multipla)
 - `Valor Total` (calculado automaticamente)
+- `Valor Efetivacao` (bloqueado na efetivacao)
 
 ## Regras importantes
-- Não é possível salvar sem descrição.
-- Não é possível salvar sem pelo menos 1 despesa vinculada.
-- Uma despesa só pode estar vinculada a **um único reembolso**.
-- Se tentar vincular uma despesa já usada em outro reembolso, o sistema bloqueia e informa o conflito.
+- nao e possivel salvar sem descricao
+- nao e possivel salvar sem pelo menos 1 despesa vinculada
+- uma despesa so pode estar vinculada a um unico reembolso
+- se tentar vincular uma despesa ja usada em outro reembolso, o sistema bloqueia e informa o conflito
+- apenas reembolso `Pendente` pode ser editado
+- apenas reembolso `Pendente` pode ser efetivado
+- apenas reembolso `Efetivada` pode ser estornado
 
 ## Como cadastrar um reembolso
 1. Clique em `+ Novo Reembolso`.
-2. Preencha a descrição.
+2. Preencha a descricao.
 3. Informe o solicitante.
-4. Defina a data da solicitação.
+4. Defina a data da solicitacao.
 5. Selecione as despesas vinculadas.
 6. Confira o valor total calculado.
 7. Clique em `Salvar`.
 
 ## Como editar
 1. Na lista, clique em `Editar`.
-2. Altere os campos necessários.
+2. Altere os campos necessarios.
 3. Clique em `Confirmar`.
+
+## Como efetivar
+1. Na lista, clique em `Efetivar`.
+2. Revise data, valor total e valor de efetivacao.
+3. Clique em `Confirmar efetivacao`.
+
+## Como estornar
+1. Na lista, clique em `Estornar`.
+2. O status volta para `Pendente`.
 
 ## Como remover
 1. Na lista, clique em `Remover`.
-2. O registro será excluído.
+2. O registro sera excluido.
 
 ## Dica de uso
-Use os filtros para localizar rapidamente reembolsos antigos por período ou por descrição do solicitante.
-
+Use os filtros para localizar rapidamente reembolsos por periodo, descricao ou solicitante.

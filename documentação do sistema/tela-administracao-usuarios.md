@@ -1,70 +1,49 @@
 # Tela de Administracao - Usuarios
 
 ## Objetivo
-Orientar o usuario administrador no uso da tela de gerenciamento de usuarios.
+Orientar o administrador no gerenciamento de usuarios e permissoes.
 
 ## Onde acessar
 - Menu lateral -> `Administracao` -> `Usuarios`
-- Rota interna: `/principal/administracao/usuario`
+- Rota: `/principal/administracao/usuario`
 
-## O que voce pode fazer nesta tela
+## O que e possivel fazer
 - visualizar usuarios cadastrados
-- filtrar usuarios
-- criar novo usuario
-- editar usuario existente
-- remover usuario existente
+- filtrar por id, nome/email e periodo
+- criar usuario
+- editar usuario
+- excluir usuario
+- ativar/inativar usuario
+- configurar acessos por modulo, tela e funcionalidade
 
-## Lista de usuarios
-Na lista, cada item mostra:
-- nome
-- email
-- data de criacao
-- perfil (`USER` ou `ADMIN`)
+## Cadastro e edicao
+Campos:
+- Nome
+- E-mail
+- Perfil (`USER` ou `ADMIN`)
+- Status (`Ativo` ou `Inativo`)
 
-## Filtros disponiveis
-- filtro por id
-- filtro por nome/email (descricao)
-- filtro por periodo (data inicio e data fim)
-
-## Como criar um usuario
-1. Clique em `+ Criar Novo Usuario`.
-2. Preencha:
-   - Nome completo
-   - E-mail
-   - Perfil de acesso
-3. Clique em `Salvar`.
-
-## Como editar um usuario
-1. Clique no usuario na lista.
-2. Altere os campos desejados.
-3. Clique em `Salvar`.
-
-## Como remover um usuario
-1. Abra o usuario em modo de edicao.
-2. Clique em `Deletar`.
-3. O usuario e removido da listagem.
-
-## Regras importantes
+Regras:
 - nome e email sao obrigatorios
-- email deve estar em formato valido
-- perfil `ADMIN` exibe aviso de privilegios elevados
-- durante salvamento, os botoes podem ficar bloqueados
+- email precisa estar em formato valido
 
-## Mensagens que podem aparecer
-- nome e email obrigatorios
+## Permissoes por modulo
+Na mesma tela, o administrador configura:
+- status do modulo
+- status das telas do modulo
+- status das funcionalidades de cada tela
+
+Comportamento:
+- e possivel expandir modulo e tela para configurar os niveis internos
+- desativar modulo ou tela impacta os itens filhos
+
+## Resultado esperado
+- usuario salvo com dados e permissoes atualizados
+- o menu do usuario passa a exibir apenas o que estiver ativo
+- usuarios comuns nao devem ver telas administrativas quando inativas
+
+## Mensagens comuns
+- campos obrigatorios
 - email invalido
-- usuario criado com sucesso
-- usuario atualizado com sucesso
-- usuario deletado com sucesso
-- erro de operacao retornado pela API
-
-## Boas praticas para administradores
-- confira o email antes de salvar
-- use perfil `ADMIN` apenas quando realmente necessario
-- revise os filtros para localizar usuarios rapidamente
-- mantenha os cadastros atualizados para evitar acessos indevidos
-
-## Observacao
-- esta tela e destinada a usuarios com permissao administrativa
-- para sair do formulario sem salvar, use o botao `Cancelar` ou feche a tela
-
+- sucesso ao criar/atualizar/excluir
+- erro retornado pela API

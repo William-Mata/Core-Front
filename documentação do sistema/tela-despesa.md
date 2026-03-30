@@ -1,108 +1,94 @@
 # Tela de Despesa
 
-## Objetivo
-Orientar o usuario final sobre como usar a tela de despesa.
-
-## O que a tela permite
+## O que a tela faz
 A tela de despesa permite:
 - consultar despesas cadastradas
-- criar nova despesa
+- criar despesa
 - editar despesa pendente
-- visualizar despesa com historico
+- visualizar a despesa com histórico
 - efetivar despesa pendente
 - cancelar despesa pendente
 - estornar despesa efetivada
 
-## Como usar a lista
-A listagem possui:
-- botao para nova despesa
-- filtro por identificador, descricao e periodo
-- cards com resumo da despesa e acoes disponiveis
-
-## Campos principais do cadastro
-- Descricao
-- Observacao
-- Data de lancamento
+## Campos principais
+- Descrição
+- Observação
+- Data de lançamento
 - Data de vencimento
 - Tipo de despesa
 - Tipo de pagamento
-- Recorrencia
+- Modo da recorrência
+- Recorrência
+- Quantidade de recorrências
+- Quantidade de parcelas, quando o pagamento for com cartão
 - Valor total
 - Desconto
-- Acrescimo
+- Acréscimo
 - Imposto
 - Juros
-- Valor liquido
+- Valor líquido
 - Rateio com amigos
-- Rateio por tipo de despesa
+- Rateio por área e subárea
 - Anexo de documento
 
-## Regras importantes da tela
-- `Descricao`, `Data de lancamento`, `Data de vencimento`, `Tipo de despesa`, `Tipo de pagamento` e `Valor total` sao obrigatorios
-- `Valor liquido` e calculado automaticamente
-- `Valor liquido` fica bloqueado para digitacao
-- campos obrigatorios nao preenchidos ficam destacados
+## Regras importantes
+- os campos obrigatórios ficam destacados quando não são preenchidos
+- o valor líquido é calculado automaticamente
+- o valor líquido fica bloqueado para digitação
+- a data de vencimento não pode ser maior que a data de lançamento
+- na efetivação, a data de efetivação não pode ser maior que a data de lançamento
 
-## Como cadastrar uma despesa
+## Regras da recorrência
+### Despesa comum
+Você escolhe:
+- a frequência: única, diária, semanal, quinzenal, mensal, trimestral, semestral ou anual
+- se a série é fixa ou normal
+
+Comportamento:
+- se a frequência for `Única`, a série não pode ser fixa
+- se a série for `Normal`, a quantidade é obrigatória e deve ficar entre 1 e 100
+- se a série for `Fixa`, a quantidade não precisa ser informada
+
+### Despesa com cartão
+Quando o tipo de pagamento for cartão:
+- a tela troca recorrência por `Quantidade de parcelas`
+- a recorrência é tratada como mensal
+- a série fixa não se aplica
+
+## Rateios
+### Rateio com amigos
+Os amigos são carregados pela API.
+
+Você pode incluir um ou mais amigos e informar quanto cabe para cada um.
+
+### Rateio por área e subárea
+As áreas e subáreas são carregadas pela API.
+
+Você deve escolher uma área válida e, depois, uma subárea da própria área.
+
+## Como cadastrar
 1. Clique em `Nova despesa`.
-2. Preencha os campos obrigatorios.
-3. Informe valores adicionais, se existirem.
-4. Vincule amigos ou tipos de rateio, se necessario.
-5. Anexe documento, se houver.
-6. Clique em `Salvar`.
+2. Preencha os campos obrigatórios.
+3. Escolha o tipo de pagamento.
+4. Se não for cartão, configure a recorrência.
+5. Se for cartão, informe a quantidade de parcelas.
+6. Preencha os rateios, se necessário.
+7. Anexe documento, se houver.
+8. Clique em `Salvar`.
 
-Resultado esperado:
-- a despesa entra como `Pendente`
+## Como editar
+- a opção de editar só aparece para despesa com status `Pendente`
 
-## Como editar uma despesa
-A edicao so aparece para despesas com status `Pendente`.
+## Como efetivar
+- a opção de efetivar só aparece para despesa com status `Pendente`
+- o valor de efetivação acompanha o valor líquido
 
-Passos:
-1. Na lista, clique em `Editar`.
-2. Ajuste os dados necessarios.
-3. Clique em `Confirmar`.
+## Como cancelar
+- a opção de cancelar só aparece para despesa com status `Pendente`
 
-## Como visualizar uma despesa
-1. Na lista, clique em `Visualizar`.
-2. Consulte os campos bloqueados da despesa.
-3. Consulte o historico de logs exibido ao final da tela.
+## Como estornar
+- a opção de estornar só aparece para despesa com status `Efetivada`
+- após o estorno, a despesa volta para `Pendente`
 
-## Como efetivar uma despesa
-A efetivacao so aparece para despesas com status `Pendente`.
-
-Passos:
-1. Na lista, clique em `Efetivar`.
-2. Informe a data de efetivacao.
-3. Revise o tipo de pagamento.
-4. Revise os valores.
-5. Anexe documento, se necessario.
-6. Clique em `Confirmar efetivacao`.
-
-Comportamento importante:
-- `Valor efetivacao` e preenchido automaticamente com o mesmo valor do `Valor liquido`
-- `Valor liquido` e `Valor efetivacao` ficam bloqueados
-
-## Como cancelar uma despesa
-O cancelamento so aparece para despesas com status `Pendente`.
-
-Passos:
-1. Na lista, clique em `Cancelar despesa`.
-2. Confirme a acao.
-
-Resultado esperado:
-- a despesa passa para `Cancelada`
-
-## Como estornar uma despesa
-O estorno so aparece para despesas com status `Efetivada`.
-
-Passos:
-1. Na lista, clique em `Estornar`.
-
-Resultado esperado:
-- a despesa volta para `Pendente`
-
-## Boas praticas para o usuario
-- revise o valor total antes de salvar
-- use observacao para registrar contexto relevante
-- anexe comprovantes sempre que houver documento de suporte
-- confira o status antes de procurar uma acao, porque a tela oculta acoes invalidas
+## Observação para séries
+Quando você cria uma despesa recorrente ou parcelada, o sistema confirma a primeira ocorrência e informa que as demais estão sendo geradas.
