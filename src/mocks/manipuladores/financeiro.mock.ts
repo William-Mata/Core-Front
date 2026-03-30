@@ -132,7 +132,7 @@ export const manipuladorFinanceiro = [
         despesa_total: 145.40,
         saldo: 2854.60,
         categorias_despesas: {
-          Alimentação: 45.50,
+          Alimentacao: 45.50,
           Utilidades: 99.90,
         },
         categorias_receitas: {
@@ -156,7 +156,7 @@ export const manipuladorFinanceiro = [
           status: 'AGUARDANDO',
           solicitanteId: 1,
           solicitanteName: 'João Silva',
-          dataSolicitacao: '2024-03-15',
+          dataLancamento: '2024-03-15',
           despesasVinculadas: [
             { id: 1, titulo: 'Almoço', valor: 45.50 },
             { id: 2, titulo: 'Uber', valor: 35.00 },
@@ -171,7 +171,7 @@ export const manipuladorFinanceiro = [
           status: 'APROVADO',
           solicitanteId: 2,
           solicitanteName: 'Maria Santos',
-          dataSolicitacao: '2024-03-10',
+          dataLancamento: '2024-03-10',
           responsavelAprovacaoId: 5,
           responsavelAprovacaoName: 'Admin User',
           dataAprovacao: '2024-03-12',
@@ -218,7 +218,7 @@ export const manipuladorFinanceiro = [
         status: 'AGUARDANDO',
         solicitanteId: 1,
         solicitanteName: 'João Silva',
-        dataSolicitacao: '2024-03-15',
+        dataLancamento: '2024-03-15',
         despesasVinculadas: [
           { id: 1, titulo: 'Despesa 1', valor: 125.00 },
           { id: 2, titulo: 'Despesa 2', valor: 125.00 },

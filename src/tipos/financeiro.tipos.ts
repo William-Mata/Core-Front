@@ -54,7 +54,7 @@ export interface InterfaceReembolso {
   solicitanteName: string;
   responsavelAprovacaoId?: number;
   responsavelAprovacaoName?: string;
-  dataSolicitacao: string;
+  dataLancamento: string;
   dataAprovacao?: string;
   dataPagamento?: string;
   motivoRejeicao?: string;

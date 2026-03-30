@@ -1,4 +1,4 @@
-import { listarAmigosRateioApi, listarAreasSubareasRateioApi } from '../../src/servicos/financeiro';
+﻿import { listarAmigosRateioApi, listarAreasSubareasRateioApi } from '../../src/servicos/financeiro';
 
 const mockGet = jest.fn();
 
@@ -74,6 +74,32 @@ describe('servico financeiro - opcoes de rateio', () => {
         nome: 'Salario',
         tipo: 'receita',
         subAreas: [{ id: 20, nome: 'Holerite' }],
+      },
+    ]);
+  });
+
+  it('deve aceitar retorno com subareas em minusculo e ids alternativos', async () => {
+    mockGet.mockResolvedValueOnce({
+      data: {
+        dados: [
+          {
+            areaId: 5,
+            area: 'Lazer',
+            tipo: 'despesa',
+            subareas: [{ subAreaId: 51, subarea: 'Cinema' }],
+          },
+        ],
+      },
+    });
+
+    const resultado = await listarAreasSubareasRateioApi();
+
+    expect(resultado).toEqual([
+      {
+        id: 5,
+        nome: 'Lazer',
+        tipo: 'despesa',
+        subAreas: [{ id: 51, nome: 'Cinema' }],
       },
     ]);
   });
