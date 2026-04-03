@@ -41,19 +41,33 @@ interface OpcoesRequisicao {
   dataFim?: string;
   id?: string;
   descricao?: string;
+  competencia?: string;
   competenciaMes?: number;
   competenciaAno?: number;
+  VerificarUltimaRecorrencia?: boolean;
 }
 
-function montarConfigConsulta(opcoes?: OpcoesRequisicao): { signal?: AbortSignal; params?: Record<string, string | number> } {
-  const params: Record<string, string | number> = {};
+function montarCompetencia(opcoes?: OpcoesRequisicao): string | undefined {
+  if (!opcoes) return undefined;
+  if (opcoes.competencia) return opcoes.competencia;
+  if (opcoes.competenciaAno && opcoes.competenciaMes) {
+    return `${String(opcoes.competenciaAno)}-${String(opcoes.competenciaMes).padStart(2, '0')}`;
+  }
+  return undefined;
+}
+
+function montarConfigConsulta(opcoes?: OpcoesRequisicao): { signal?: AbortSignal; params?: Record<string, string | number | boolean> } {
+  const params: Record<string, string | number | boolean> = {};
+  const competencia = montarCompetencia(opcoes);
 
   if (opcoes?.dataInicio) params.dataInicio = opcoes.dataInicio;
   if (opcoes?.dataFim) params.dataFim = opcoes.dataFim;
   if (opcoes?.id) params.id = opcoes.id;
   if (opcoes?.descricao) params.descricao = opcoes.descricao;
-  if (opcoes?.competenciaMes) params.competenciaMes = opcoes.competenciaMes;
-  if (opcoes?.competenciaAno) params.competenciaAno = opcoes.competenciaAno;
+  if (competencia) params.competencia = competencia;
+  if (opcoes?.VerificarUltimaRecorrencia !== undefined) {
+    params.VerificarUltimaRecorrencia = opcoes.VerificarUltimaRecorrencia;
+  }
 
   return {
     signal: opcoes?.signal,
@@ -136,6 +150,11 @@ export async function listarDespesasApi(opcoes?: OpcoesRequisicao): Promise<Regi
   return extrairDados(data);
 }
 
+export async function obterDespesaApi(id: number): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.get<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/despesas/' + id);
+  return extrairDados(data);
+}
+
 export async function criarDespesaApi(payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
   const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/despesas', payload);
   return extrairDados(data);
@@ -146,8 +165,18 @@ export async function atualizarDespesaApi(id: number, payload: Record<string, un
   return extrairDados(data);
 }
 
+export async function cancelarDespesaApi(id: number, payload: Record<string, unknown> = {}): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/despesas/' + id + '/cancelar', payload);
+  return extrairDados(data);
+}
+
 export async function listarReceitasApi(opcoes?: OpcoesRequisicao): Promise<RegistroFinanceiroApi[]> {
   const { data } = await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>('/financeiro/receitas', montarConfigConsulta(opcoes));
+  return extrairDados(data);
+}
+
+export async function obterReceitaApi(id: number): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.get<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/receitas/' + id);
   return extrairDados(data);
 }
 
@@ -161,8 +190,18 @@ export async function atualizarReceitaApi(id: number, payload: Record<string, un
   return extrairDados(data);
 }
 
+export async function cancelarReceitaApi(id: number, payload: Record<string, unknown> = {}): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/receitas/' + id + '/cancelar', payload);
+  return extrairDados(data);
+}
+
 export async function listarReembolsosApi(opcoes?: OpcoesRequisicao): Promise<RegistroFinanceiroApi[]> {
   const { data } = await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>('/financeiro/reembolsos', montarConfigConsulta(opcoes));
+  return extrairDados(data);
+}
+
+export async function obterReembolsoApi(id: number): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.get<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/reembolsos/' + id);
   return extrairDados(data);
 }
 
@@ -244,4 +283,116 @@ export async function aprovarReceitaPendenteApi(id: number): Promise<void> {
 
 export async function rejeitarReceitaPendenteApi(id: number): Promise<void> {
   await api.post('/financeiro/aprovacoes/receitas/' + id + '/rejeitar');
+}
+
+
+export interface ContaBancariaOpcaoApi {
+  id: number;
+  nome: string;
+}
+
+export interface CartaoOpcaoApi {
+  id: number;
+  nome: string;
+  tipo?: string;
+}
+
+export async function listarContasBancariasDetalheApi(opcoes?: OpcoesRequisicao): Promise<RegistroFinanceiroApi[]> {
+  const { data } = await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>('/financeiro/contas-bancarias', montarConfigConsulta(opcoes));
+  return extrairLista<RegistroFinanceiroApi>(extrairDados(data));
+}
+
+export async function listarContasBancariasApi(opcoes?: OpcoesRequisicao): Promise<ContaBancariaOpcaoApi[]> {
+  const lista = await obterListaComFallback<Record<string, unknown>>(['/financeiro/contas-bancarias'], opcoes);
+  return lista
+    .map((item, indice) => ({ id: Number(item.id ?? indice + 1), nome: normalizarTexto(item.nome ?? item.descricao ?? item.conta) }))
+    .filter((item) => item.id > 0 && Boolean(item.nome));
+}
+
+export async function obterContaBancariaApi(id: number, opcoes?: OpcoesRequisicao): Promise<RegistroFinanceiroApi> {
+  const config = montarConfigConsulta(opcoes);
+  const temConfig = Boolean(config.signal) || Boolean(config.params);
+  const { data } = temConfig
+    ? await api.get<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/contas-bancarias/' + id, config)
+    : await api.get<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/contas-bancarias/' + id);
+  return extrairDados(data);
+}
+
+export async function criarContaBancariaApi(payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/contas-bancarias', payload);
+  return extrairDados(data);
+}
+
+export async function atualizarContaBancariaApi(id: number, payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/contas-bancarias/' + id, payload);
+  return extrairDados(data);
+}
+
+export async function inativarContaBancariaApi(id: number, payload: Record<string, unknown> = {}): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/contas-bancarias/' + id + '/inativar', payload);
+  return extrairDados(data);
+}
+
+export async function ativarContaBancariaApi(id: number): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/contas-bancarias/' + id + '/ativar');
+  return extrairDados(data);
+}
+
+export async function listarLancamentosContaBancariaApi(id: number, opcoes?: OpcoesRequisicao): Promise<RegistroFinanceiroApi[]> {
+  const config = montarConfigConsulta(opcoes);
+  const temConfig = Boolean(config.signal) || Boolean(config.params);
+  const { data } = temConfig
+    ? await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>('/financeiro/contas-bancarias/' + id + '/lancamentos', config)
+    : await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>('/financeiro/contas-bancarias/' + id + '/lancamentos');
+  return extrairLista<RegistroFinanceiroApi>(extrairDados(data));
+}
+
+export async function listarCartoesDetalheApi(opcoes?: OpcoesRequisicao): Promise<RegistroFinanceiroApi[]> {
+  const { data } = await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>('/financeiro/cartoes', montarConfigConsulta(opcoes));
+  return extrairLista<RegistroFinanceiroApi>(extrairDados(data));
+}
+
+export async function listarCartoesApi(opcoes?: OpcoesRequisicao): Promise<CartaoOpcaoApi[]> {
+  const lista = await obterListaComFallback<Record<string, unknown>>(['/financeiro/cartoes'], opcoes);
+  return lista
+    .map((item, indice) => ({ id: Number(item.id ?? indice + 1), nome: normalizarTexto(item.nome ?? item.descricao ?? item.cartao), tipo: normalizarTexto(item.tipo) || undefined }))
+    .filter((item) => item.id > 0 && Boolean(item.nome));
+}
+
+export async function obterCartaoApi(id: number, opcoes?: OpcoesRequisicao): Promise<RegistroFinanceiroApi> {
+  const config = montarConfigConsulta(opcoes);
+  const temConfig = Boolean(config.signal) || Boolean(config.params);
+  const { data } = temConfig
+    ? await api.get<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/cartoes/' + id, config)
+    : await api.get<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/cartoes/' + id);
+  return extrairDados(data);
+}
+
+export async function criarCartaoApi(payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/cartoes', payload);
+  return extrairDados(data);
+}
+
+export async function atualizarCartaoApi(id: number, payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/cartoes/' + id, payload);
+  return extrairDados(data);
+}
+
+export async function inativarCartaoApi(id: number, payload: Record<string, unknown> = {}): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/cartoes/' + id + '/inativar', payload);
+  return extrairDados(data);
+}
+
+export async function ativarCartaoApi(id: number): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/cartoes/' + id + '/ativar');
+  return extrairDados(data);
+}
+
+export async function listarLancamentosCartaoApi(id: number, opcoes?: OpcoesRequisicao): Promise<RegistroFinanceiroApi[]> {
+  const config = montarConfigConsulta(opcoes);
+  const temConfig = Boolean(config.signal) || Boolean(config.params);
+  const { data } = temConfig
+    ? await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>('/financeiro/cartoes/' + id + '/lancamentos', config)
+    : await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>('/financeiro/cartoes/' + id + '/lancamentos');
+  return extrairLista<RegistroFinanceiroApi>(extrairDados(data));
 }

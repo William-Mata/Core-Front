@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
@@ -7,6 +7,16 @@ import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
+import {
+  obterContaBancariaApi,
+  listarContasBancariasDetalheApi,
+  listarLancamentosContaBancariaApi,
+  criarContaBancariaApi,
+  atualizarContaBancariaApi,
+  inativarContaBancariaApi,
+  ativarContaBancariaApi,
+  type RegistroFinanceiroApi,
+} from '../../../src/servicos/financeiro';
 import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
@@ -25,10 +35,16 @@ interface LogConta {
 
 interface MovimentoExtrato {
   id: number;
+  transacaoId?: number;
   data: string;
+  tipoTransacao: 'despesa' | 'receita' | 'reembolso';
+  tipoOperacao: 'efetivacao' | 'estorno';
   descricao: string;
+  tipoPagamento?: string;
   tipo: 'credito' | 'debito';
+  valorAntesTransacao?: number;
   valor: number;
+  valorDepoisTransacao?: number;
 }
 
 interface ContaBancaria {
@@ -90,26 +106,83 @@ function criarFormularioVazio(locale: string): ContaForm {
   };
 }
 
+function normalizarStatusConta(valor: unknown): StatusConta {
+  const status = String(valor ?? '').trim().toLowerCase();
+  return status.includes('inativ') ? 'inativa' : 'ativa';
+}
+
+function mapearContaApi(item: RegistroFinanceiroApi, atual?: ContaBancaria): ContaBancaria {
+  const logs = Array.isArray(item.logs)
+    ? (item.logs as LogConta[])
+    : (atual?.logs ?? [{ id: 1, data: new Date().toISOString().slice(0, 10), acao: 'IMPORTADA', descricao: 'Registro carregado da API.' }]);
+  const extrato = Array.isArray(item.extrato)
+    ? (item.extrato as MovimentoExtrato[])
+    : (atual?.extrato ?? []);
+
+  return {
+    id: Number(item.id ?? atual?.id ?? 0),
+    descricao: String(item.descricao ?? atual?.descricao ?? ''),
+    banco: String(item.banco ?? atual?.banco ?? ''),
+    agencia: String(item.agencia ?? atual?.agencia ?? ''),
+    numero: String(item.numero ?? atual?.numero ?? ''),
+    saldoInicial: Number(item.saldoInicial ?? atual?.saldoInicial ?? 0),
+    saldoAtual: Number(item.saldoAtual ?? atual?.saldoAtual ?? item.saldoInicial ?? 0),
+    dataAbertura: String(item.dataAbertura ?? item.dataLancamento ?? atual?.dataAbertura ?? ''),
+    status: normalizarStatusConta(item.status ?? atual?.status),
+    extrato,
+    logs,
+  };
+}
+
+function formatarCompetenciaParaApi(mes: string): string {
+  const [ano = '', numeroMes = ''] = mes.split('-');
+  if (!ano || !numeroMes) return mes;
+  return `${numeroMes}/${ano}`;
+}
+
+function mapearMovimentoExtratoApi(item: RegistroFinanceiroApi, indice: number): MovimentoExtrato {
+  const tipoTransacao = String(item.tipoTransacao ?? '').toLowerCase();
+  const tipoOperacao = String(item.tipoOperacao ?? '').toLowerCase();
+  const tipo: MovimentoExtrato['tipo'] = tipoTransacao.includes('despesa') ? 'debito' : 'credito';
+  return {
+    id: Number(item.id ?? item.transacaoId ?? indice + 1),
+    transacaoId: item.transacaoId ? Number(item.transacaoId) : undefined,
+    data: String(item.dataTransacao ?? item.data ?? '').slice(0, 10),
+    tipoTransacao: tipoTransacao === 'receita' || tipoTransacao === 'reembolso' ? (tipoTransacao as 'receita' | 'reembolso') : 'despesa',
+    tipoOperacao: tipoOperacao === 'estorno' ? 'estorno' : 'efetivacao',
+    descricao: String(item.descricao ?? ''),
+    tipoPagamento: item.tipoPagamento ? String(item.tipoPagamento) : undefined,
+    tipo,
+    valorAntesTransacao: item.valorAntesTransacao === null || item.valorAntesTransacao === undefined ? undefined : Number(item.valorAntesTransacao),
+    valor: Math.abs(Number(item.valorTransacao ?? item.valor ?? 0)),
+    valorDepoisTransacao: item.valorDepoisTransacao === null || item.valorDepoisTransacao === undefined ? undefined : Number(item.valorDepoisTransacao),
+  };
+}
+
 export default function TelaContaBancaria() {
   const router = useRouter();
   const { t } = usarTraducao();
   const locale = obterLocaleAtivo();
 
   const [filtro, setFiltro] = useState<FiltroPadraoValor>({ id: '', descricao: '', dataInicio: '', dataFim: '' });
+  const [filtroAplicado, setFiltroAplicado] = useState<FiltroPadraoValor>({ id: '', descricao: '', dataInicio: '', dataFim: '' });
+  const [versaoConsulta, setVersaoConsulta] = useState(0);
   const [modoTela, setModoTela] = useState<ModoTela>('lista');
   const [contaSelecionadaId, setContaSelecionadaId] = useState<number | null>(null);
   const [contaExtratoAberta, setContaExtratoAberta] = useState<number | null>(null);
+  const [mesPorConta, setMesPorConta] = useState<Record<number, string>>({});
   const [contas, setContas] = useState<ContaBancaria[]>([]);
   const [formulario, setFormulario] = useState<ContaForm>(() => criarFormularioVazio(locale));
   const [camposInvalidos, setCamposInvalidos] = useState<Record<string, boolean>>({});
+  const [carregando, setCarregando] = useState(false);
 
   const contaSelecionada = contas.find((conta) => conta.id === contaSelecionadaId) ?? null;
 
   const contasFiltradas = useMemo(
     () =>
       contas.filter((conta) => {
-        const bateId = !filtro.id || String(conta.id).includes(filtro.id);
-        const termo = filtro.descricao.trim().toLowerCase();
+        const bateId = !filtroAplicado.id || String(conta.id).includes(filtroAplicado.id);
+        const termo = filtroAplicado.descricao.trim().toLowerCase();
         const bancoTraduzido = conta.banco.toLowerCase();
         const statusTraduzido = t(`financeiro.contaBancaria.status.${conta.status}`).toLowerCase();
         const bateDescricao =
@@ -118,11 +191,40 @@ export default function TelaContaBancaria() {
           bancoTraduzido.includes(termo) ||
           conta.numero.toLowerCase().includes(termo) ||
           statusTraduzido.includes(termo);
-        const bateData = estaDentroIntervalo(conta.dataAbertura, filtro.dataInicio, filtro.dataFim);
+        const bateData = estaDentroIntervalo(conta.dataAbertura, filtroAplicado.dataInicio, filtroAplicado.dataFim);
         return bateId && bateDescricao && bateData;
       }),
-    [contas, filtro, t],
+    [contas, filtroAplicado, t, versaoConsulta],
   );
+
+  const consultarFiltros = () => {
+    setFiltroAplicado({ ...filtro });
+    setVersaoConsulta((atual) => atual + 1);
+  };
+
+  const carregarContasApi = async (signal?: AbortSignal) => {
+    setCarregando(true);
+    try {
+      const dados = await listarContasBancariasDetalheApi({
+        signal,
+        id: filtroAplicado.id.trim() || undefined,
+        descricao: filtroAplicado.descricao.trim() || undefined,
+        dataInicio: filtroAplicado.dataInicio || undefined,
+        dataFim: filtroAplicado.dataFim || undefined,
+      });
+      setContas(dados.map((item) => mapearContaApi(item)));
+    } catch {
+      notificarErro(t('comum.erro'));
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void carregarContasApi(controller.signal);
+    return () => controller.abort();
+  }, [filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, versaoConsulta]);
 
   const atualizarSaldoInicial = (valor: string) => {
     setCamposInvalidos((atual) => ({ ...atual, saldoInicial: false }));
@@ -144,6 +246,51 @@ export default function TelaContaBancaria() {
     });
   };
 
+  const carregarContaPorId = async (id: number) => {
+    const contaAtual = contas.find((item) => item.id === id);
+    try {
+      const detalhe = await obterContaBancariaApi(id);
+      const contaCompleta = mapearContaApi(detalhe, contaAtual);
+      setContas((atual) => {
+        const indice = atual.findIndex((item) => item.id === contaCompleta.id);
+        if (indice < 0) return [...atual, contaCompleta];
+        const proximo = [...atual];
+        proximo[indice] = contaCompleta;
+        return proximo;
+      });
+      setContaSelecionadaId(contaCompleta.id);
+      preencherFormulario(contaCompleta);
+      return contaCompleta;
+    } catch {
+      if (contaAtual) {
+        setContaSelecionadaId(contaAtual.id);
+        preencherFormulario(contaAtual);
+        return contaAtual;
+      }
+      notificarErro(t('comum.erro'));
+      return null;
+    }
+  };
+
+  const carregarLancamentosConta = async (id: number, mes: string) => {
+    try {
+      const competencia = formatarCompetenciaParaApi(mes);
+      const lancamentos = await listarLancamentosContaBancariaApi(id, { competencia });
+      setContas((atual) =>
+        atual.map((conta) =>
+          conta.id === id
+            ? {
+                ...conta,
+                extrato: lancamentos.map((item, indice) => mapearMovimentoExtratoApi(item, indice)),
+              }
+            : conta,
+        ),
+      );
+    } catch {
+      notificarErro(t('comum.erro'));
+    }
+  };
+
   const resetarTela = () => {
     setModoTela('lista');
     setContaSelecionadaId(null);
@@ -157,15 +304,13 @@ export default function TelaContaBancaria() {
   };
 
   const abrirEdicao = (conta: ContaBancaria) => {
-    setContaSelecionadaId(conta.id);
-    preencherFormulario(conta);
     setModoTela('edicao');
+    void carregarContaPorId(conta.id);
   };
 
   const abrirVisualizacao = (conta: ContaBancaria) => {
-    setContaSelecionadaId(conta.id);
-    preencherFormulario(conta);
     setModoTela('visualizacao');
+    void carregarContaPorId(conta.id);
   };
 
   const validarFormulario = () => {
@@ -194,52 +339,39 @@ export default function TelaContaBancaria() {
     };
   };
 
-  const salvar = () => {
+  const salvar = async () => {
     const base = validarFormulario();
     if (!base) return;
 
-    if (modoTela === 'novo') {
-      const novoId = contas.length > 0 ? Math.max(...contas.map((conta) => conta.id)) + 1 : 1;
-      setContas((atual) => [
-        ...atual,
-        {
-          id: novoId,
-          descricao: formulario.descricao,
-          banco: formulario.banco,
-          agencia: formulario.agencia,
-          numero: formulario.numero,
-          saldoInicial: base.saldoInicial,
-          saldoAtual: base.saldoAtual,
-          dataAbertura: formulario.dataAbertura,
-          status: 'ativa',
-          extrato: [],
-          logs: [{ id: 1, data: new Date().toISOString().split('T')[0], acao: 'CRIADA', descricao: t('financeiro.contaBancaria.logs.criada') }],
-        },
-      ]);
-      notificarSucesso(t('financeiro.contaBancaria.mensagens.criada'));
-    } else if (modoTela === 'edicao' && contaSelecionada) {
-      setContas((atual) =>
-        atual.map((conta) =>
-          conta.id === contaSelecionada.id
-            ? {
-                ...conta,
-                descricao: formulario.descricao,
-                banco: formulario.banco,
-                agencia: formulario.agencia,
-                numero: formulario.numero,
-                dataAbertura: formulario.dataAbertura,
-                logs: [...conta.logs, { id: conta.logs.length + 1, data: new Date().toISOString().split('T')[0], acao: 'ATUALIZADA', descricao: t('financeiro.contaBancaria.logs.atualizada') }],
-              }
-            : conta,
-        ),
-      );
-      notificarSucesso(t('financeiro.contaBancaria.mensagens.atualizada'));
-    }
+    const payloadBase = {
+      descricao: formulario.descricao.trim(),
+      banco: formulario.banco,
+      agencia: formulario.agencia.trim(),
+      numero: formulario.numero.trim(),
+      saldoInicial: base.saldoInicial,
+      saldoAtual: base.saldoAtual,
+      dataAbertura: formulario.dataAbertura,
+    };
 
-    resetarTela();
+    setCarregando(true);
+    try {
+      if (modoTela === 'novo') {
+        await criarContaBancariaApi({ ...payloadBase, status: 'ativa' });
+        notificarSucesso(t('financeiro.contaBancaria.mensagens.criada'));
+      } else if (modoTela === 'edicao' && contaSelecionada) {
+        await atualizarContaBancariaApi(contaSelecionada.id, payloadBase);
+        notificarSucesso(t('financeiro.contaBancaria.mensagens.atualizada'));
+      }
+      await carregarContasApi();
+      resetarTela();
+    } catch {
+      notificarErro(t('comum.erro'));
+    } finally {
+      setCarregando(false);
+    }
   };
 
-  const alternarStatusConta = (conta: ContaBancaria, proximoStatus: StatusConta) => {
+  const alternarStatusConta = async (conta: ContaBancaria, proximoStatus: StatusConta) => {
     if (proximoStatus === 'inativa') {
       const pendencias = transacoesPendentesPorConta[conta.descricao] || 0;
       if (pendencias > 0) {
@@ -248,30 +380,55 @@ export default function TelaContaBancaria() {
       }
     }
 
-    const confirmar = () => {
-      setContas((atual) =>
-        atual.map((item) =>
-          item.id === conta.id
-            ? {
-                ...item,
-                status: proximoStatus,
-                logs: [
-                  ...item.logs,
-                  {
-                    id: item.logs.length + 1,
-                    data: new Date().toISOString().split('T')[0],
-                    acao: proximoStatus === 'ativa' ? 'ATIVADA' : 'INATIVADA',
-                    descricao: proximoStatus === 'ativa' ? t('financeiro.contaBancaria.logs.ativada') : t('financeiro.contaBancaria.logs.inativada'),
-                  },
-                ],
-              }
-            : item,
-        ),
-      );
-    };
-
-    confirmar();
+    setCarregando(true);
+    try {
+      if (proximoStatus === 'inativa') {
+        await inativarContaBancariaApi(conta.id, {});
+      } else {
+        await ativarContaBancariaApi(conta.id);
+      }
+      await carregarContasApi();
+    } catch {
+      notificarErro(t('comum.erro'));
+    } finally {
+      setCarregando(false);
+    }
   };
+
+  const alternarExtratoConta = async (conta: ContaBancaria) => {
+    if (contaExtratoAberta === conta.id) {
+      setContaExtratoAberta(null);
+      return;
+    }
+    const mes = obterMesSelecionado(conta.id);
+    await carregarContaPorId(conta.id);
+    await carregarLancamentosConta(conta.id, mes);
+    setContaExtratoAberta(conta.id);
+  };
+
+  const obterMesSelecionado = (contaId: number) => mesPorConta[contaId] ?? new Date().toISOString().slice(0, 7);
+
+  const formatarMesNavegacao = (mes: string) => {
+    const [ano, numeroMes] = mes.split('-').map(Number);
+    return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(new Date(ano, numeroMes - 1, 1));
+  };
+
+  const alterarMes = async (contaId: number, direcao: 'anterior' | 'proximo') => {
+    const atual = obterMesSelecionado(contaId);
+    const [ano, mes] = atual.split('-').map(Number);
+    const dataBase = new Date(ano, mes - 1, 1);
+    dataBase.setMonth(dataBase.getMonth() + (direcao === 'anterior' ? -1 : 1));
+    const novoMes = `${dataBase.getFullYear()}-${String(dataBase.getMonth() + 1).padStart(2, '0')}`;
+    setMesPorConta((estadoAtual) => ({ ...estadoAtual, [contaId]: novoMes }));
+    await carregarLancamentosConta(contaId, novoMes);
+  };
+
+  const obterMovimentosDoMes = (conta: ContaBancaria) => {
+    const mesSelecionado = obterMesSelecionado(conta.id);
+    return conta.extrato.filter((movimento) => movimento.data.startsWith(mesSelecionado));
+  };
+
+  const totalPeriodo = (conta: ContaBancaria) => obterMovimentosDoMes(conta).reduce((total, movimento) => total + movimento.valor, 0);
 
   const renderCampoBloqueado = (label: string, valor: string) => (
     <View style={{ marginBottom: 12 }}>
@@ -296,6 +453,7 @@ export default function TelaContaBancaria() {
           <>
             <Botao titulo={`+ ${t('financeiro.contaBancaria.nova')}`} onPress={abrirNovo} tipo="primario" estilo={{ marginBottom: 12 }} />
             <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
+            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo="secundario" estilo={{ marginBottom: 12 }} />
 
             <View>
               {contasFiltradas.length === 0 ? (
@@ -312,18 +470,31 @@ export default function TelaContaBancaria() {
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
                       <TouchableOpacity onPress={() => abrirVisualizacao(conta)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.visualizar')}</Text></TouchableOpacity>
                       <TouchableOpacity onPress={() => abrirEdicao(conta)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity>
-                      {conta.status === 'ativa' ? <TouchableOpacity onPress={() => alternarStatusConta(conta, 'inativa')} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.contaBancaria.acoes.inativar')}</Text></TouchableOpacity> : null}
-                      {conta.status === 'inativa' ? <TouchableOpacity onPress={() => alternarStatusConta(conta, 'ativa')} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.contaBancaria.acoes.ativar')}</Text></TouchableOpacity> : null}
-                      <TouchableOpacity onPress={() => setContaExtratoAberta(contaExtratoAberta === conta.id ? null : conta.id)} style={{ backgroundColor: COLORS.accentSubtle, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.accent, fontSize: 12 }}>{t('financeiro.contaBancaria.acoes.extrato')}</Text></TouchableOpacity>
+                      {conta.status === 'ativa' ? <TouchableOpacity onPress={() => void alternarStatusConta(conta, 'inativa')} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.contaBancaria.acoes.inativar')}</Text></TouchableOpacity> : null}
+                      {conta.status === 'inativa' ? <TouchableOpacity onPress={() => void alternarStatusConta(conta, 'ativa')} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.contaBancaria.acoes.ativar')}</Text></TouchableOpacity> : null}
+                      <TouchableOpacity onPress={() => void alternarExtratoConta(conta)} style={{ backgroundColor: COLORS.accentSubtle, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.accent, fontSize: 12 }}>{t('financeiro.contaBancaria.acoes.extrato')}</Text></TouchableOpacity>
                     </View>
 
                     {contaExtratoAberta === conta.id ? (
                       <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: COLORS.borderColor, paddingTop: 10 }}>
                         <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700', marginBottom: 8 }}>{t('financeiro.contaBancaria.extratoTitulo')}</Text>
-                        {conta.extrato.length === 0 ? (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <TouchableOpacity onPress={() => void alterarMes(conta.id, 'anterior')} style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 }}>
+                            <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{'\u2190'}</Text>
+                          </TouchableOpacity>
+                          <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' }}>{formatarMesNavegacao(obterMesSelecionado(conta.id))}</Text>
+                          <TouchableOpacity onPress={() => void alterarMes(conta.id, 'proximo')} style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 }}>
+                            <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{'\u2192'}</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                          <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>{t('financeiro.contaBancaria.extratoTitulo')}</Text>
+                          <Text style={{ color: COLORS.accent, fontSize: 20, fontWeight: '800' }}>{formatarValorPorIdioma(totalPeriodo(conta))}</Text>
+                        </View>
+                        {obterMovimentosDoMes(conta).length === 0 ? (
                           <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('financeiro.contaBancaria.extratoVazio')}</Text>
                         ) : (
-                          conta.extrato.map((movimento) => (
+                          obterMovimentosDoMes(conta).map((movimento) => (
                             <View key={movimento.id} style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 8, padding: 10, marginBottom: 8 }}>
                               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
                                 <Text style={{ color: COLORS.textPrimary, fontWeight: '600', flex: 1 }}>{movimento.descricao}</Text>
@@ -355,7 +526,7 @@ export default function TelaContaBancaria() {
             <CampoData label={t('financeiro.contaBancaria.campos.dataAbertura')} placeholder={t('financeiro.contaBancaria.placeholders.dataAbertura')} value={formulario.dataAbertura} onChange={(dataAbertura) => { setCamposInvalidos((atual) => ({ ...atual, dataAbertura: false })); setFormulario((atual) => ({ ...atual, dataAbertura })); }} error={camposInvalidos.dataAbertura} estilo={{ marginBottom: 20 }} />
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Botao titulo={t('comum.acoes.cancelar')} onPress={resetarTela} tipo="secundario" estilo={{ flex: 1 }} />
-              <Botao titulo={modoTela === 'novo' ? t('comum.acoes.salvar') : t('comum.acoes.confirmar')} onPress={salvar} tipo="primario" estilo={{ flex: 1 }} />
+	              <Botao titulo={modoTela === 'novo' ? t('comum.acoes.salvar') : t('comum.acoes.confirmar')} onPress={() => void salvar()} tipo="primario" estilo={{ flex: 1 }} disabled={carregando} />
             </View>
           </>
         ) : null}

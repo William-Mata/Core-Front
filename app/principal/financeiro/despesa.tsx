@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoArquivo } from '../../../src/componentes/comuns/CampoArquivo';
 import { CampoData } from '../../../src/componentes/comuns/CampoData';
+import { ModalConfirmacao } from '../../../src/componentes/comuns/ModalConfirmacao';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
@@ -34,17 +35,24 @@ import { ehPagamentoParcelado } from '../../../src/utils/pagamentoParcelado';
 import { montarDocumentosPayload, normalizarDocumentosApi, type DocumentoFinanceiro } from '../../../src/utils/documentoUpload';
 import {
   atualizarDespesaApi,
+  cancelarDespesaApi,
   criarDespesaApi,
+  listarCartoesApi,
+  listarContasBancariasApi,
   listarAmigosRateioApi,
   listarAreasSubareasRateioApi,
   listarDespesasApi,
+  obterDespesaApi,
   type AmigoRateioApi,
   type AreaSubareaRateioApi,
+  type CartaoOpcaoApi,
+  type ContaBancariaOpcaoApi,
   type RegistroFinanceiroApi,
 } from '../../../src/servicos/financeiro';
 
 type StatusDespesa = 'pendente' | 'efetivada' | 'cancelada' | 'pendenteAprovacao' | 'rejeitada';
 type ModoTela = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao';
+type EscopoAcaoRecorrencia = 'apenasEsta' | 'estaEProximas' | 'todasPendentes';
 
 interface LogDespesa {
   id: number;
@@ -81,6 +89,8 @@ interface DespesaRegistro {
   rateiosAmigos?: Array<{ amigo: string; valor: number }>;
   rateiosAreaSubarea?: Array<{ area: string; subarea: string; valor: number }>;
   tiposRateio?: string[];
+  contaBancaria?: string;
+  cartao?: string;
   anexoDocumento: string;
   documentos: DocumentoFinanceiro[];
   logs: LogDespesa[];
@@ -108,6 +118,8 @@ interface DespesaForm {
   rateioAmigosValores: Record<string, string>;
   areasRateio: string[];
   rateioAreasValores: Record<string, string>;
+  contaBancaria: string;
+  cartao: string;
   anexoDocumento: string;
   documentos: DocumentoFinanceiro[];
 }
@@ -160,6 +172,8 @@ function criarFormularioVazio(locale: string): DespesaForm {
   rateioAmigosValores: {},
     areasRateio: [],
     rateioAreasValores: {},
+    contaBancaria: '',
+    cartao: '',
     anexoDocumento: '',
     documentos: [],
   };
@@ -213,7 +227,17 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
   const juros = Number(item.juros ?? 0);
   const valorLiquido = Number(item.valorLiquido ?? Math.max(0, valorBase - desconto + acrescimo + imposto + juros));
 
-  const amigosRateioLegado = Array.isArray(item.amigosRateio) ? (item.amigosRateio as string[]) : [];
+  const amigosRateioContratoAtual = Array.isArray(item.amigosRateio)
+    ? (item.amigosRateio as Array<Record<string, unknown>>)
+        .map((rateio) => ({
+          amigo: String(rateio.nome ?? rateio.amigoNome ?? (rateio.amigoId ? `#${String(rateio.amigoId)}` : '')).trim(),
+          valor: Number(rateio.valor ?? 0),
+        }))
+        .filter((rateio) => Boolean(rateio.amigo))
+    : [];
+  const amigosRateioLegado = Array.isArray(item.amigosRateio)
+    ? (item.amigosRateio as unknown[]).filter((entrada): entrada is string => typeof entrada === 'string')
+    : [];
   const rateioAmigosValoresLegado = (item.rateioAmigosValores as Record<string, number>) || {};
   const rateiosAmigosApi = Array.isArray(item.rateiosAmigos)
     ? (item.rateiosAmigos as Array<Record<string, unknown>>)
@@ -223,12 +247,27 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
         }))
         .filter((rateio) => Boolean(rateio.amigo))
     : [];
-  const amigosRateio = rateiosAmigosApi.length > 0 ? rateiosAmigosApi.map((rateio) => rateio.amigo) : amigosRateioLegado;
-  const rateioAmigosValores =
+  const rateiosAmigosConsolidados =
     rateiosAmigosApi.length > 0
-      ? Object.fromEntries(rateiosAmigosApi.map((rateio) => [rateio.amigo, rateio.valor]))
+      ? rateiosAmigosApi
+      : amigosRateioContratoAtual.length > 0
+        ? amigosRateioContratoAtual
+        : amigosRateioLegado.map((amigo) => ({ amigo, valor: Number(rateioAmigosValoresLegado[amigo] ?? 0) }));
+  const amigosRateio = rateiosAmigosConsolidados.map((rateio) => rateio.amigo);
+  const rateioAmigosValores =
+    rateiosAmigosConsolidados.length > 0
+      ? Object.fromEntries(rateiosAmigosConsolidados.map((rateio) => [rateio.amigo, rateio.valor]))
       : Object.fromEntries(amigosRateio.map((amigo) => [amigo, Number(rateioAmigosValoresLegado[amigo] ?? 0)]));
 
+  const areasSubAreasRateioContratoAtual = Array.isArray(item.areasSubAreasRateio)
+    ? (item.areasSubAreasRateio as Array<Record<string, unknown>>)
+        .map((rateio) => ({
+          area: String(rateio.areaNome ?? rateio.area ?? '').trim(),
+          subarea: String(rateio.subAreaNome ?? rateio.subarea ?? '').trim(),
+          valor: Number(rateio.valor ?? 0),
+        }))
+        .filter((rateio) => Boolean(rateio.area) && Boolean(rateio.subarea))
+    : [];
   const areasRateioLegadoBase = Array.isArray(item.areasRateio)
     ? (item.areasRateio as string[])
     : Array.isArray(item.tiposRateio)
@@ -244,16 +283,18 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
         }))
         .filter((rateio) => Boolean(rateio.area) && Boolean(rateio.subarea))
     : [];
+  const rateiosAreaSubareaConsolidados =
+    rateiosAreaSubareaApi.length > 0 ? rateiosAreaSubareaApi : areasSubAreasRateioContratoAtual;
   const areasRateio =
-    rateiosAreaSubareaApi.length > 0
-      ? rateiosAreaSubareaApi.map((rateio) => montarChaveAreaSubarea(rateio.area, rateio.subarea))
+    rateiosAreaSubareaConsolidados.length > 0
+      ? rateiosAreaSubareaConsolidados.map((rateio) => montarChaveAreaSubarea(rateio.area, rateio.subarea))
       : areasRateioLegadoBase.map((area) =>
           area.includes(SEPARADOR_AREA_SUBAREA) ? area : montarChaveAreaSubarea(area, area),
         );
   const rateioAreasValores =
-    rateiosAreaSubareaApi.length > 0
+    rateiosAreaSubareaConsolidados.length > 0
       ? Object.fromEntries(
-          rateiosAreaSubareaApi.map((rateio) => [montarChaveAreaSubarea(rateio.area, rateio.subarea), rateio.valor]),
+          rateiosAreaSubareaConsolidados.map((rateio) => [montarChaveAreaSubarea(rateio.area, rateio.subarea), rateio.valor]),
         )
       : Object.fromEntries(
           areasRateio.map((chave) => [
@@ -262,6 +303,9 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
           ]),
         );
 
+  const vinculo = (item.vinculo && typeof item.vinculo === 'object')
+    ? (item.vinculo as Record<string, unknown>)
+    : undefined;
   const documentos = normalizarDocumentosApi(item.documentos);
 
   return {
@@ -298,6 +342,16 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
       return { area, subarea, valor: Number(rateioAreasValores[chave] ?? 0) };
     }),
     tiposRateio: areasRateio.map((chave) => separarAreaSubarea(chave).area),
+    contaBancaria: item.contaBancaria
+      ? String(item.contaBancaria)
+      : vinculo?.contaBancariaId
+        ? String(vinculo.contaBancariaId)
+        : undefined,
+    cartao: item.cartao
+      ? String(item.cartao)
+      : vinculo?.cartaoId
+        ? String(vinculo.cartaoId)
+        : undefined,
     anexoDocumento: documentos[0]?.nomeArquivo ?? String(item.anexoDocumento ?? ''),
     documentos,
     logs: Array.isArray(item.logs)
@@ -316,6 +370,7 @@ export default function TelaDespesa() {
 
   const [filtro, setFiltro] = useState<FiltroPadraoValor>({ id: '', descricao: '', dataInicio: '', dataFim: '' });
   const [filtroAplicado, setFiltroAplicado] = useState<FiltroPadraoValor>({ id: '', descricao: '', dataInicio: '', dataFim: '' });
+  const [versaoConsulta, setVersaoConsulta] = useState(0);
   const [competencia, setCompetencia] = useState<CompetenciaFinanceira>(() => obterCompetenciaAtual());
   const [modoTela, setModoTela] = useState<ModoTela>(idParam ? 'visualizacao' : 'lista');
   const [despesaSelecionadaId, setDespesaSelecionadaId] = useState<number | null>(idParam);
@@ -329,12 +384,25 @@ export default function TelaDespesa() {
   const [novoValorAreaRateio, setNovoValorAreaRateio] = useState(() => formatarMoedaParaInput(0, locale));
   const [opcoesAmigosRateioApi, setOpcoesAmigosRateioApi] = useState<AmigoRateioApi[]>([]);
   const [opcoesAreasSubareasApi, setOpcoesAreasSubareasApi] = useState<AreaSubareaRateioApi[]>([]);
+  const [opcoesContasBancariasApi, setOpcoesContasBancariasApi] = useState<ContaBancariaOpcaoApi[]>([]);
+  const [opcoesCartoesApi, setOpcoesCartoesApi] = useState<CartaoOpcaoApi[]>([]);
+  const [secaoRateioExpandida, setSecaoRateioExpandida] = useState(true);
+  const [despesaPendenteCancelamento, setDespesaPendenteCancelamento] = useState<DespesaRegistro | null>(null);
+  const [despesaPendenteEdicaoRecorrente, setDespesaPendenteEdicaoRecorrente] = useState<DespesaRegistro | null>(null);
+  const [escopoCancelamentoRecorrente, setEscopoCancelamentoRecorrente] = useState<EscopoAcaoRecorrencia>('apenasEsta');
+  const [escopoEdicaoRecorrente, setEscopoEdicaoRecorrente] = useState<EscopoAcaoRecorrencia>('apenasEsta');
+  const [salvandoDespesa, setSalvandoDespesa] = useState(false);
+  const [cancelandoDespesa, setCancelandoDespesa] = useState(false);
 
   const despesaSelecionada = despesas.find((despesa) => despesa.id === despesaSelecionadaId) ?? null;
   const areasCatalogo = useMemo(() => opcoesAreasSubareasApi.filter((item) => item.tipo === 'despesa'), [opcoesAreasSubareasApi]);
   const opcoesAmigosRateio = useMemo(() => Array.from(new Set(opcoesAmigosRateioApi.map((item) => item.nome).filter(Boolean))).sort(), [opcoesAmigosRateioApi]);
   const opcoesAreasRateio = useMemo(() => Array.from(new Set([...areasCatalogo.map((item) => item.nome), ...despesas.flatMap((despesa) => despesa.areasRateio.map((chave) => separarAreaSubarea(chave).area)).filter(Boolean)])).sort(), [areasCatalogo, despesas]);
+  const opcoesContaBancaria = useMemo(() => Array.from(new Set([...opcoesContasBancariasApi.map((item) => item.nome), ...despesas.map((despesa) => despesa.contaBancaria || '')].filter((conta) => Boolean(conta.trim())))).sort(), [opcoesContasBancariasApi, despesas]);
+  const opcoesCartao = useMemo(() => Array.from(new Set([...opcoesCartoesApi.map((item) => item.nome), ...despesas.map((despesa) => despesa.cartao || '')].filter((cartao) => Boolean(cartao.trim())))).sort(), [opcoesCartoesApi, despesas]);
   const pagamentoComParcelas = ehPagamentoParcelado(formulario.tipoPagamento);
+  const exibeContaBancariaPagamento = formulario.tipoPagamento === 'pix' || formulario.tipoPagamento === 'transferencia';
+  const exibeCartaoPagamento = formulario.tipoPagamento === 'cartaoCredito' || formulario.tipoPagamento === 'cartaoDebito';
   const quantidadeRecorrenciaObrigatoria = pagamentoComParcelas || (!formulario.recorrenciaFixa && recorrenciaExigeQuantidade(formulario.recorrenciaBase));
   const exibirQuantidadeRecorrencia = pagamentoComParcelas || (!formulario.recorrenciaFixa && recorrenciaAceitaQuantidade(formulario.recorrenciaBase));
   const rotuloQuantidadeRecorrencia = pagamentoComParcelas
@@ -343,6 +411,12 @@ export default function TelaDespesa() {
 
   const mensagemLimiteRecorrenciaNormal = t('financeiro.comum.mensagens.limiteRecorrenciaNormal').replace('{limite}', String(LIMITE_RECORRENCIA_NORMAL));
   const competenciaLabel = useMemo(() => formatarCompetencia(competencia, locale), [competencia, locale]);
+  const competenciaConsulta = useMemo(() => `${String(competencia.ano)}-${String(competencia.mes).padStart(2, '0')}`, [competencia.ano, competencia.mes]);
+  const opcoesEscopoRecorrencia = useMemo(() => ([
+    { valor: 'apenasEsta', rotulo: t('financeiro.comum.opcoesEscopoRecorrencia.apenasEsta') },
+    { valor: 'estaEProximas', rotulo: t('financeiro.comum.opcoesEscopoRecorrencia.estaEProximas') },
+    { valor: 'todasPendentes', rotulo: t('financeiro.comum.opcoesEscopoRecorrencia.todasPendentes') },
+  ]), [t]);
 
   const opcoesSubareasRateio = useMemo(() => {
     if (!novaAreaRateio) return [];
@@ -355,6 +429,9 @@ export default function TelaDespesa() {
     return Array.from(new Set([...subareasApi, ...subareasHistoricas].filter(Boolean))).sort();
   }, [novaAreaRateio, areasCatalogo, despesas]);
 
+  const ehDespesaRecorrente = (despesa: DespesaRegistro | null) =>
+    Boolean(despesa && despesa.recorrenciaBase !== 'unica');
+
   const carregarDespesasApi = async (signal?: AbortSignal) => {
     try {
       const periodoCompetencia = obterIntervaloCompetencia(competencia);
@@ -366,8 +443,8 @@ export default function TelaDespesa() {
         descricao: filtroAplicado.descricao.trim() || undefined,
         dataInicio,
         dataFim,
-        competenciaMes: competencia.mes,
-        competenciaAno: competencia.ano,
+        competencia: competenciaConsulta,
+        VerificarUltimaRecorrencia: true,
       });
       setDespesas(dados.map(mapearDespesaApi));
     } catch {
@@ -376,24 +453,28 @@ export default function TelaDespesa() {
   };
 
   const carregarOpcoesRateioApi = async () => {
-    const [resultadoAmigos, resultadoAreas] = await Promise.allSettled([
-      listarAmigosRateioApi(),
-      listarAreasSubareasRateioApi(),
+    const [resultadoAmigos, resultadoAreas, resultadoContas, resultadoCartoes] = await Promise.allSettled([
+      listarAmigosRateioApi({ competencia: competenciaConsulta }),
+      listarAreasSubareasRateioApi({ competencia: competenciaConsulta }),
+      listarContasBancariasApi({ competencia: competenciaConsulta }),
+      listarCartoesApi({ competencia: competenciaConsulta }),
     ]);
 
     setOpcoesAmigosRateioApi(resultadoAmigos.status === 'fulfilled' ? resultadoAmigos.value : []);
     setOpcoesAreasSubareasApi(resultadoAreas.status === 'fulfilled' ? resultadoAreas.value : []);
+    setOpcoesContasBancariasApi(resultadoContas.status === 'fulfilled' ? resultadoContas.value : []);
+    setOpcoesCartoesApi(resultadoCartoes.status === 'fulfilled' ? resultadoCartoes.value : []);
   };
 
   useEffect(() => {
     const controller = new AbortController();
     void carregarDespesasApi(controller.signal);
     return () => controller.abort();
-  }, [competencia.ano, competencia.mes, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim]);
+  }, [competencia.ano, competencia.mes, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, versaoConsulta]);
 
   useEffect(() => {
     void carregarOpcoesRateioApi();
-  }, []);
+  }, [competenciaConsulta]);
 
   useEffect(() => {
     if (!novaAreaRateio) return;
@@ -408,18 +489,9 @@ export default function TelaDespesa() {
 
   useEffect(() => {
     if (!idParam) return;
-
-    const despesa = despesas.find((item) => item.id === idParam);
-    if (!despesa) {
-      setModoTela('lista');
-      setDespesaSelecionadaId(null);
-      return;
-    }
-
-    setDespesaSelecionadaId(despesa.id);
-    preencherFormulario(despesa);
     setModoTela('visualizacao');
-  }, [idParam, locale, despesas]);
+    void carregarDespesaPorId(idParam);
+  }, [idParam]);
 
   const despesasFiltradas = useMemo(() => {
     return despesas.filter((despesa) => {
@@ -474,6 +546,8 @@ export default function TelaDespesa() {
       rateioAmigosValores: Object.fromEntries(Object.entries(despesa.rateioAmigosValores).map(([chave, valor]) => [chave, formatarMoedaParaInput(valor, locale)])),
       areasRateio: despesa.areasRateio,
       rateioAreasValores: Object.fromEntries(Object.entries(despesa.rateioAreasValores).map(([chave, valor]) => [chave, formatarMoedaParaInput(valor, locale)])),
+      contaBancaria: despesa.contaBancaria || '',
+      cartao: despesa.cartao || '',
       anexoDocumento: despesa.anexoDocumento,
       documentos: despesa.documentos,
     });
@@ -481,6 +555,28 @@ export default function TelaDespesa() {
 
   const consultarFiltros = () => {
     setFiltroAplicado({ ...filtro });
+    setVersaoConsulta((atual) => atual + 1);
+  };
+
+
+  const carregarDespesaPorId = async (id: number) => {
+    try {
+      const detalhe = await obterDespesaApi(id);
+      const despesaCompleta = mapearDespesaApi(detalhe);
+      setDespesas((atual) => {
+        const indice = atual.findIndex((item) => item.id === despesaCompleta.id);
+        if (indice < 0) return [...atual, despesaCompleta];
+        const proximo = [...atual];
+        proximo[indice] = despesaCompleta;
+        return proximo;
+      });
+      setDespesaSelecionadaId(despesaCompleta.id);
+      preencherFormulario(despesaCompleta);
+      return despesaCompleta;
+    } catch {
+      notificarErro(t('comum.erro'));
+      return null;
+    }
   };
 
   const abrirNovo = () => {
@@ -490,9 +586,8 @@ export default function TelaDespesa() {
   };
 
   const abrirVisualizacao = (despesa: DespesaRegistro) => {
-    setDespesaSelecionadaId(despesa.id);
-    preencherFormulario(despesa);
     setModoTela('visualizacao');
+    void carregarDespesaPorId(despesa.id);
   };
 
   const abrirEdicao = (despesa: DespesaRegistro) => {
@@ -500,9 +595,8 @@ export default function TelaDespesa() {
       notificarErro( t('financeiro.despesa.mensagens.edicaoSomentePendente'));
       return;
     }
-    setDespesaSelecionadaId(despesa.id);
-    preencherFormulario(despesa);
     setModoTela('edicao');
+    void carregarDespesaPorId(despesa.id);
   };
 
   const abrirEfetivacao = (despesa: DespesaRegistro) => {
@@ -510,9 +604,8 @@ export default function TelaDespesa() {
       notificarErro( t('financeiro.despesa.mensagens.efetivacaoSomentePendente'));
       return;
     }
-    setDespesaSelecionadaId(despesa.id);
-    preencherFormulario(despesa);
     setModoTela('efetivacao');
+    void carregarDespesaPorId(despesa.id);
   };
 
   const serializarValores = (valores: Record<string, string>) =>
@@ -611,6 +704,8 @@ export default function TelaDespesa() {
     if (!dataVencimento) invalidos.dataVencimento = true;
     if (!formulario.tipoDespesa) invalidos.tipoDespesa = true;
     if (!formulario.tipoPagamento) invalidos.tipoPagamento = true;
+    if (exibeContaBancariaPagamento && !formulario.contaBancaria) invalidos.contaBancaria = true;
+    if (exibeCartaoPagamento && !formulario.cartao) invalidos.cartao = true;
     if (quantidadeRecorrenciaObrigatoria && !quantidadeRecorrencia) invalidos.quantidadeRecorrencia = true;
     if (Object.keys(invalidos).length > 0) {
       setCamposInvalidos((atual) => ({ ...atual, ...invalidos }));
@@ -685,9 +780,12 @@ export default function TelaDespesa() {
     setNovaAreaRateio('');
     setNovaSubareaRateio('');
     setNovoValorAreaRateio(formatarMoedaParaInput(0, locale));
+    setDespesaPendenteEdicaoRecorrente(null);
+    setEscopoEdicaoRecorrente('apenasEsta');
+    setEscopoCancelamentoRecorrente('apenasEsta');
   };
 
-  const salvarCadastroOuEdicao = async () => {
+  const salvarCadastroOuEdicao = async (escopoEdicao: EscopoAcaoRecorrencia = 'apenasEsta') => {
     const base = validarFormularioBase();
     if (!base) return;
 
@@ -724,6 +822,8 @@ export default function TelaDespesa() {
       dataVencimento: base.dataVencimento,
       tipoDespesa: formulario.tipoDespesa,
       tipoPagamento: formulario.tipoPagamento,
+      contaBancaria: formulario.contaBancaria || undefined,
+      cartao: formulario.cartao || undefined,
       recorrencia: obterValorRecorrencia(pagamentoComParcelas ? 'mensal' : formulario.recorrenciaBase),
       recorrenciaFixa: pagamentoComParcelas || formulario.recorrenciaBase === 'unica' ? false : formulario.recorrenciaFixa,
       quantidadeRecorrencia:
@@ -742,6 +842,7 @@ export default function TelaDespesa() {
       documentos: montarDocumentosPayload(formulario.documentos),
     };
 
+    setSalvandoDespesa(true);
     try {
       if (modoTela === 'novo') {
         await criarDespesaApi(payloadBase);
@@ -755,7 +856,10 @@ export default function TelaDespesa() {
       }
 
       if (modoTela === 'edicao' && despesaSelecionada) {
-        await atualizarDespesaApi(despesaSelecionada.id, payloadBase);
+        await atualizarDespesaApi(despesaSelecionada.id, {
+          ...payloadBase,
+          tipoEdicaoRecorrencia: escopoEdicao,
+        });
         await carregarDespesasApi();
         notificarSucesso(t('financeiro.despesa.mensagens.atualizada'));
         resetarTela();
@@ -763,7 +867,23 @@ export default function TelaDespesa() {
       }
     } catch {
       return;
+    } finally {
+      setSalvandoDespesa(false);
     }
+  };
+
+  const iniciarFluxoSalvar = () => {
+    if (modoTela === 'edicao' && ehDespesaRecorrente(despesaSelecionada)) {
+      setDespesaPendenteEdicaoRecorrente(despesaSelecionada);
+      setEscopoEdicaoRecorrente('apenasEsta');
+      return;
+    }
+    void salvarCadastroOuEdicao();
+  };
+
+  const confirmarEdicaoRecorrente = async () => {
+    const escopo = ehDespesaRecorrente(despesaPendenteEdicaoRecorrente) ? escopoEdicaoRecorrente : 'apenasEsta';
+    await salvarCadastroOuEdicao(escopo);
   };
 
   const efetivarDespesa = async () => {
@@ -811,18 +931,27 @@ export default function TelaDespesa() {
       return;
     }
 
-    const confirmarCancelamento = async () => {
-      try {
-        await atualizarDespesaApi(despesa.id, { status: 'cancelada' });
-        await carregarDespesasApi();
-        notificarSucesso(t('financeiro.despesa.acoes.cancelarDespesa'));
-        return;
-      } catch {
-        return;
-      }
-    };
+    setDespesaPendenteCancelamento(despesa);
+    setEscopoCancelamentoRecorrente('apenasEsta');
+  };
 
-    confirmarCancelamento();
+  const confirmarCancelamentoDespesa = async () => {
+    if (!despesaPendenteCancelamento) return;
+    const escopo = ehDespesaRecorrente(despesaPendenteCancelamento) ? escopoCancelamentoRecorrente : 'apenasEsta';
+    setCancelandoDespesa(true);
+    try {
+      await cancelarDespesaApi(despesaPendenteCancelamento.id, {
+        tipoCancelamentoRecorrencia: escopo,
+        encerrarRecorrenciaFixa: escopo === 'todasPendentes' && despesaPendenteCancelamento.recorrenciaFixa,
+      });
+      await carregarDespesasApi();
+      notificarSucesso(t('financeiro.despesa.acoes.cancelarDespesa'));
+      setDespesaPendenteCancelamento(null);
+    } catch {
+      return;
+    } finally {
+      setCancelandoDespesa(false);
+    }
   };
 
   const estornarDespesa = async (despesa: DespesaRegistro) => {
@@ -961,7 +1090,9 @@ export default function TelaDespesa() {
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.dataLancamento'), formulario.dataLancamento ? formatarDataPorIdioma(formulario.dataLancamento) : '') : <CampoData label={t('financeiro.despesa.campos.dataLancamento')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataLancamento} onChange={(dataLancamento) => { setCamposInvalidos((atual) => ({ ...atual, dataLancamento: false })); setFormulario((atual) => ({ ...atual, dataLancamento })); }} error={camposInvalidos.dataLancamento} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.dataVencimento'), formulario.dataVencimento ? formatarDataPorIdioma(formulario.dataVencimento) : '') : <CampoData label={t('financeiro.despesa.campos.dataVencimento')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataVencimento} onChange={(dataVencimento) => { setCamposInvalidos((atual) => ({ ...atual, dataVencimento: false })); setFormulario((atual) => ({ ...atual, dataVencimento })); }} error={camposInvalidos.dataVencimento} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoDespesa'), formulario.tipoDespesa ? t(`financeiro.despesa.tipoDespesa.${formulario.tipoDespesa}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoDespesa')} placeholder={t('comum.acoes.selecionar')} options={tiposDespesa.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoDespesa.${tipo}`) }))} value={formulario.tipoDespesa} onChange={(tipoDespesa) => { setCamposInvalidos((atual) => ({ ...atual, tipoDespesa: false })); setFormulario((atual) => ({ ...atual, tipoDespesa })); }} error={camposInvalidos.tipoDespesa} />}
-      {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoPagamento'), formulario.tipoPagamento ? t(`financeiro.despesa.tipoPagamento.${formulario.tipoPagamento}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoPagamento')} placeholder={t('comum.acoes.selecionar')} options={tiposPagamento.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoPagamento.${tipo}`) }))} value={formulario.tipoPagamento} onChange={(tipoPagamento) => { setCamposInvalidos((atual) => ({ ...atual, tipoPagamento: false, quantidadeRecorrencia: false })); setFormulario((atual) => ({ ...atual, tipoPagamento, recorrenciaBase: ehPagamentoParcelado(tipoPagamento) ? 'mensal' : atual.recorrenciaBase })); }} error={camposInvalidos.tipoPagamento} />}
+      {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoPagamento'), formulario.tipoPagamento ? t(`financeiro.despesa.tipoPagamento.${formulario.tipoPagamento}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoPagamento')} placeholder={t('comum.acoes.selecionar')} options={tiposPagamento.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoPagamento.${tipo}`) }))} value={formulario.tipoPagamento} onChange={(tipoPagamento) => { setCamposInvalidos((atual) => ({ ...atual, tipoPagamento: false, quantidadeRecorrencia: false, contaBancaria: false, cartao: false })); setFormulario((atual) => ({ ...atual, tipoPagamento, recorrenciaBase: ehPagamentoParcelado(tipoPagamento) ? 'mensal' : atual.recorrenciaBase, contaBancaria: tipoPagamento === 'pix' || tipoPagamento === 'transferencia' ? atual.contaBancaria : '', cartao: tipoPagamento === 'cartaoCredito' || tipoPagamento === 'cartaoDebito' ? atual.cartao : '' })); }} error={camposInvalidos.tipoPagamento} />}
+      {exibeContaBancariaPagamento ? (somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.contaBancaria'), formulario.contaBancaria) : <CampoSelect label={t('financeiro.despesa.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancaria.map((conta) => ({ value: conta, label: conta }))} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false })); setFormulario((atual) => ({ ...atual, contaBancaria })); }} error={camposInvalidos.contaBancaria} />) : null}
+      {exibeCartaoPagamento ? (somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.cartao'), formulario.cartao) : <CampoSelect label={t('financeiro.despesa.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartao.map((cartao) => ({ value: cartao, label: cartao }))} value={formulario.cartao} onChange={(cartao) => { setCamposInvalidos((atual) => ({ ...atual, cartao: false })); setFormulario((atual) => ({ ...atual, cartao })); }} error={camposInvalidos.cartao} />) : null}
       {pagamentoComParcelas ? null : (somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.recorrencia'), obterRotuloRecorrencia(formulario.recorrenciaBase, locale)) : <CampoSelect label={t('financeiro.despesa.campos.recorrencia')} placeholder={t('comum.acoes.selecionar')} options={RECORRENCIAS_FINANCEIRAS_BASE.map((item) => ({ value: item.chave, label: obterRotuloRecorrencia(item.chave, locale) }))} value={formulario.recorrenciaBase} onChange={(recorrenciaBase) => setFormulario((atual) => ({ ...atual, recorrenciaBase: recorrenciaBase as RecorrenciaFinanceiraBaseChave, recorrenciaFixa: recorrenciaBase === 'unica' ? false : atual.recorrenciaFixa, quantidadeRecorrencia: recorrenciaBase === 'unica' ? '' : atual.quantidadeRecorrencia }))} />)}
       {pagamentoComParcelas ? null : (somenteLeitura ? renderCampoBloqueado(t('financeiro.comum.campos.modoRecorrencia'), formulario.recorrenciaFixa ? t('financeiro.comum.opcoesRecorrencia.fixa') : t('financeiro.comum.opcoesRecorrencia.normal')) : <CampoSelect label={t('financeiro.comum.campos.modoRecorrencia')} placeholder={t('comum.acoes.selecionar')} options={formulario.recorrenciaBase === 'unica' ? [{ value: 'normal', label: t('financeiro.comum.opcoesRecorrencia.normal') }] : [{ value: 'normal', label: t('financeiro.comum.opcoesRecorrencia.normal') }, { value: 'fixa', label: t('financeiro.comum.opcoesRecorrencia.fixa') }]} value={formulario.recorrenciaFixa ? 'fixa' : 'normal'} onChange={(modo) => setFormulario((atual) => { const recorrenciaFixa = atual.recorrenciaBase !== 'unica' && modo === 'fixa'; return { ...atual, recorrenciaFixa, quantidadeRecorrencia: recorrenciaFixa ? '' : atual.quantidadeRecorrencia }; })} />)}
       {somenteLeitura ? (exibirQuantidadeRecorrencia ? renderCampoBloqueado(rotuloQuantidadeRecorrencia, formulario.quantidadeRecorrencia || '-') : null) : (exibirQuantidadeRecorrencia ? <CampoTexto label={rotuloQuantidadeRecorrencia} placeholder='1' value={formulario.quantidadeRecorrencia} onChangeText={(quantidadeRecorrencia) => { setCamposInvalidos((atual) => ({ ...atual, quantidadeRecorrencia: false })); setFormulario((atual) => ({ ...atual, quantidadeRecorrencia: quantidadeRecorrencia.replace(/[^\d]/g, '') })); }} error={camposInvalidos.quantidadeRecorrencia} keyboardType='numeric' estilo={{ marginBottom: 12 }} /> : null)}
@@ -971,8 +1102,20 @@ export default function TelaDespesa() {
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.imposto'), formulario.imposto) : <CampoTexto label={t('financeiro.despesa.campos.imposto')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.imposto} onChangeText={(valor) => atualizarCampoMoeda('imposto', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.juros'), formulario.juros) : <CampoTexto label={t('financeiro.despesa.campos.juros')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.juros} onChangeText={(valor) => atualizarCampoMoeda('juros', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
       {renderCampoBloqueado(t('financeiro.despesa.campos.valorLiquido'), formulario.valorLiquido)}
-      {renderTabelaRateioAmigos(somenteLeitura)}
-      {renderTabelaRateioAreaSubarea(somenteLeitura)}
+      <View style={{ marginTop: 6, marginBottom: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.borderColor }}>
+        <TouchableOpacity
+          onPress={() => setSecaoRateioExpandida((atual) => !atual)}
+          style={{ backgroundColor: COLORS.accentSubtle, borderWidth: 1, borderColor: COLORS.borderAccent, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
+        >
+          <Text style={{ color: COLORS.accent, fontSize: 13, fontWeight: '800' }}>{secaoRateioExpandida ? '-' : '+'} {t('financeiro.comum.campos.rateio')}</Text>
+        </TouchableOpacity>
+        {secaoRateioExpandida ? (
+          <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 10 }}>
+            {renderTabelaRateioAmigos(somenteLeitura)}
+            {renderTabelaRateioAreaSubarea(somenteLeitura)}
+          </View>
+        ) : null}
+      </View>
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.anexoDocumento'), formulario.anexoDocumento) : <CampoArquivo label={t('financeiro.despesa.campos.anexoDocumento')} placeholder={t('financeiro.despesa.placeholders.anexo')} value={formulario.anexoDocumento} onChange={(anexoDocumento) => setFormulario((atual) => ({ ...atual, anexoDocumento, documentos: anexoDocumento ? atual.documentos : [] }))} onSelecionarArquivo={(documento) => setFormulario((atual) => ({ ...atual, documentos: documento ? [documento] : [] }))} estilo={{ marginBottom: 12 }} />}
     </>
   );
@@ -1033,9 +1176,25 @@ export default function TelaDespesa() {
         {(modoTela === 'novo' || modoTela === 'edicao') ? (
           <>
             {renderFormularioBase(false)}
+            {modoTela === 'edicao' && ehDespesaRecorrente(despesaSelecionada) ? (
+              <View style={{ backgroundColor: COLORS.accentSubtle, borderWidth: 1, borderColor: COLORS.borderAccent, borderRadius: 10, padding: 10, marginBottom: 12 }}>
+                <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700', marginBottom: 4 }}>
+                  {t('financeiro.comum.mensagens.recorrenciaApenasPendentes')}
+                </Text>
+                <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>
+                  {t('financeiro.comum.mensagens.edicaoReplicaPendentes')}
+                </Text>
+              </View>
+            ) : null}
             <View style={{ flexDirection: 'row', marginTop: 8, marginHorizontal: -5 }}>
               <Botao titulo={t('comum.acoes.cancelar')} onPress={resetarTela} tipo="secundario" estilo={{ flex: 1, marginHorizontal: 5 }} />
-              <Botao titulo={modoTela === 'novo' ? t('comum.acoes.salvar') : t('comum.acoes.confirmar')} onPress={salvarCadastroOuEdicao} tipo="primario" estilo={{ flex: 1, marginHorizontal: 5 }} />
+              <Botao
+                titulo={modoTela === 'novo' ? t('comum.acoes.salvar') : t('comum.acoes.confirmar')}
+                onPress={iniciarFluxoSalvar}
+                tipo="primario"
+                estilo={{ flex: 1, marginHorizontal: 5 }}
+                carregando={salvandoDespesa}
+              />
             </View>
           </>
         ) : null}
@@ -1080,18 +1239,43 @@ export default function TelaDespesa() {
           </>
         ) : null}
       </ScrollView>
+      <ModalConfirmacao
+        visivel={Boolean(despesaPendenteCancelamento)}
+        titulo={t('comum.confirmacao')}
+        mensagem={t('financeiro.despesa.mensagens.confirmarCancelamento')}
+        textoCancelar={t('comum.acoes.cancelar')}
+        textoConfirmar={t('comum.acoes.confirmar')}
+        opcoes={ehDespesaRecorrente(despesaPendenteCancelamento) ? opcoesEscopoRecorrencia : [opcoesEscopoRecorrencia[0]]}
+        valorSelecionado={escopoCancelamentoRecorrente}
+        onSelecionarOpcao={(valor) => setEscopoCancelamentoRecorrente(valor as EscopoAcaoRecorrencia)}
+        observacao={
+          ehDespesaRecorrente(despesaPendenteCancelamento)
+            ? despesaPendenteCancelamento?.recorrenciaFixa
+              ? `${t('financeiro.comum.mensagens.recorrenciaApenasPendentes')} ${t('financeiro.comum.mensagens.cancelamentoFixaTodasPendentes')}`
+              : t('financeiro.comum.mensagens.recorrenciaApenasPendentes')
+            : undefined
+        }
+        carregando={cancelandoDespesa}
+        onCancelar={() => setDespesaPendenteCancelamento(null)}
+        onConfirmar={() => void confirmarCancelamentoDespesa()}
+      />
+      <ModalConfirmacao
+        visivel={Boolean(despesaPendenteEdicaoRecorrente)}
+        titulo={t('comum.confirmacao')}
+        mensagem={t('financeiro.comum.mensagens.confirmarEdicaoRecorrente')}
+        textoCancelar={t('comum.acoes.cancelar')}
+        textoConfirmar={t('comum.acoes.confirmar')}
+        opcoes={ehDespesaRecorrente(despesaPendenteEdicaoRecorrente) ? opcoesEscopoRecorrencia : [opcoesEscopoRecorrencia[0]]}
+        valorSelecionado={escopoEdicaoRecorrente}
+        onSelecionarOpcao={(valor) => setEscopoEdicaoRecorrente(valor as EscopoAcaoRecorrencia)}
+        observacao={ehDespesaRecorrente(despesaPendenteEdicaoRecorrente) ? t('financeiro.comum.mensagens.edicaoReplicaPendentes') : undefined}
+        carregando={salvandoDespesa}
+        onCancelar={() => setDespesaPendenteEdicaoRecorrente(null)}
+        onConfirmar={() => void confirmarEdicaoRecorrente()}
+      />
     </View>
   );
 }
-
-
-
-
-
-
-
-
-
 
 
 

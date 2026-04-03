@@ -167,6 +167,18 @@ export function CampoData({ label, value, onChange, placeholder, estilo, error }
           width: 34,
           height: 34,
         }}
+        monthContainerStyle={{
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: COLORS.borderColor,
+          backgroundColor: COLORS.bgTertiary,
+        }}
+        yearContainerStyle={{
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: COLORS.borderColor,
+          backgroundColor: COLORS.bgTertiary,
+        }}
         todayContainerStyle={{
           borderWidth: 1,
           borderColor: COLORS.borderAccent,
@@ -392,6 +404,18 @@ export function CampoDataIntervalo({ label, dataInicio, dataFim, onChange, place
           borderRadius: 8,
           width: 34,
           height: 34,
+        }}
+        monthContainerStyle={{
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: COLORS.borderColor,
+          backgroundColor: COLORS.bgTertiary,
+        }}
+        yearContainerStyle={{
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: COLORS.borderColor,
+          backgroundColor: COLORS.bgTertiary,
         }}
         todayContainerStyle={{
           borderWidth: 1,

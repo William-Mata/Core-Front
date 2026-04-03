@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
@@ -7,6 +7,16 @@ import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
+import {
+  obterCartaoApi,
+  listarCartoesDetalheApi,
+  listarLancamentosCartaoApi,
+  criarCartaoApi,
+  atualizarCartaoApi,
+  inativarCartaoApi,
+  ativarCartaoApi,
+  type RegistroFinanceiroApi,
+} from '../../../src/servicos/financeiro';
 import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
@@ -26,9 +36,15 @@ interface LogCartao {
 
 interface LancamentoCartao {
   id: number;
+  transacaoId?: number;
   data: string;
+  tipoTransacao: 'despesa' | 'receita' | 'reembolso';
+  tipoOperacao: 'efetivacao' | 'estorno';
   descricao: string;
+  tipoPagamento?: string;
+  valorAntesTransacao?: number;
   valor: number;
+  valorDepoisTransacao?: number;
 }
 
 interface Cartao {
@@ -97,12 +113,73 @@ function tipoExigeVencimento(tipo: TipoCartao) {
   return tipo === 'credito';
 }
 
+function normalizarTipoCartao(valor: unknown): TipoCartao {
+  const tipo = String(valor ?? '').trim().toLowerCase();
+  return tipo.includes('debi') ? 'debito' : 'credito';
+}
+
+function normalizarStatusCartao(valor: unknown): StatusCartao {
+  const status = String(valor ?? '').trim().toLowerCase();
+  return status.includes('inativ') ? 'inativo' : 'ativo';
+}
+
+function mapearCartaoApi(item: RegistroFinanceiroApi, atual?: Cartao): Cartao {
+  const tipo = normalizarTipoCartao(item.tipo ?? atual?.tipo);
+  const status = normalizarStatusCartao(item.status ?? atual?.status);
+  const logs = Array.isArray(item.logs)
+    ? (item.logs as LogCartao[])
+    : (atual?.logs ?? [{ id: 1, data: new Date().toISOString().slice(0, 10), acao: 'IMPORTADO', descricao: 'Registro carregado da API.' }]);
+  const lancamentos = Array.isArray(item.lancamentos)
+    ? (item.lancamentos as LancamentoCartao[])
+    : (atual?.lancamentos ?? []);
+
+  return {
+    id: Number(item.id ?? atual?.id ?? 0),
+    descricao: String(item.descricao ?? atual?.descricao ?? ''),
+    bandeira: String(item.bandeira ?? atual?.bandeira ?? ''),
+    tipo,
+    limite: Number(item.limite ?? atual?.limite ?? 0),
+    saldoDisponivel: Number(item.saldoDisponivel ?? item.limiteDisponivel ?? atual?.saldoDisponivel ?? 0),
+    diaVencimento: String(item.diaVencimento ?? atual?.diaVencimento ?? ''),
+    dataVencimentoCartao: String(item.dataVencimentoCartao ?? item.dataVencimento ?? atual?.dataVencimentoCartao ?? ''),
+    status,
+    lancamentos,
+    logs,
+  };
+}
+
+function formatarCompetenciaParaApi(mes: string): string {
+  const [ano = '', numeroMes = ''] = mes.split('-');
+  if (!ano || !numeroMes) return mes;
+  return `${numeroMes}/${ano}`;
+}
+
+function mapearLancamentoCartaoApi(item: RegistroFinanceiroApi, indice: number): LancamentoCartao {
+  const valorBruto = Number(item.valorTransacao ?? item.valor ?? 0);
+  const tipoTransacaoBruto = String(item.tipoTransacao ?? '').toLowerCase();
+  const tipoOperacaoBruto = String(item.tipoOperacao ?? '').toLowerCase();
+  return {
+    id: Number(item.id ?? item.transacaoId ?? indice + 1),
+    transacaoId: item.transacaoId ? Number(item.transacaoId) : undefined,
+    data: String(item.dataTransacao ?? item.data ?? '').slice(0, 10),
+    tipoTransacao: tipoTransacaoBruto === 'receita' || tipoTransacaoBruto === 'reembolso' ? (tipoTransacaoBruto as 'receita' | 'reembolso') : 'despesa',
+    tipoOperacao: tipoOperacaoBruto === 'estorno' ? 'estorno' : 'efetivacao',
+    descricao: String(item.descricao ?? ''),
+    tipoPagamento: item.tipoPagamento ? String(item.tipoPagamento) : undefined,
+    valorAntesTransacao: item.valorAntesTransacao === null || item.valorAntesTransacao === undefined ? undefined : Number(item.valorAntesTransacao),
+    valor: Math.abs(valorBruto),
+    valorDepoisTransacao: item.valorDepoisTransacao === null || item.valorDepoisTransacao === undefined ? undefined : Number(item.valorDepoisTransacao),
+  };
+}
+
 export default function TelaCartao() {
   const router = useRouter();
   const { t } = usarTraducao();
   const locale = obterLocaleAtivo();
 
   const [filtro, setFiltro] = useState<FiltroPadraoValor>({ id: '', descricao: '', dataInicio: '', dataFim: '' });
+  const [filtroAplicado, setFiltroAplicado] = useState<FiltroPadraoValor>({ id: '', descricao: '', dataInicio: '', dataFim: '' });
+  const [versaoConsulta, setVersaoConsulta] = useState(0);
   const [modoTela, setModoTela] = useState<ModoTela>('lista');
   const [cartaoSelecionadoId, setCartaoSelecionadoId] = useState<number | null>(null);
   const [cartaoDetalheAberto, setCartaoDetalheAberto] = useState<number | null>(null);
@@ -110,14 +187,15 @@ export default function TelaCartao() {
   const [camposInvalidos, setCamposInvalidos] = useState<Record<string, boolean>>({});
   const [formulario, setFormulario] = useState<CartaoForm>(() => criarFormularioVazio(locale));
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
+  const [carregando, setCarregando] = useState(false);
 
   const cartaoSelecionado = cartoes.find((item) => item.id === cartaoSelecionadoId) ?? null;
 
   const cartoesFiltrados = useMemo(
     () =>
       cartoes.filter((cartao) => {
-        const bateId = !filtro.id || String(cartao.id).includes(filtro.id);
-        const termo = filtro.descricao.trim().toLowerCase();
+        const bateId = !filtroAplicado.id || String(cartao.id).includes(filtroAplicado.id);
+        const termo = filtroAplicado.descricao.trim().toLowerCase();
         const tipoTraduzido = t(`financeiro.cartao.tipos.${cartao.tipo}`).toLowerCase();
         const statusTraduzido = t(`financeiro.cartao.status.${cartao.status}`).toLowerCase();
         const bateDescricao =
@@ -127,11 +205,40 @@ export default function TelaCartao() {
           tipoTraduzido.includes(termo) ||
           statusTraduzido.includes(termo);
         const baseDataFiltro = cartao.dataVencimentoCartao || cartao.logs[0]?.data || '';
-        const bateData = estaDentroIntervalo(baseDataFiltro, filtro.dataInicio, filtro.dataFim);
+        const bateData = estaDentroIntervalo(baseDataFiltro, filtroAplicado.dataInicio, filtroAplicado.dataFim);
         return bateId && bateDescricao && bateData;
       }),
-    [cartoes, filtro, t],
+    [cartoes, filtroAplicado, t, versaoConsulta],
   );
+
+  const consultarFiltros = () => {
+    setFiltroAplicado({ ...filtro });
+    setVersaoConsulta((atual) => atual + 1);
+  };
+
+  const carregarCartoesApi = async (signal?: AbortSignal) => {
+    setCarregando(true);
+    try {
+      const dados = await listarCartoesDetalheApi({
+        signal,
+        id: filtroAplicado.id.trim() || undefined,
+        descricao: filtroAplicado.descricao.trim() || undefined,
+        dataInicio: filtroAplicado.dataInicio || undefined,
+        dataFim: filtroAplicado.dataFim || undefined,
+      });
+      setCartoes(dados.map((item) => mapearCartaoApi(item)));
+    } catch {
+      notificarErro(t('comum.erro'));
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void carregarCartoesApi(controller.signal);
+    return () => controller.abort();
+  }, [filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, versaoConsulta]);
 
   const renderCampoBloqueado = (label: string, valor: string) => (
     <View style={{ marginBottom: 12 }}>
@@ -162,6 +269,51 @@ export default function TelaCartao() {
     setCamposInvalidos({});
   };
 
+  const carregarCartaoPorId = async (id: number) => {
+    const cartaoAtual = cartoes.find((item) => item.id === id);
+    try {
+      const detalhe = await obterCartaoApi(id);
+      const cartaoCompleto = mapearCartaoApi(detalhe, cartaoAtual);
+      setCartoes((atual) => {
+        const indice = atual.findIndex((item) => item.id === cartaoCompleto.id);
+        if (indice < 0) return [...atual, cartaoCompleto];
+        const proximo = [...atual];
+        proximo[indice] = cartaoCompleto;
+        return proximo;
+      });
+      setCartaoSelecionadoId(cartaoCompleto.id);
+      preencherFormulario(cartaoCompleto);
+      return cartaoCompleto;
+    } catch {
+      if (cartaoAtual) {
+        setCartaoSelecionadoId(cartaoAtual.id);
+        preencherFormulario(cartaoAtual);
+        return cartaoAtual;
+      }
+      notificarErro(t('comum.erro'));
+      return null;
+    }
+  };
+
+  const carregarLancamentosCartao = async (id: number, mes: string) => {
+    try {
+      const competencia = formatarCompetenciaParaApi(mes);
+      const lancamentos = await listarLancamentosCartaoApi(id, { competencia });
+      setCartoes((atual) =>
+        atual.map((cartao) =>
+          cartao.id === id
+            ? {
+                ...cartao,
+                lancamentos: lancamentos.map((item, indice) => mapearLancamentoCartaoApi(item, indice)),
+              }
+            : cartao,
+        ),
+      );
+    } catch {
+      notificarErro(t('comum.erro'));
+    }
+  };
+
   const atualizarTipoFormulario = (tipo: TipoCartao) => {
     setCamposInvalidos((atual) => ({
       ...atual,
@@ -187,15 +339,13 @@ export default function TelaCartao() {
   };
 
   const abrirEdicao = (cartao: Cartao) => {
-    setCartaoSelecionadoId(cartao.id);
-    preencherFormulario(cartao);
     setModoTela('edicao');
+    void carregarCartaoPorId(cartao.id);
   };
 
   const abrirVisualizacao = (cartao: Cartao) => {
-    setCartaoSelecionadoId(cartao.id);
-    preencherFormulario(cartao);
     setModoTela('visualizacao');
+    void carregarCartaoPorId(cartao.id);
   };
 
   const validarFormulario = () => {
@@ -230,59 +380,41 @@ export default function TelaCartao() {
     };
   };
 
-  const salvar = () => {
+  const salvar = async () => {
     const base = validarFormulario();
     if (!base) return;
 
     const diaVencimento = tipoExigeVencimento(formulario.tipo) ? formulario.diaVencimento : '';
     const dataVencimentoCartao = tipoExigeVencimento(formulario.tipo) ? formulario.dataVencimentoCartao : '';
+    const payloadBase = {
+      descricao: formulario.descricao.trim(),
+      bandeira: formulario.bandeira,
+      tipo: formulario.tipo,
+      limite: base.limite,
+      saldoDisponivel: base.saldoDisponivel,
+      diaVencimento,
+      dataVencimentoCartao,
+    };
 
-    if (modoTela === 'novo') {
-      const novoId = cartoes.length > 0 ? Math.max(...cartoes.map((item) => item.id)) + 1 : 1;
-      setCartoes((atual) => [
-        ...atual,
-        {
-          id: novoId,
-          descricao: formulario.descricao,
-          bandeira: formulario.bandeira,
-          tipo: formulario.tipo,
-          limite: base.limite,
-          saldoDisponivel: base.saldoDisponivel,
-          diaVencimento,
-          dataVencimentoCartao,
-          status: 'ativo',
-          lancamentos: [],
-          logs: [{ id: 1, data: new Date().toISOString().split('T')[0], acao: 'CRIADO', descricao: t('financeiro.cartao.logs.criado') }],
-        },
-      ]);
-      notificarSucesso(t('financeiro.cartao.mensagens.criado'));
-    } else if (modoTela === 'edicao' && cartaoSelecionado) {
-      setCartoes((atual) =>
-        atual.map((cartao) =>
-          cartao.id === cartaoSelecionado.id
-            ? {
-                ...cartao,
-                descricao: formulario.descricao,
-                bandeira: formulario.bandeira,
-                tipo: formulario.tipo,
-                limite: base.limite,
-                diaVencimento,
-                dataVencimentoCartao,
-                logs: [
-                  ...cartao.logs,
-                  { id: cartao.logs.length + 1, data: new Date().toISOString().split('T')[0], acao: 'ATUALIZADO', descricao: t('financeiro.cartao.logs.atualizado') },
-                ],
-              }
-            : cartao,
-        ),
-      );
-      notificarSucesso(t('financeiro.cartao.mensagens.atualizado'));
+    setCarregando(true);
+    try {
+      if (modoTela === 'novo') {
+        await criarCartaoApi({ ...payloadBase, status: 'ativo' });
+        notificarSucesso(t('financeiro.cartao.mensagens.criado'));
+      } else if (modoTela === 'edicao' && cartaoSelecionado) {
+        await atualizarCartaoApi(cartaoSelecionado.id, payloadBase);
+        notificarSucesso(t('financeiro.cartao.mensagens.atualizado'));
+      }
+      await carregarCartoesApi();
+      resetarTela();
+    } catch {
+      notificarErro(t('comum.erro'));
+    } finally {
+      setCarregando(false);
     }
-
-    resetarTela();
   };
 
-  const alternarStatusCartao = (cartao: Cartao, proximoStatus: StatusCartao) => {
+  const alternarStatusCartao = async (cartao: Cartao, proximoStatus: StatusCartao) => {
     if (proximoStatus === 'inativo') {
       const pendencias = transacoesPendentesPorCartao[cartao.descricao] || 0;
       if (pendencias > 0) {
@@ -291,29 +423,30 @@ export default function TelaCartao() {
       }
     }
 
-    const confirmar = () => {
-      setCartoes((atual) =>
-        atual.map((item) =>
-          item.id === cartao.id
-            ? {
-                ...item,
-                status: proximoStatus,
-                logs: [
-                  ...item.logs,
-                  {
-                    id: item.logs.length + 1,
-                    data: new Date().toISOString().split('T')[0],
-                    acao: proximoStatus === 'ativo' ? 'ATIVADO' : 'INATIVADO',
-                    descricao: proximoStatus === 'ativo' ? t('financeiro.cartao.logs.ativado') : t('financeiro.cartao.logs.inativado'),
-                  },
-                ],
-              }
-            : item,
-        ),
-      );
-    };
+    setCarregando(true);
+    try {
+      if (proximoStatus === 'inativo') {
+        await inativarCartaoApi(cartao.id, {});
+      } else {
+        await ativarCartaoApi(cartao.id);
+      }
+      await carregarCartoesApi();
+    } catch {
+      notificarErro(t('comum.erro'));
+    } finally {
+      setCarregando(false);
+    }
+  };
 
-    confirmar();
+  const alternarDetalheCartao = async (cartao: Cartao) => {
+    if (cartaoDetalheAberto === cartao.id) {
+      setCartaoDetalheAberto(null);
+      return;
+    }
+    const mes = obterMesSelecionado(cartao.id);
+    await carregarCartaoPorId(cartao.id);
+    await carregarLancamentosCartao(cartao.id, mes);
+    setCartaoDetalheAberto(cartao.id);
   };
 
   const obterMesSelecionado = (cartaoId: number) => mesPorCartao[cartaoId] ?? new Date().toISOString().slice(0, 7);
@@ -323,13 +456,14 @@ export default function TelaCartao() {
     return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(new Date(ano, numeroMes - 1, 1));
   };
 
-  const alterarMes = (cartaoId: number, direcao: 'anterior' | 'proximo') => {
+  const alterarMes = async (cartaoId: number, direcao: 'anterior' | 'proximo') => {
     const atual = obterMesSelecionado(cartaoId);
     const [ano, mes] = atual.split('-').map(Number);
     const dataBase = new Date(ano, mes - 1, 1);
     dataBase.setMonth(dataBase.getMonth() + (direcao === 'anterior' ? -1 : 1));
     const novoMes = `${dataBase.getFullYear()}-${String(dataBase.getMonth() + 1).padStart(2, '0')}`;
     setMesPorCartao((estadoAtual) => ({ ...estadoAtual, [cartaoId]: novoMes }));
+    await carregarLancamentosCartao(cartaoId, novoMes);
   };
 
   const obterLancamentosDoMes = (cartao: Cartao) => {
@@ -353,6 +487,7 @@ export default function TelaCartao() {
           <>
             <Botao titulo={`+ ${t('financeiro.cartao.novo')}`} onPress={abrirNovo} tipo="primario" estilo={{ marginBottom: 12 }} />
             <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
+            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo="secundario" estilo={{ marginBottom: 12 }} />
 
             <View>
               {cartoesFiltrados.length === 0 ? (
@@ -385,20 +520,20 @@ export default function TelaCartao() {
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
                       <TouchableOpacity onPress={() => abrirVisualizacao(cartao)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.visualizar')}</Text></TouchableOpacity>
                       <TouchableOpacity onPress={() => abrirEdicao(cartao)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity>
-                      {cartao.status === 'ativo' ? <TouchableOpacity onPress={() => alternarStatusCartao(cartao, 'inativo')} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.cartao.acoes.inativar')}</Text></TouchableOpacity> : null}
-                      {cartao.status === 'inativo' ? <TouchableOpacity onPress={() => alternarStatusCartao(cartao, 'ativo')} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.cartao.acoes.ativar')}</Text></TouchableOpacity> : null}
-                      <TouchableOpacity onPress={() => setCartaoDetalheAberto(cartaoDetalheAberto === cartao.id ? null : cartao.id)} style={{ backgroundColor: COLORS.accentSubtle, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.accent, fontSize: 12 }}>{cartao.tipo === 'credito' ? t('financeiro.cartao.acoes.fatura') : t('financeiro.cartao.acoes.extrato')}</Text></TouchableOpacity>
+                      {cartao.status === 'ativo' ? <TouchableOpacity onPress={() => void alternarStatusCartao(cartao, 'inativo')} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.cartao.acoes.inativar')}</Text></TouchableOpacity> : null}
+                      {cartao.status === 'inativo' ? <TouchableOpacity onPress={() => void alternarStatusCartao(cartao, 'ativo')} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.cartao.acoes.ativar')}</Text></TouchableOpacity> : null}
+                      <TouchableOpacity onPress={() => void alternarDetalheCartao(cartao)} style={{ backgroundColor: COLORS.accentSubtle, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.accent, fontSize: 12 }}>{cartao.tipo === 'credito' ? t('financeiro.cartao.acoes.fatura') : t('financeiro.cartao.acoes.extrato')}</Text></TouchableOpacity>
                     </View>
 
                     {cartaoDetalheAberto === cartao.id ? (
                       <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: COLORS.borderColor, paddingTop: 10 }}>
                         <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700', marginBottom: 8 }}>{cartao.tipo === 'credito' ? t('financeiro.cartao.faturaTitulo') : t('financeiro.cartao.extratoTitulo')}</Text>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                          <TouchableOpacity onPress={() => alterarMes(cartao.id, 'anterior')} style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 }}>
+                          <TouchableOpacity onPress={() => void alterarMes(cartao.id, 'anterior')} style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 }}>
                             <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{'\u2190'}</Text>
                           </TouchableOpacity>
                           <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' }}>{formatarMesNavegacao(obterMesSelecionado(cartao.id))}</Text>
-                          <TouchableOpacity onPress={() => alterarMes(cartao.id, 'proximo')} style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 }}>
+                          <TouchableOpacity onPress={() => void alterarMes(cartao.id, 'proximo')} style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 }}>
                             <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{'\u2192'}</Text>
                           </TouchableOpacity>
                         </View>
@@ -413,9 +548,16 @@ export default function TelaCartao() {
                             <View key={lancamento.id} style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 8, padding: 10, marginBottom: 8 }}>
                               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
                                 <Text style={{ color: COLORS.textPrimary, fontWeight: '600', flex: 1 }}>{lancamento.descricao}</Text>
-                                <Text style={{ color: COLORS.error, fontWeight: '700' }}>{formatarValorPorIdioma(lancamento.valor)}</Text>
+                                <Text style={{ color: lancamento.tipoOperacao === 'estorno' || lancamento.tipoTransacao !== 'despesa' ? COLORS.success : COLORS.error, fontWeight: '700' }}>
+                                  {(lancamento.tipoOperacao === 'estorno' || lancamento.tipoTransacao !== 'despesa') ? '+' : '-'} {formatarValorPorIdioma(lancamento.valor)}
+                                </Text>
                               </View>
-                              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{formatarDataPorIdioma(lancamento.data)}</Text>
+                              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>
+                                {formatarDataPorIdioma(lancamento.data)} | {lancamento.tipoTransacao} | {lancamento.tipoOperacao}
+                              </Text>
+                              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>
+                                {lancamento.tipoPagamento || '-'} | {formatarValorPorIdioma(lancamento.valorAntesTransacao ?? 0)} {'->'} {formatarValorPorIdioma(lancamento.valorDepoisTransacao ?? 0)}
+                              </Text>
                             </View>
                           ))
                         )}
@@ -441,7 +583,7 @@ export default function TelaCartao() {
             {tipoExigeVencimento(formulario.tipo) ? <CampoData label={t('financeiro.cartao.campos.dataVencimentoCartao')} placeholder={t('financeiro.cartao.placeholders.data')} value={formulario.dataVencimentoCartao} onChange={(dataVencimentoCartao) => { setCamposInvalidos((atual) => ({ ...atual, dataVencimentoCartao: false })); setFormulario((atual) => ({ ...atual, dataVencimentoCartao })); }} error={camposInvalidos.dataVencimentoCartao} estilo={{ marginBottom: 20 }} /> : <View style={{ marginBottom: 20 }} />}
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Botao titulo={t('comum.acoes.cancelar')} onPress={resetarTela} tipo="secundario" estilo={{ flex: 1 }} />
-              <Botao titulo={modoTela === 'novo' ? t('comum.acoes.salvar') : t('comum.acoes.confirmar')} onPress={salvar} tipo="primario" estilo={{ flex: 1 }} />
+              <Botao titulo={modoTela === 'novo' ? t('comum.acoes.salvar') : t('comum.acoes.confirmar')} onPress={() => void salvar()} tipo="primario" estilo={{ flex: 1 }} disabled={carregando} />
             </View>
           </>
         ) : null}
@@ -473,6 +615,7 @@ export default function TelaCartao() {
     </View>
   );
 }
+
 
 
 
