@@ -24,7 +24,7 @@ describe('servico financeiro - filtros por competencia', () => {
       dataInicio: '2026-03-01',
       dataFim: '2026-03-31',
       competenciaMes: 3,
-      competenciaAno: 2026,
+      competenciaAno: 2026
     });
 
     expect(mockGet).toHaveBeenCalledWith('/financeiro/despesas', {
@@ -32,8 +32,7 @@ describe('servico financeiro - filtros por competencia', () => {
       params: {
         dataInicio: '2026-03-01',
         dataFim: '2026-03-31',
-        competenciaMes: 3,
-        competenciaAno: 2026,
+        competencia: '2026-03'
       },
     });
   });
