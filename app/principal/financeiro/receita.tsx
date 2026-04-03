@@ -52,6 +52,16 @@ import {
 type StatusReceita = 'pendente' | 'efetivada' | 'cancelada' | 'pendenteAprovacao' | 'rejeitada';
 type ModoTela = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao';
 type EscopoAcaoRecorrencia = 'apenasEsta' | 'estaEProximas' | 'todasPendentes';
+type EscopoRecorrenciaApi = 1 | 2 | 3;
+
+function obterEscopoRecorrenciaApi(escopo: EscopoAcaoRecorrencia): EscopoRecorrenciaApi {
+  const mapaEscopoRecorrencia: Record<EscopoAcaoRecorrencia, EscopoRecorrenciaApi> = {
+    apenasEsta: 1,
+    estaEProximas: 2,
+    todasPendentes: 3,
+  };
+  return mapaEscopoRecorrencia[escopo];
+}
 
 interface LogReceita {
   id: number;
@@ -414,14 +424,26 @@ export default function TelaReceita() {
   const mensagemLimiteRecorrenciaNormal = t('financeiro.comum.mensagens.limiteRecorrenciaNormal').replace('{limite}', String(LIMITE_RECORRENCIA_NORMAL));
   const competenciaLabel = useMemo(() => formatarCompetencia(competencia, locale), [competencia, locale]);
   const competenciaConsulta = useMemo(() => `${String(competencia.ano)}-${String(competencia.mes).padStart(2, '0')}`, [competencia.ano, competencia.mes]);
-  const opcoesEscopoRecorrencia = useMemo(() => ([
-    { valor: 'apenasEsta', rotulo: t('financeiro.comum.opcoesEscopoRecorrencia.apenasEsta') },
-    { valor: 'estaEProximas', rotulo: t('financeiro.comum.opcoesEscopoRecorrencia.estaEProximas') },
-    { valor: 'todasPendentes', rotulo: t('financeiro.comum.opcoesEscopoRecorrencia.todasPendentes') },
+  const opcoesEscopoCancelamentoRecorrencia = useMemo(() => ([
+    { valor: 'apenasEsta', rotulo: t('financeiro.comum.opcoesEscopoCancelamentoRecorrencia.apenasEsta') },
+    { valor: 'estaEProximas', rotulo: t('financeiro.comum.opcoesEscopoCancelamentoRecorrencia.estaEProximas') },
+    { valor: 'todasPendentes', rotulo: t('financeiro.comum.opcoesEscopoCancelamentoRecorrencia.todasPendentes') },
+  ]), [t]);
+  const opcoesEscopoEdicaoRecorrencia = useMemo(() => ([
+    { valor: 'apenasEsta', rotulo: t('financeiro.comum.opcoesEscopoEdicaoRecorrencia.apenasEsta') },
+    { valor: 'estaEProximas', rotulo: t('financeiro.comum.opcoesEscopoEdicaoRecorrencia.estaEProximas') },
+    { valor: 'todasPendentes', rotulo: t('financeiro.comum.opcoesEscopoEdicaoRecorrencia.todasPendentes') },
   ]), [t]);
 
   const ehReceitaRecorrente = (receita: ReceitaRegistro | null) =>
-    Boolean(receita && receita.recorrenciaBase !== 'unica');
+    Boolean(
+      receita
+      && (
+        receita.recorrenciaBase !== 'unica'
+        || receita.recorrenciaFixa
+        || (receita.quantidadeRecorrencia ?? 0) > 1
+      ),
+    );
 
   const carregarReceitasApi = async (signal?: AbortSignal) => {
     try {
@@ -847,9 +869,11 @@ export default function TelaReceita() {
       }
 
       if (modoTela === 'edicao' && receitaSelecionada) {
+        const escopoRecorrencia = obterEscopoRecorrenciaApi(escopoEdicao);
         await atualizarReceitaApi(receitaSelecionada.id, {
           ...payloadBase,
-          tipoEdicaoRecorrencia: escopoEdicao,
+        }, {
+          escopoRecorrencia,
         });
         await carregarReceitasApi();
         notificarSucesso(t('financeiro.receita.mensagens.atualizada'));
@@ -873,7 +897,7 @@ export default function TelaReceita() {
   };
 
   const confirmarEdicaoRecorrente = async () => {
-    const escopo = ehReceitaRecorrente(receitaPendenteEdicaoRecorrente) ? escopoEdicaoRecorrente : 'apenasEsta';
+    const escopo = escopoEdicaoRecorrente;
     await salvarCadastroOuEdicao(escopo);
   };
 
@@ -934,12 +958,12 @@ export default function TelaReceita() {
 
   const confirmarCancelamentoReceita = async () => {
     if (!receitaPendenteCancelamento) return;
-    const escopo = ehReceitaRecorrente(receitaPendenteCancelamento) ? escopoCancelamentoRecorrente : 'apenasEsta';
+    const escopo = escopoCancelamentoRecorrente;
+    const escopoRecorrencia = obterEscopoRecorrenciaApi(escopo);
     setCancelandoReceita(true);
     try {
       await cancelarReceitaApi(receitaPendenteCancelamento.id, {
-        tipoCancelamentoRecorrencia: escopo,
-        encerrarRecorrenciaFixa: escopo === 'todasPendentes' && receitaPendenteCancelamento.recorrenciaFixa,
+        escopoRecorrencia,
       });
       await carregarReceitasApi();
       notificarSucesso(t('financeiro.receita.acoes.cancelarReceita'));
@@ -1175,7 +1199,7 @@ export default function TelaReceita() {
             {modoTela === 'edicao' && ehReceitaRecorrente(receitaSelecionada) ? (
               <View style={{ backgroundColor: COLORS.accentSubtle, borderWidth: 1, borderColor: COLORS.borderAccent, borderRadius: 10, padding: 10, marginBottom: 12 }}>
                 <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700', marginBottom: 4 }}>
-                  {t('financeiro.comum.mensagens.recorrenciaApenasPendentes')}
+                  {t('financeiro.comum.mensagens.edicaoApenasPendentes')}
                 </Text>
                 <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>
                   {t('financeiro.comum.mensagens.edicaoReplicaPendentes')}
@@ -1243,14 +1267,14 @@ export default function TelaReceita() {
         mensagem={t('financeiro.receita.mensagens.confirmarCancelamento')}
         textoCancelar={t('comum.acoes.cancelar')}
         textoConfirmar={t('comum.acoes.confirmar')}
-        opcoes={ehReceitaRecorrente(receitaPendenteCancelamento) ? opcoesEscopoRecorrencia : [opcoesEscopoRecorrencia[0]]}
+        opcoes={opcoesEscopoCancelamentoRecorrencia}
         valorSelecionado={escopoCancelamentoRecorrente}
         onSelecionarOpcao={(valor) => setEscopoCancelamentoRecorrente(valor as EscopoAcaoRecorrencia)}
         observacao={
           ehReceitaRecorrente(receitaPendenteCancelamento)
             ? receitaPendenteCancelamento?.recorrenciaFixa
-              ? `${t('financeiro.comum.mensagens.recorrenciaApenasPendentes')} ${t('financeiro.comum.mensagens.cancelamentoFixaTodasPendentes')}`
-              : t('financeiro.comum.mensagens.recorrenciaApenasPendentes')
+              ? `${t('financeiro.comum.mensagens.cancelamentoApenasPendentes')} ${t('financeiro.comum.mensagens.cancelamentoFixaTodasPendentes')}`
+              : t('financeiro.comum.mensagens.cancelamentoApenasPendentes')
             : undefined
         }
         carregando={cancelandoReceita}
@@ -1263,10 +1287,10 @@ export default function TelaReceita() {
         mensagem={t('financeiro.comum.mensagens.confirmarEdicaoRecorrente')}
         textoCancelar={t('comum.acoes.cancelar')}
         textoConfirmar={t('comum.acoes.confirmar')}
-        opcoes={ehReceitaRecorrente(receitaPendenteEdicaoRecorrente) ? opcoesEscopoRecorrencia : [opcoesEscopoRecorrencia[0]]}
+        opcoes={opcoesEscopoEdicaoRecorrencia}
         valorSelecionado={escopoEdicaoRecorrente}
         onSelecionarOpcao={(valor) => setEscopoEdicaoRecorrente(valor as EscopoAcaoRecorrencia)}
-        observacao={ehReceitaRecorrente(receitaPendenteEdicaoRecorrente) ? t('financeiro.comum.mensagens.edicaoReplicaPendentes') : undefined}
+        observacao={ehReceitaRecorrente(receitaPendenteEdicaoRecorrente) ? `${t('financeiro.comum.mensagens.edicaoApenasPendentes')} ${t('financeiro.comum.mensagens.edicaoReplicaPendentes')}` : undefined}
         carregando={salvandoReceita}
         onCancelar={() => setReceitaPendenteEdicaoRecorrente(null)}
         onConfirmar={() => void confirmarEdicaoRecorrente()}

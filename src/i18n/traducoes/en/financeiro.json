@@ -215,8 +215,20 @@
       "estaEProximas": "Cancel/edit this one and next",
       "todasPendentes": "Cancel/edit all pending"
     },
+    "opcoesEscopoCancelamentoRecorrencia": {
+      "apenasEsta": "Cancel only this one (default)",
+      "estaEProximas": "Cancel this one and next",
+      "todasPendentes": "Cancel all pending"
+    },
+    "opcoesEscopoEdicaoRecorrencia": {
+      "apenasEsta": "Edit only this one (default)",
+      "estaEProximas": "Edit this one and next",
+      "todasPendentes": "Edit all pending"
+    },
     "mensagens": {
       "recorrenciaApenasPendentes": "Note: for recurring entries, only items with pending status can be canceled or edited.",
+      "cancelamentoApenasPendentes": "Note: for recurring entries, only items with pending status can be canceled.",
+      "edicaoApenasPendentes": "Note: for recurring entries, only items with pending status can be edited.",
       "cancelamentoFixaTodasPendentes": "When canceling all pending in fixed recurrence, no new occurrences will be generated.",
       "edicaoReplicaPendentes": "When editing this and next, or all pending, the new data will be replicated respecting recurrence rule dates.",
       "confirmarEdicaoRecorrente": "Select the edit type for this recurring entry."

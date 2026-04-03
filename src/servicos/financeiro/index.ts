@@ -47,6 +47,10 @@ interface OpcoesRequisicao {
   VerificarUltimaRecorrencia?: boolean;
 }
 
+interface OpcoesEscopoRecorrencia {
+  escopoRecorrencia?: 1 | 2 | 3;
+}
+
 function montarCompetencia(opcoes?: OpcoesRequisicao): string | undefined {
   if (!opcoes) return undefined;
   if (opcoes.competencia) return opcoes.competencia;
@@ -72,6 +76,15 @@ function montarConfigConsulta(opcoes?: OpcoesRequisicao): { signal?: AbortSignal
   return {
     signal: opcoes?.signal,
     ...(Object.keys(params).length ? { params } : {}),
+  };
+}
+
+function montarConfigEscopoRecorrencia(opcoes?: OpcoesEscopoRecorrencia): { params?: Record<string, number> } {
+  if (!opcoes?.escopoRecorrencia) return {};
+  return {
+    params: {
+      escopoRecorrencia: opcoes.escopoRecorrencia,
+    },
   };
 }
 
@@ -160,13 +173,28 @@ export async function criarDespesaApi(payload: Record<string, unknown>): Promise
   return extrairDados(data);
 }
 
-export async function atualizarDespesaApi(id: number, payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
-  const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/despesas/' + id, payload);
+export async function atualizarDespesaApi(
+  id: number,
+  payload: Record<string, unknown>,
+  opcoesEscopoRecorrencia?: OpcoesEscopoRecorrencia,
+): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
+    '/financeiro/despesas/' + id,
+    payload,
+    montarConfigEscopoRecorrencia(opcoesEscopoRecorrencia),
+  );
   return extrairDados(data);
 }
 
-export async function cancelarDespesaApi(id: number, payload: Record<string, unknown> = {}): Promise<RegistroFinanceiroApi> {
-  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/despesas/' + id + '/cancelar', payload);
+export async function cancelarDespesaApi(
+  id: number,
+  opcoesEscopoRecorrencia?: OpcoesEscopoRecorrencia,
+): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
+    '/financeiro/despesas/' + id + '/cancelar',
+    undefined,
+    montarConfigEscopoRecorrencia(opcoesEscopoRecorrencia),
+  );
   return extrairDados(data);
 }
 
@@ -185,13 +213,28 @@ export async function criarReceitaApi(payload: Record<string, unknown>): Promise
   return extrairDados(data);
 }
 
-export async function atualizarReceitaApi(id: number, payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
-  const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/receitas/' + id, payload);
+export async function atualizarReceitaApi(
+  id: number,
+  payload: Record<string, unknown>,
+  opcoesEscopoRecorrencia?: OpcoesEscopoRecorrencia,
+): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
+    '/financeiro/receitas/' + id,
+    payload,
+    montarConfigEscopoRecorrencia(opcoesEscopoRecorrencia),
+  );
   return extrairDados(data);
 }
 
-export async function cancelarReceitaApi(id: number, payload: Record<string, unknown> = {}): Promise<RegistroFinanceiroApi> {
-  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/receitas/' + id + '/cancelar', payload);
+export async function cancelarReceitaApi(
+  id: number,
+  opcoesEscopoRecorrencia?: OpcoesEscopoRecorrencia,
+): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
+    '/financeiro/receitas/' + id + '/cancelar',
+    undefined,
+    montarConfigEscopoRecorrencia(opcoesEscopoRecorrencia),
+  );
   return extrairDados(data);
 }
 

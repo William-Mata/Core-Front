@@ -216,8 +216,20 @@
       "estaEProximas": "Cancelar/editar essa e as proximas",
       "todasPendentes": "Cancelar/editar todas pendentes"
     },
+    "opcoesEscopoCancelamentoRecorrencia": {
+      "apenasEsta": "Cancelar apenas essa (default)",
+      "estaEProximas": "Cancelar essa e as proximas",
+      "todasPendentes": "Cancelar todas pendentes"
+    },
+    "opcoesEscopoEdicaoRecorrencia": {
+      "apenasEsta": "Editar apenas essa (default)",
+      "estaEProximas": "Editar essa e as proximas",
+      "todasPendentes": "Editar todas pendentes"
+    },
     "mensagens": {
       "recorrenciaApenasPendentes": "Observacao: em lancamentos recorrentes, apenas itens com status pendente podem ser cancelados ou editados.",
+      "cancelamentoApenasPendentes": "Observacao: em lancamentos recorrentes, apenas itens com status pendente podem ser cancelados.",
+      "edicaoApenasPendentes": "Observacao: em lancamentos recorrentes, apenas itens com status pendente podem ser editados.",
       "cancelamentoFixaTodasPendentes": "Ao cancelar todas as pendentes em recorrencia fixa, nao serao geradas novas ocorrencias.",
       "edicaoReplicaPendentes": "Ao editar essa e as proximas, ou todas as pendentes, os novos dados serao replicados respeitando as datas da regra de recorrencia.",
       "confirmarEdicaoRecorrente": "Selecione o tipo de edicao para este lancamento recorrente."
