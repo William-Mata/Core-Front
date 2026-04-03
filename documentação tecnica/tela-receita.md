@@ -1,221 +1,256 @@
 # Tela de Receita
 
 ## Objetivo
-Documentar o contrato atual do front-end da tela de receita para integração com a API.
+Documentar o contrato atual da API para a tela de receita, com base no comportamento real do backend.
 
-Arquivo principal:
-- `app/principal/financeiro/receita.tsx`
+Arquivos fonte usados:
+- `Core.Api/Controllers/Financeiro/ReceitaController.cs`
+- `Core.Application/Services/Financeiro/ReceitaService.cs`
+- `Core.Application/DTOs/Financeiro/ReceitaDtos.cs`
+- `Core.Domain/Enums/Recorrencia.cs`
+- `Core.Domain/Enums/StatusReceita.cs`
 
-## Rotas do front
-- listagem: `/principal/financeiro/receita`
-- visualização: `/principal/financeiro/receita?id={id}`
+## Autenticacao
+Todos os endpoints exigem autenticacao (`[Authorize]`).
 
-## Modos da tela
-- `lista`
-- `novo`
-- `edicao`
-- `visualizacao`
-- `efetivacao`
+## Endpoints
+- `GET /api/financeiro/receitas`
+- `GET /api/financeiro/receitas/{id}`
+- `POST /api/financeiro/receitas`
+- `PUT /api/financeiro/receitas/{id}`
+- `POST /api/financeiro/receitas/{id}/efetivar`
+- `POST /api/financeiro/receitas/{id}/cancelar`
+- `POST /api/financeiro/receitas/{id}/estornar`
 
-## Catálogos consumidos ao abrir a tela
-### Amigos
-- `GET /api/financeiro/amigos`
+`PUT` e `POST /cancelar` aceitam query param opcional `escopoRecorrencia`:
+- `1` Apenas essa
+- `2` Essa e as proximas
+- `3` Todas pendentes
 
-### Áreas e subáreas
-- `GET /api/financeiro/areas-subareas`
+Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_invalido` (400).
 
-Regra no front:
-- a tela de receita usa apenas áreas com `tipo = "receita"`
-- ao selecionar uma área, o front lista apenas as subáreas daquela área
-- se o par `areaId` e `subAreaId` não for válido, o envio é bloqueado
+## Contrato de listagem
+### Query params
+- `id` (opcional)
+- `descricao` (opcional)
+- `competencia` (opcional)
+- `dataInicio` (opcional, `yyyy-MM-dd`)
+- `dataFim` (opcional, `yyyy-MM-dd`)
+- `verificarUltimaRecorrencia` (opcional, `bool`, default `false`)
 
-## Campos da receita usados pelo front
+### Regras
+- se `dataInicio` e `dataFim` vierem juntas, `dataFim >= dataInicio` (`periodo_invalido`)
+- sem `competencia`, `dataInicio` e `dataFim`, a API aplica automaticamente a competencia atual
+- receitas espelho de rateio com status `pendenteaprovacao` ou `rejeitado` nao entram na listagem principal
+- `verificarUltimaRecorrencia` e repassado para o service como parte do filtro de listagem
+
+### Exemplo de response de sucesso (200)
+```json
+[
+  {
+    "id": 24,
+    "descricao": "Freelance",
+    "dataLancamento": "2026-03-12",
+    "dataVencimento": "2026-03-20",
+    "dataEfetivacao": null,
+    "tipoReceita": "freelance",
+    "tipoRecebimento": "pix",
+    "valorTotal": 1200.0,
+    "valorLiquido": 1200.0,
+    "valorEfetivacao": null,
+    "status": "pendente",
+    "vinculo": {
+      "contaBancariaId": 3,
+      "cartaoId": null
+    }
+  }
+]
+```
+
+## Contrato de detalhe
+`GET /api/financeiro/receitas/{id}` retorna `ReceitaDto` com:
+- dados principais da receita
+- `recorrencia`, `quantidadeRecorrencia`, `recorrenciaFixa`
+- `amigosRateio` e `areasSubAreasRateio`
+- `contaBancaria` (legado, string)
+- `documentos`
+- `vinculo` (`contaBancariaId`, `cartaoId`)
+- `logs`
+
+## Payload de criacao
+### Request (`POST /api/financeiro/receitas`)
 ```json
 {
-  "id": 1,
-  "descricao": "Freelance",
+  "descricao": "Freelance design",
   "observacao": "Projeto pontual",
-  "dataLancamento": "2026-03-10",
-  "dataVencimento": "2026-03-15",
-  "dataEfetivacao": "2026-03-15",
+  "dataLancamento": "2026-03-12",
+  "dataVencimento": "2026-03-20",
   "tipoReceita": "freelance",
   "tipoRecebimento": "pix",
-  "recorrencia": "Semanal",
-  "recorrenciaFixa": true,
-  "quantidadeRecorrencia": null,
-  "valorTotal": 1000.0,
-  "valorLiquido": 1000.0,
+  "recorrencia": 1,
+  "valorTotal": 1200.0,
   "desconto": 0.0,
   "acrescimo": 0.0,
   "imposto": 0.0,
   "juros": 0.0,
-  "valorEfetivacao": 1000.0,
-  "status": "efetivada",
-  "rateiosAmigos": [
-    { "amigo": "Alex", "valor": 250.0 }
-  ],
-  "rateiosAreaSubarea": [
-    { "area": "Salario", "subarea": "Holerite", "valor": 750.0 }
+  "areasSubAreasRateio": [
+    {
+      "areaId": 2,
+      "subAreaId": 8,
+      "valor": 1200.0
+    }
   ],
   "contaBancaria": "Conta Principal",
-  "anexoDocumento": "contrato.pdf",
-  "logs": []
+  "documentos": [
+    {
+      "nomeArquivo": "comprovante.pdf",
+      "conteudoBase64": "<base64>",
+      "contentType": "application/pdf"
+    }
+  ],
+  "amigosRateio": [
+    {
+      "amigoId": 10,
+      "valor": 1200.0
+    }
+  ],
+  "quantidadeRecorrencia": 1,
+  "recorrenciaFixa": false,
+  "vinculo": {
+    "contaBancariaId": 3,
+    "cartaoId": null
+  }
 }
 ```
 
-## Enumeradores usados no front
-### Status
-- `pendente`
-- `efetivada`
-- `cancelada`
+### Regras de criacao/atualizacao
+- `descricao` obrigatoria (`descricao_obrigatoria`)
+- `valorTotal > 0` (`valor_total_invalido`)
+- `dataVencimento >= dataLancamento` (`periodo_invalido`)
+- `tipoReceita`, `tipoRecebimento` e `recorrencia` validos (`enum_invalida`)
+- status inicial sempre `pendente`
+- `valorLiquido` calculado no backend: `valorTotal - desconto + acrescimo + imposto + juros`
+- atualizacao somente em status `pendente` (`status_invalido`)
+- em recorrencias, o backend aplica `escopoRecorrencia` somente sobre itens `pendente`
+- ao editar `essa e as proximas` ou `todas pendentes`, os novos dados sao replicados e as datas sao recalculadas respeitando a recorrencia
 
-### Tipo de recebimento
+### Regras de recorrencia
+- `recorrenciaFixa = true` nao permite `recorrencia = Unica` (`recorrencia_fixa_invalida`)
+- se recorrencia nao for `Unica` e nao for fixa, `quantidadeRecorrencia` deve ser > 0
+- em recorrencia nao fixa, `quantidadeRecorrencia` (quando informada) nao pode ser > 100
+- quando alvo de recorrencia for maior que 1, a API publica criacao em background
+
+### Regras de recebimento e vinculo
+- tipos que exigem conta bancaria: `pix`, `transferencia`, `contaCorrente`
+- para `cartaoCredito` e `cartaoDebito`, `cartaoId` e obrigatorio
+- nao pode enviar conta e cartao ao mesmo tempo (`forma_pagamento_invalida`)
+- `contaBancaria` (legado) aceita id em texto ou descricao da conta; backend resolve para `contaBancariaId`
+- conta/cartao precisam existir para o usuario (`conta_bancaria_invalida`, `cartao_invalido`)
+
+### Regras de rateio
+- amigos:
+  - ids validos e sem repeticao
+  - cada item com `valor > 0`
+  - soma dos valores = `valorTotal`
+  - amigo deve ser aceito e ativo (`amigo_rateio_invalido`)
+- area/subarea:
+  - ids > 0
+  - subarea deve pertencer a area (`relacao_area_subarea_invalida`)
+  - area/subarea precisa ser do tipo financeiro `Receita`
+  - soma dos valores = `valorTotal`
+
+## Efetivacao
+### Request (`POST /api/financeiro/receitas/{id}/efetivar`)
+```json
+{
+  "dataEfetivacao": "2026-03-20",
+  "tipoRecebimento": "pix",
+  "contaBancaria": "Conta Principal",
+  "valorTotal": 1200.0,
+  "desconto": 0.0,
+  "acrescimo": 0.0,
+  "imposto": 0.0,
+  "juros": 0.0,
+  "documentos": [],
+  "vinculo": {
+    "contaBancariaId": 3,
+    "cartaoId": null
+  }
+}
+```
+
+### Regras
+- so efetiva receita em status `pendente`
+- `tipoRecebimento` obrigatorio e `valorTotal > 0`
+- `dataEfetivacao >= dataLancamento`
+- aplica validacoes de conta/cartao
+- define:
+  - `status = efetivada`
+  - `dataEfetivacao`
+  - `valorLiquido` recalculado
+  - `valorEfetivacao = valorLiquido`
+- registra historico financeiro de efetivacao
+
+## Cancelamento
+`POST /api/financeiro/receitas/{id}/cancelar`
+
+Regras:
+- permitido somente em status `pendente`
+- define `status = cancelada`
+- para recorrencia:
+  - `1`: cancela apenas a receita atual
+  - `2`: cancela a atual e as proximas pendentes da serie
+  - `3`: cancela todas as pendentes da serie
+- em recorrencia fixa, cancelar `todas pendentes` encerra a geracao futura da serie
+
+## Estorno
+`POST /api/financeiro/receitas/{id}/estornar`
+
+Regras:
+- permitido somente em status `efetivada`
+- define:
+  - `status = pendente`
+  - `dataEfetivacao = null`
+  - `valorEfetivacao = null`
+- registra historico financeiro de estorno
+
+## Enumeracoes relevantes
+### `tipoReceita`
+- `salario`
+- `freelance`
+- `reembolso`
+- `investimento`
+- `bonus`
+- `outros`
+
+### `tipoRecebimento`
 - `pix`
 - `transferencia`
 - `contaCorrente`
 - `dinheiro`
 - `boleto`
+- `cartaoCredito`
+- `cartaoDebito`
 
-### Frequência de recorrência
-- `Unica`
-- `Diaria`
-- `Semanal`
-- `Quinzenal`
-- `Mensal`
-- `Trimestral`
-- `Semestral`
-- `Anual`
+### `status` retornado pela API
+- `pendente`
+- `efetivada`
+- `cancelada`
+- `pendenteaprovacao`
+- `rejeitado`
 
-## Regras de recorrência no front
-Payload enviado:
-- `recorrencia`: frequência da série
-- `recorrenciaFixa`: `true` ou `false`
-- `quantidadeRecorrencia`: inteiro ou `null`
+### `recorrencia` (enum numerico)
+- `1` Unica
+- `2` Diaria
+- `3` Semanal
+- `4` Quinzenal
+- `5` Mensal
+- `6` Trimestral
+- `7` Semestral
+- `8` Anual
 
-Regras:
-- se `recorrencia = Unica`
-  - `recorrenciaFixa = false`
-  - `quantidadeRecorrencia = null`
-- se `recorrencia != Unica` e `recorrenciaFixa = false`
-  - `quantidadeRecorrencia` é obrigatória
-  - `quantidadeRecorrencia > 0`
-  - `quantidadeRecorrencia <= 100`
-- se `recorrencia != Unica` e `recorrenciaFixa = true`
-  - `quantidadeRecorrencia = null`
-
-## Rateio enviado pelo front
-### Amigos
-```json
-[
-  { "nome": "Alex", "valor": 250.0 }
-]
-```
-
-### Área e subárea
-```json
-[
-  { "areaId": 2, "subAreaId": 20, "valor": 750.0 }
-]
-```
-
-## Payload de criação e edição
-### Receita recorrente comum
-```json
-{
-  "descricao": "Freelance mensal",
-  "observacao": "Contrato de manutenção",
-  "dataLancamento": "2026-03-10",
-  "dataVencimento": "2026-03-15",
-  "tipoReceita": "freelance",
-  "tipoRecebimento": "pix",
-  "recorrencia": "Mensal",
-  "recorrenciaFixa": false,
-  "quantidadeRecorrencia": 6,
-  "valorTotal": 1500.0,
-  "valorLiquido": 1500.0,
-  "desconto": 0.0,
-  "acrescimo": 0.0,
-  "imposto": 0.0,
-  "juros": 0.0,
-  "amigos": [],
-  "areasRateio": [
-    { "areaId": 2, "subAreaId": 20, "valor": 1500.0 }
-  ],
-  "contaBancaria": "Conta Principal",
-  "anexoDocumento": "contrato.pdf"
-}
-```
-
-### Receita recorrente fixa
-```json
-{
-  "descricao": "Assinatura recebida",
-  "observacao": "Plano recorrente",
-  "dataLancamento": "2026-03-10",
-  "dataVencimento": "2026-03-10",
-  "tipoReceita": "outros",
-  "tipoRecebimento": "transferencia",
-  "recorrencia": "Semanal",
-  "recorrenciaFixa": true,
-  "quantidadeRecorrencia": null,
-  "valorTotal": 250.0,
-  "valorLiquido": 250.0,
-  "desconto": 0.0,
-  "acrescimo": 0.0,
-  "imposto": 0.0,
-  "juros": 0.0,
-  "amigos": [],
-  "areasRateio": [],
-  "contaBancaria": "Conta Principal",
-  "anexoDocumento": ""
-}
-```
-
-## Validações de front
-Campos obrigatórios:
-- `descricao`
-- `dataLancamento`
-- `dataVencimento`
-- `tipoReceita`
-- `tipoRecebimento`
-- `valorTotal`
-
-Regras adicionais:
-- `contaBancaria` é obrigatória quando `tipoRecebimento` for `pix` ou `transferencia`
-- `valorLiquido` é calculado automaticamente
-- `valorLiquido` permanece bloqueado
-- `dataVencimento` não pode ser maior que `dataLancamento`
-- na efetivação, `dataEfetivacao` não pode ser maior que `dataLancamento`
-- para recorrência normal, `quantidadeRecorrencia` deve ser maior que zero e no máximo 100
-
-## Efetivação
-Payload esperado na efetivação:
-```json
-{
-  "dataEfetivacao": "2026-03-15",
-  "tipoRecebimento": "pix",
-  "contaBancaria": "Conta Principal",
-  "valorTotal": 1000.0,
-  "valorLiquido": 1000.0,
-  "desconto": 0.0,
-  "acrescimo": 0.0,
-  "imposto": 0.0,
-  "juros": 0.0,
-  "anexoDocumento": "comprovante.pdf"
-}
-```
-
-Regras:
-- `valorEfetivacao` é sempre igual a `valorLiquido`
-- `valorLiquido` e `valorEfetivacao` ficam bloqueados
-- apenas receitas pendentes podem ser efetivadas
-
-## Cancelamento e estorno
-- cancelamento: apenas `pendente`
-- estorno: apenas `efetivada`
-- após estorno, o front volta o status para `pendente`
-
-## UX de criação de série
-Se a criação gerar série recorrente:
-- o front considera sucesso com a primeira ocorrência
-- a mensagem exibida é equivalente a: `Primeira ocorrência criada. As demais estão sendo geradas.`
+## Erros e formato de resposta
+- erros de dominio e validacao: `400`
+- recurso nao encontrado: `404`
+- erro interno: `500`
+- payload de erro segue `application/problem+json` com `code` e `traceId`
