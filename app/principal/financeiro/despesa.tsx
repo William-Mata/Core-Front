@@ -90,6 +90,7 @@ interface DespesaRegistro {
   rateiosAreaSubarea?: Array<{ area: string; subarea: string; valor: number }>;
   tiposRateio?: string[];
   contaBancaria?: string;
+  contaBancariaId?: number;
   cartao?: string;
   anexoDocumento: string;
   documentos: DocumentoFinanceiro[];
@@ -307,6 +308,7 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
     ? (item.vinculo as Record<string, unknown>)
     : undefined;
   const documentos = normalizarDocumentosApi(item.documentos);
+  const contaBancariaIdNormalizada = Number(item.contaBancariaId ?? vinculo?.contaBancariaId ?? NaN);
 
   return {
     id: Number(item.id),
@@ -344,9 +346,10 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
     tiposRateio: areasRateio.map((chave) => separarAreaSubarea(chave).area),
     contaBancaria: item.contaBancaria
       ? String(item.contaBancaria)
-      : vinculo?.contaBancariaId
-        ? String(vinculo.contaBancariaId)
-        : undefined,
+      : undefined,
+    contaBancariaId: Number.isFinite(contaBancariaIdNormalizada) && contaBancariaIdNormalizada > 0
+      ? contaBancariaIdNormalizada
+      : undefined,
     cartao: item.cartao
       ? String(item.cartao)
       : vinculo?.cartaoId
@@ -398,7 +401,25 @@ export default function TelaDespesa() {
   const areasCatalogo = useMemo(() => opcoesAreasSubareasApi.filter((item) => item.tipo === 'despesa'), [opcoesAreasSubareasApi]);
   const opcoesAmigosRateio = useMemo(() => Array.from(new Set(opcoesAmigosRateioApi.map((item) => item.nome).filter(Boolean))).sort(), [opcoesAmigosRateioApi]);
   const opcoesAreasRateio = useMemo(() => Array.from(new Set([...areasCatalogo.map((item) => item.nome), ...despesas.flatMap((despesa) => despesa.areasRateio.map((chave) => separarAreaSubarea(chave).area)).filter(Boolean)])).sort(), [areasCatalogo, despesas]);
-  const opcoesContaBancaria = useMemo(() => Array.from(new Set([...opcoesContasBancariasApi.map((item) => item.nome), ...despesas.map((despesa) => despesa.contaBancaria || '')].filter((conta) => Boolean(conta.trim())))).sort(), [opcoesContasBancariasApi, despesas]);
+  const mapaContasBancariasPorId = useMemo(
+    () => new Map(opcoesContasBancariasApi.map((item) => [item.id, item.nome])),
+    [opcoesContasBancariasApi],
+  );
+  const opcoesContaBancaria = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...opcoesContasBancariasApi.map((item) => item.nome),
+          ...despesas.map((despesa) => {
+            const nomeConta = despesa.contaBancaria?.trim();
+            if (nomeConta) return nomeConta;
+            if (!despesa.contaBancariaId) return '';
+            return mapaContasBancariasPorId.get(despesa.contaBancariaId) ?? '';
+          }),
+        ].filter((conta) => Boolean(conta.trim()))),
+      ).sort(),
+    [opcoesContasBancariasApi, despesas, mapaContasBancariasPorId],
+  );
   const opcoesCartao = useMemo(() => Array.from(new Set([...opcoesCartoesApi.map((item) => item.nome), ...despesas.map((despesa) => despesa.cartao || '')].filter((cartao) => Boolean(cartao.trim())))).sort(), [opcoesCartoesApi, despesas]);
   const pagamentoComParcelas = ehPagamentoParcelado(formulario.tipoPagamento);
   const exibeContaBancariaPagamento = formulario.tipoPagamento === 'pix' || formulario.tipoPagamento === 'transferencia';
@@ -546,7 +567,9 @@ export default function TelaDespesa() {
       rateioAmigosValores: Object.fromEntries(Object.entries(despesa.rateioAmigosValores).map(([chave, valor]) => [chave, formatarMoedaParaInput(valor, locale)])),
       areasRateio: despesa.areasRateio,
       rateioAreasValores: Object.fromEntries(Object.entries(despesa.rateioAreasValores).map(([chave, valor]) => [chave, formatarMoedaParaInput(valor, locale)])),
-      contaBancaria: despesa.contaBancaria || '',
+      contaBancaria: despesa.contaBancaria?.trim()
+        ? despesa.contaBancaria
+        : (despesa.contaBancariaId ? (mapaContasBancariasPorId.get(despesa.contaBancariaId) ?? '') : ''),
       cartao: despesa.cartao || '',
       anexoDocumento: despesa.anexoDocumento,
       documentos: despesa.documentos,
