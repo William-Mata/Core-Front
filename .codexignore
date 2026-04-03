@@ -1,0 +1,58 @@
+# .codexignore — Core-Front (React Native + Expo)
+# Arquivos e pastas ignorados pelo Codex para reduzir contexto e economizar tokens
+
+# Dependências
+node_modules/
+
+# Build e exportação
+dist/
+build/
+web-build/
+.expo/
+.expo-shared/
+
+# Cache
+.cache/
+**/.cache/
+**/*.tsbuildinfo
+
+# Testes — artefatos gerados
+coverage/
+**/__snapshots__/
+**/jest-results/
+
+# Ambiente e secrets
+.env
+.env.local
+.env.development
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDEs
+.idea/
+.vscode/
+*.suo
+*.user
+
+# Mobile — builds nativos gerados
+android/
+ios/
+
+# Assets grandes (fontes, imagens brutas)
+assets/fonts/
+assets/images/
+
+# Documentação de usuário (não relevante para código)
+documentação do sistema/
+
+# Relatórios e artefatos gerados automaticamente
+PHASE_*.md
+
+# Lock files (raramente úteis para o Codex)
+package-lock.json
+yarn.lock
