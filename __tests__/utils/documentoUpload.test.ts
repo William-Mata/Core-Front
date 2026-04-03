@@ -30,6 +30,26 @@ describe('utils/documentoUpload', () => {
     });
   });
 
+  it('deve aceitar caminhoArquivo no contrato de detalhe financeiro', () => {
+    const lista = normalizarDocumentosApi([
+      {
+        nomeArquivo: 'holerite-abril.pdf',
+        caminhoArquivo: 'https://storage.exemplo.com/docs/holerite-abril.pdf',
+        contentType: 'application/pdf',
+        tamanhoBytes: 252001,
+      },
+    ]);
+
+    expect(lista).toEqual([
+      {
+        nomeArquivo: 'holerite-abril.pdf',
+        caminho: 'https://storage.exemplo.com/docs/holerite-abril.pdf',
+        contentType: 'application/pdf',
+        tamanhoBytes: 252001,
+      },
+    ]);
+  });
+
   it('deve montar payload apenas com documentos que possuem base64', () => {
     const payload = montarDocumentosPayload([
       {

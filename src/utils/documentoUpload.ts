@@ -38,7 +38,7 @@ export function normalizarDocumentosApi(entrada: unknown): DocumentoFinanceiro[]
 
       const conteudoBase64 = extrairConteudoBase64SemPrefixo(texto(registro.conteudoBase64 ?? registro.base64));
       const contentType = texto(registro.contentType ?? registro.tipo);
-      const caminho = texto(registro.caminho ?? registro.path);
+      const caminho = texto(registro.caminhoArquivo ?? registro.caminho ?? registro.path);
       const tamanhoBytes = Number(registro.tamanhoBytes ?? registro.sizeBytes ?? registro.tamanho ?? 0);
 
       return {
