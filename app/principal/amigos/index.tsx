@@ -34,6 +34,8 @@ export default function Amigos() {
   const [carregando, setCarregando] = useState(true);
   const [abaSelecionada, setAbaSelecionada] = useState<'amigos' | 'pendentes'>('amigos');
   const [filtro, setFiltro] = useState<FiltroPadraoValor>({ id: '', descricao: '', dataInicio: '', dataFim: '' });
+  const [filtroAplicado, setFiltroAplicado] = useState<FiltroPadraoValor>({ id: '', descricao: '', dataInicio: '', dataFim: '' });
+  const [versaoConsulta, setVersaoConsulta] = useState(0);
 
   const mapearAmigo = (item: AmigoRateioApi): AmigoTela => ({
     id: item.id,
@@ -67,19 +69,26 @@ export default function Amigos() {
 
   useEffect(() => {
     void carregarDados();
-  }, [carregarDados]);
+    // Evita loop de carregamento quando a referencia de traducao muda entre renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const consultarFiltros = () => {
+    setFiltroAplicado({ ...filtro });
+    setVersaoConsulta((atual) => atual + 1);
+  };
 
   const amigosFiltrados = useMemo(
     () =>
       amigos.filter((a) => {
         const bateAba = abaSelecionada === 'amigos' ? a.status === 'amigo' : a.status === 'pendente';
-        const bateId = !filtro.id || String(a.id).includes(filtro.id);
-        const termo = filtro.descricao.toLowerCase();
-        const bateDescricao = !filtro.descricao || a.nome.toLowerCase().includes(termo) || a.email.toLowerCase().includes(termo);
-        const bateData = estaDentroIntervalo(a.dataAdicao, filtro.dataInicio, filtro.dataFim);
+        const bateId = !filtroAplicado.id || String(a.id).includes(filtroAplicado.id);
+        const termo = filtroAplicado.descricao.toLowerCase();
+        const bateDescricao = !filtroAplicado.descricao || a.nome.toLowerCase().includes(termo) || a.email.toLowerCase().includes(termo);
+        const bateData = estaDentroIntervalo(a.dataAdicao, filtroAplicado.dataInicio, filtroAplicado.dataFim);
         return bateAba && bateId && bateDescricao && bateData;
       }),
-    [amigos, abaSelecionada, filtro],
+    [amigos, abaSelecionada, filtroAplicado, versaoConsulta],
   );
 
   const aceitarConvite = async (id: number) => {
@@ -157,6 +166,7 @@ export default function Amigos() {
         )}
 
         <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
+        <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo="secundario" estilo={{ marginBottom: 12 }} />
 
         <View style={{ gap: 12 }}>
           {carregando ? (

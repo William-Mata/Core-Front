@@ -840,5 +840,3 @@ export default function Dashboard() {
     </View>
   );
 }
-
-
