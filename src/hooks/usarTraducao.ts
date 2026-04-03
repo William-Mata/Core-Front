@@ -365,6 +365,8 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'financeiro.receita.tipoRecebimento.pix': 'PIX',
     'financeiro.receita.tipoRecebimento.transferencia': 'Transferencia',
     'financeiro.receita.tipoRecebimento.contaCorrente': 'Conta Corrente',
+    'financeiro.receita.tipoRecebimento.cartaoCredito': 'Cartao de Credito',
+    'financeiro.receita.tipoRecebimento.cartaoDebito': 'Cartao de Debito',
     'financeiro.receita.tipoRecebimento.dinheiro': 'Dinheiro',
     'financeiro.receita.tipoRecebimento.boleto': 'Boleto',
     'financeiro.receita.recorrencia.unica': 'Unica',
@@ -784,6 +786,8 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'financeiro.receita.tipoRecebimento.pix': 'PIX',
     'financeiro.receita.tipoRecebimento.transferencia': 'Transfer',
     'financeiro.receita.tipoRecebimento.contaCorrente': 'Checking Account',
+    'financeiro.receita.tipoRecebimento.cartaoCredito': 'Credit Card',
+    'financeiro.receita.tipoRecebimento.cartaoDebito': 'Debit Card',
     'financeiro.receita.tipoRecebimento.dinheiro': 'Cash',
     'financeiro.receita.tipoRecebimento.boleto': 'Bank Slip',
     'financeiro.receita.recorrencia.unica': 'One-time',
@@ -1202,6 +1206,8 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'financeiro.receita.tipoRecebimento.pix': 'PIX',
     'financeiro.receita.tipoRecebimento.transferencia': 'Transferencia',
     'financeiro.receita.tipoRecebimento.contaCorrente': 'Cuenta Corriente',
+    'financeiro.receita.tipoRecebimento.cartaoCredito': 'Tarjeta de Credito',
+    'financeiro.receita.tipoRecebimento.cartaoDebito': 'Tarjeta de Debito',
     'financeiro.receita.tipoRecebimento.dinheiro': 'Efectivo',
     'financeiro.receita.tipoRecebimento.boleto': 'Boleta',
     'financeiro.receita.recorrencia.unica': 'Unica',
@@ -1389,7 +1395,6 @@ export const usarTraducao = () => {
 
   return { t };
 };
-
 
 
 

@@ -10,7 +10,9 @@
       "valor": "Valor",
       "efetivacao": "Data de Efetivação",
       "desdobramento": "Desdobramento (parcelas)",
-      "rateio": "Rateio"
+      "rateio": "Rateio",
+      "contaBancaria": "Conta Bancaria",
+      "cartao": "Cartão"
     },
     "placeholders": {
       "titulo": "Ex: Almoço",
@@ -59,7 +61,9 @@
       "categoria": "Categoria",
       "descricao": "Descrição",
       "valor": "Valor",
-      "efetivacao": "Data de Efetivação"
+      "efetivacao": "Data de Efetivação",
+      "contaBancaria": "Conta Bancaria",
+      "cartao": "Cartao"
     },
     "placeholders": {
       "titulo": "Ex: Salário",
@@ -201,6 +205,26 @@
       "cartaoDebito": "Cartão de débito não possui fatura mensal.",
       "criado": "Cartão criado com sucesso.",
       "atualizado": "Cartão atualizado com sucesso."
+    }
+  },
+  "comum": {
+    "campos": {
+      "rateio": "Rateio"
+    },
+    "opcoesEscopoRecorrencia": {
+      "apenasEsta": "Cancelar/editar apenas essa (default)",
+      "estaEProximas": "Cancelar/editar essa e as proximas",
+      "todasPendentes": "Cancelar/editar todas pendentes"
+    },
+    "mensagens": {
+      "recorrenciaApenasPendentes": "Observacao: em lancamentos recorrentes, apenas itens com status pendente podem ser cancelados ou editados.",
+      "cancelamentoFixaTodasPendentes": "Ao cancelar todas as pendentes em recorrencia fixa, nao serao geradas novas ocorrencias.",
+      "edicaoReplicaPendentes": "Ao editar essa e as proximas, ou todas as pendentes, os novos dados serao replicados respeitando as datas da regra de recorrencia.",
+      "confirmarEdicaoRecorrente": "Selecione o tipo de edicao para este lancamento recorrente."
+    },
+    "status": {
+      "pendenteAprovacao": "PENDENTE APROVACAO",
+      "rejeitada": "REJEITADA"
     }
   },
   "seletorDespesas": {

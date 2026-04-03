@@ -10,7 +10,9 @@
       "valor": "Amount",
       "efetivacao": "Settlement Date",
       "desdobramento": "Installments",
-      "rateio": "Split"
+      "rateio": "Split",
+      "contaBancaria": "Bank Account",
+      "cartao": "Card"
     },
     "placeholders": {
       "titulo": "Ex: Lunch",
@@ -59,7 +61,9 @@
       "categoria": "Category",
       "descricao": "Description",
       "valor": "Amount",
-      "efetivacao": "Settlement Date"
+      "efetivacao": "Settlement Date",
+      "contaBancaria": "Bank Account",
+      "cartao": "Card"
     },
     "placeholders": {
       "titulo": "Ex: Salary",
@@ -200,6 +204,26 @@
       "cartaoDebito": "Debit cards do not have monthly bill.",
       "criado": "Card created successfully.",
       "atualizado": "Card updated successfully."
+    }
+  },
+  "comum": {
+    "campos": {
+      "rateio": "Split"
+    },
+    "opcoesEscopoRecorrencia": {
+      "apenasEsta": "Cancel/edit only this one (default)",
+      "estaEProximas": "Cancel/edit this one and next",
+      "todasPendentes": "Cancel/edit all pending"
+    },
+    "mensagens": {
+      "recorrenciaApenasPendentes": "Note: for recurring entries, only items with pending status can be canceled or edited.",
+      "cancelamentoFixaTodasPendentes": "When canceling all pending in fixed recurrence, no new occurrences will be generated.",
+      "edicaoReplicaPendentes": "When editing this and next, or all pending, the new data will be replicated respecting recurrence rule dates.",
+      "confirmarEdicaoRecorrente": "Select the edit type for this recurring entry."
+    },
+    "status": {
+      "pendenteAprovacao": "PENDING APPROVAL",
+      "rejeitada": "REJECTED"
     }
   },
   "seletorDespesas": {

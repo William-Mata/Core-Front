@@ -10,7 +10,9 @@
       "valor": "Valor",
       "efetivacao": "Fecha de liquidación",
       "desdobramento": "Desglose (cuotas)",
-      "rateio": "Prorrateo"
+      "rateio": "Prorrateo",
+      "contaBancaria": "Cuenta bancaria",
+      "cartao": "Tarjeta"
     },
     "placeholders": {
       "titulo": "Ej: Almuerzo",
@@ -59,7 +61,9 @@
       "categoria": "Categoría",
       "descricao": "Descripción",
       "valor": "Valor",
-      "efetivacao": "Fecha de liquidación"
+      "efetivacao": "Fecha de liquidación",
+      "contaBancaria": "Cuenta bancaria",
+      "cartao": "Tarjeta"
     },
     "placeholders": {
       "titulo": "Ej: Salario",
@@ -201,6 +205,26 @@
       "cartaoDebito": "La tarjeta de débito no tiene factura mensual.",
       "criado": "Tarjeta creada con éxito.",
       "atualizado": "Tarjeta actualizada con éxito."
+    }
+  },
+  "comum": {
+    "campos": {
+      "rateio": "Prorrateo"
+    },
+    "opcoesEscopoRecorrencia": {
+      "apenasEsta": "Cancelar/editar solo esta (default)",
+      "estaEProximas": "Cancelar/editar esta y las proximas",
+      "todasPendentes": "Cancelar/editar todas las pendientes"
+    },
+    "mensagens": {
+      "recorrenciaApenasPendentes": "Observacion: en lanzamientos recurrentes, solo los elementos con estado pendiente se pueden cancelar o editar.",
+      "cancelamentoFixaTodasPendentes": "Al cancelar todas las pendientes en recurrencia fija, no se generaran nuevas ocurrencias.",
+      "edicaoReplicaPendentes": "Al editar esta y las proximas, o todas las pendientes, los nuevos datos se replicaran respetando las fechas de la regla de recurrencia.",
+      "confirmarEdicaoRecorrente": "Seleccione el tipo de edicion para este lanzamiento recurrente."
+    },
+    "status": {
+      "pendenteAprovacao": "PENDIENTE APROBACION",
+      "rejeitada": "RECHAZADA"
     }
   },
   "seletorDespesas": {
