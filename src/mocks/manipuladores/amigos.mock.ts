@@ -17,10 +17,11 @@ export const manipuladorAmigos = [
       dados: [
         {
           id: 2,
-          nome: 'Maria Santos',
-          email: 'maria@example.com',
+          usuarioOrigemNome: 'Maria Santos',
+          usuarioOrigemEmail: 'maria@example.com',
+          mensagem: 'Vamos dividir as despesas?',
           status: 'pendente',
-          dataCriacao: '2026-03-10T12:00:00Z',
+          dataHoraCadastro: '2026-03-10T12:00:00Z',
         },
       ],
     });

@@ -264,10 +264,11 @@ export async function deletarReembolsoApi(id: number): Promise<void> {
 
 export interface ConviteAmizadeApi {
   id: number;
-  nome?: string;
-  email: string;
+  usuarioOrigemNome?: string;
+  usuarioOrigemEmail: string;
+  mensagem?: string;
   status?: string;
-  dataCriacao?: string;
+  dataHoraCadastro?: string;
 }
 
 export interface AprovacaoFinanceiraApi extends RegistroFinanceiroApi {
@@ -283,11 +284,12 @@ export async function listarConvitesAmizadeApi(opcoes?: OpcoesRequisicao): Promi
   const { data } = await api.get<EnvelopeApi<ConviteAmizadeApi[]> | ConviteAmizadeApi[]>('/financeiro/amigos/convites', montarConfigConsulta(opcoes));
   return extrairLista<ConviteAmizadeApi>(extrairDados(data)).map((item, indice) => ({
     id: Number((item as any).id ?? indice + 1),
-    nome: normalizarTexto((item as any).nome) || undefined,
-    email: normalizarTexto((item as any).email),
-    status: normalizarTexto((item as any).status) || undefined,
-    dataCriacao: normalizarTexto((item as any).dataCriacao || (item as any).dataConvite) || undefined,
-  })).filter((item) => item.id > 0 && Boolean(item.email));
+    usuarioOrigemNome: normalizarTexto((item as any).usuarioOrigemNome ?? (item as any).nome) || undefined,
+    usuarioOrigemEmail: normalizarTexto((item as any).usuarioOrigemEmail ?? (item as any).email),
+    mensagem: normalizarTexto((item as any).mensagem ?? (item as any).mensagemConvite) || undefined,
+    status: normalizarTexto((item as any).status) || 'pendente',
+    dataHoraCadastro: normalizarTexto((item as any).dataHoraCadastro ?? (item as any).dataCriacao ?? (item as any).dataConvite) || undefined,
+  })).filter((item) => item.id > 0 && Boolean(item.usuarioOrigemEmail));
 }
 
 export async function aceitarConviteAmizadeApi(id: number): Promise<void> {
@@ -308,11 +310,11 @@ export async function listarAprovacoesDespesasApi(opcoes?: OpcoesRequisicao): Pr
 }
 
 export async function aprovarDespesaPendenteApi(id: number): Promise<void> {
-  await api.post('/financeiro/aprovacoes/despesas/' + id + '/aprovar');
+  await api.post('/financeiro/despesas/' + id + '/aprovar');
 }
 
 export async function rejeitarDespesaPendenteApi(id: number): Promise<void> {
-  await api.post('/financeiro/aprovacoes/despesas/' + id + '/rejeitar');
+  await api.post('/financeiro/despesas/' + id + '/rejeitar');
 }
 
 export async function listarAprovacoesReceitasApi(opcoes?: OpcoesRequisicao): Promise<AprovacaoFinanceiraApi[]> {
@@ -321,11 +323,11 @@ export async function listarAprovacoesReceitasApi(opcoes?: OpcoesRequisicao): Pr
 }
 
 export async function aprovarReceitaPendenteApi(id: number): Promise<void> {
-  await api.post('/financeiro/aprovacoes/receitas/' + id + '/aprovar');
+  await api.post('/financeiro/receitas/' + id + '/aprovar');
 }
 
 export async function rejeitarReceitaPendenteApi(id: number): Promise<void> {
-  await api.post('/financeiro/aprovacoes/receitas/' + id + '/rejeitar');
+  await api.post('/financeiro/receitas/' + id + '/rejeitar');
 }
 
 

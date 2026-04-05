@@ -1,4 +1,4 @@
-﻿import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Keyboard } from 'react-native';
 import { useRouter } from 'expo-router';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { Cabecalho } from '../../../src/componentes/comuns/Cabecalho';
@@ -22,6 +22,7 @@ interface AmigoTela {
   id: number;
   nome: string;
   email: string;
+  mensagem?: string;
   status: 'amigo' | 'pendente';
   dataAdicao: string;
 }
@@ -41,22 +42,32 @@ export default function Amigos() {
     id: item.id,
     nome: item.nome,
     email: item.email ?? '',
+    mensagem: undefined,
     status: 'amigo',
     dataAdicao: new Date().toISOString().slice(0, 10),
   });
 
   const mapearConvite = (item: ConviteAmizadeApi): AmigoTela => ({
     id: item.id,
-    nome: item.nome || item.email,
-    email: item.email,
+    nome: item.usuarioOrigemNome || item.usuarioOrigemEmail,
+    email: item.usuarioOrigemEmail,
+    mensagem: item.mensagem,
     status: 'pendente',
-    dataAdicao: (item.dataCriacao || new Date().toISOString()).slice(0, 10),
+    dataAdicao: (item.dataHoraCadastro || new Date().toISOString()).slice(0, 10),
   });
 
-  const carregarDados = useCallback(async () => {
+  const carregarDados = useCallback(async (filtroConsulta?: FiltroPadraoValor) => {
     setCarregando(true);
     try {
-      const [amigosAceitos, convites] = await Promise.all([listarAmigosRateioApi(), listarConvitesAmizadeApi()]);
+      const opcoesConsulta = filtroConsulta
+        ? {
+            id: filtroConsulta.id.trim() || undefined,
+            descricao: filtroConsulta.descricao.trim() || undefined,
+            dataInicio: filtroConsulta.dataInicio || undefined,
+            dataFim: filtroConsulta.dataFim || undefined,
+          }
+        : undefined;
+      const [amigosAceitos, convites] = await Promise.all([listarAmigosRateioApi(opcoesConsulta), listarConvitesAmizadeApi(opcoesConsulta)]);
       const convitesPendentes = convites.filter((item) => String(item.status ?? '').toLowerCase().includes('pend'));
       setAmigos([...amigosAceitos.map(mapearAmigo), ...convitesPendentes.map(mapearConvite)]);
     } catch {
@@ -73,17 +84,25 @@ export default function Amigos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const consultarFiltros = () => {
-    setFiltroAplicado({ ...filtro });
+  const consultarFiltros = async () => {
+    const proximoFiltro = {
+      id: filtro.id.trim(),
+      descricao: filtro.descricao.trim(),
+      dataInicio: filtro.dataInicio,
+      dataFim: filtro.dataFim,
+    };
+    setFiltroAplicado(proximoFiltro);
     setVersaoConsulta((atual) => atual + 1);
+    await carregarDados(proximoFiltro);
   };
 
   const amigosFiltrados = useMemo(
     () =>
       amigos.filter((a) => {
         const bateAba = abaSelecionada === 'amigos' ? a.status === 'amigo' : a.status === 'pendente';
-        const bateId = !filtroAplicado.id || String(a.id).includes(filtroAplicado.id);
-        const termo = filtroAplicado.descricao.toLowerCase();
+        const idFiltro = filtroAplicado.id.trim();
+        const bateId = !idFiltro || String(a.id).includes(idFiltro);
+        const termo = filtroAplicado.descricao.trim().toLowerCase();
         const bateDescricao = !filtroAplicado.descricao || a.nome.toLowerCase().includes(termo) || a.email.toLowerCase().includes(termo);
         const bateData = estaDentroIntervalo(a.dataAdicao, filtroAplicado.dataInicio, filtroAplicado.dataFim);
         return bateAba && bateId && bateDescricao && bateData;
@@ -136,7 +155,7 @@ export default function Amigos() {
     <View style={{ flex: 1, backgroundColor: COLORS.bgPrimary }}>
       <Cabecalho titulo={t('amigos.titulo')} />
 
-      <ScrollView style={{ flex: 1, padding: 24 }}>
+      <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1, padding: 24 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <Text style={{ color: COLORS.accent, fontSize: 24, fontWeight: 'bold' }}>{'\uD83D\uDC65'} {t('amigos.titulo')}</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -166,7 +185,10 @@ export default function Amigos() {
         )}
 
         <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
-        <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo="secundario" estilo={{ marginBottom: 12 }} />
+        <Botao titulo={t('comum.acoes.consultar')} onPress={() => {
+            Keyboard.dismiss();
+            void consultarFiltros();
+          }} tipo="secundario" estilo={{ marginBottom: 12 }} />
 
         <View style={{ gap: 12 }}>
           {carregando ? (
@@ -180,6 +202,11 @@ export default function Amigos() {
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: 'white', fontSize: 14, fontWeight: '600', marginBottom: 4 }}>{amigo.nome}</Text>
                       <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{amigo.email}</Text>
+                      {amigo.status === 'pendente' && amigo.mensagem ? (
+                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 4 }}>
+                          {t('amigos.form.msgLabel')}: {amigo.mensagem}
+                        </Text>
+                      ) : null}
                     </View>
                     <View style={{ backgroundColor: badge.bg, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
                       <Text style={{ color: 'white', fontSize: 11, fontWeight: '600' }}>{badge.label}</Text>
@@ -207,3 +234,4 @@ export default function Amigos() {
     </View>
   );
 }
+

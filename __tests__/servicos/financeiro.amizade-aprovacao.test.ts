@@ -30,19 +30,19 @@ describe('servico financeiro - amizade e aprovacoes', () => {
   });
 
   it('deve enviar convite de amizade', async () => {
-    mockPost.mockResolvedValueOnce({ data: { dados: { id: 11, email: 'alex@email.com', status: 'pendente' } } });
+    mockPost.mockResolvedValueOnce({ data: { dados: { id: 11, usuarioOrigemEmail: 'alex@email.com', status: 'pendente' } } });
 
     const resposta = await enviarConviteAmizadeApi({ email: 'alex@email.com', mensagem: 'bora' });
 
     expect(mockPost).toHaveBeenCalledWith('/financeiro/amigos/convites', { email: 'alex@email.com', mensagem: 'bora' });
-    expect(resposta).toEqual({ id: 11, email: 'alex@email.com', status: 'pendente' });
+    expect(resposta).toEqual({ id: 11, usuarioOrigemEmail: 'alex@email.com', status: 'pendente' });
   });
 
   it('deve listar convites de amizade', async () => {
     mockGet.mockResolvedValueOnce({
       data: {
         dados: [
-          { id: 10, nome: 'Alex', email: 'alex@email.com', status: 'pendente', dataCriacao: '2026-03-29T10:00:00Z' },
+          { id: 10, usuarioOrigemNome: 'Alex', usuarioOrigemEmail: 'alex@email.com', mensagem: 'Convite de teste', status: 'pendente', dataHoraCadastro: '2026-03-29T10:00:00Z' },
         ],
       },
     });
@@ -52,7 +52,8 @@ describe('servico financeiro - amizade e aprovacoes', () => {
     expect(mockGet).toHaveBeenCalledWith('/financeiro/amigos/convites', { signal: undefined });
     expect(resposta).toHaveLength(1);
     expect(resposta[0].id).toBe(10);
-    expect(resposta[0].email).toBe('alex@email.com');
+    expect(resposta[0].usuarioOrigemEmail).toBe('alex@email.com');
+    expect(resposta[0].mensagem).toBe('Convite de teste');
   });
 
   it('deve chamar acoes de convite e amizade', async () => {
@@ -86,9 +87,9 @@ describe('servico financeiro - amizade e aprovacoes', () => {
     expect(receitas).toEqual([{ id: 2, status: 'PendenteAprovacao' }]);
     expect(mockGet).toHaveBeenNthCalledWith(1, '/financeiro/aprovacoes/despesas', { signal: undefined });
     expect(mockGet).toHaveBeenNthCalledWith(2, '/financeiro/aprovacoes/receitas', { signal: undefined });
-    expect(mockPost).toHaveBeenCalledWith('/financeiro/aprovacoes/despesas/1/aprovar');
-    expect(mockPost).toHaveBeenCalledWith('/financeiro/aprovacoes/despesas/1/rejeitar');
-    expect(mockPost).toHaveBeenCalledWith('/financeiro/aprovacoes/receitas/2/aprovar');
-    expect(mockPost).toHaveBeenCalledWith('/financeiro/aprovacoes/receitas/2/rejeitar');
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/despesas/1/aprovar');
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/despesas/1/rejeitar');
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/receitas/2/aprovar');
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/receitas/2/rejeitar');
   });
 });
