@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
@@ -96,6 +96,7 @@ interface DespesaRegistro {
   valorEfetivacao?: number;
   status: StatusDespesa;
   amigosRateio: string[];
+  tipoRateioAmigos: 'comum' | 'igualitario';
   valorTotalRateioAmigos: number;
   rateioAmigosValores: Record<string, number>;
   areasRateio: string[];
@@ -226,6 +227,12 @@ function calcularRateioIgualitarioAmigos(amigosRateio: string[], valorTotalRatei
   );
 }
 
+function normalizarTipoRateioAmigos(valor: unknown): TipoRateioAmigos {
+  if (valor === 2 || valor === '2') return 'igualitario';
+  if (String(valor ?? '').toLowerCase().includes('igual')) return 'igualitario';
+  return 'comum';
+}
+
 function normalizarStatusDespesa(status: unknown): StatusDespesa {
   const valor = String(status ?? '').toLowerCase();
   if (valor.includes('aprov') || valor.includes('pendente_aprovacao') || valor.includes('pendenteaprovacao')) return 'pendenteAprovacao';
@@ -233,6 +240,29 @@ function normalizarStatusDespesa(status: unknown): StatusDespesa {
   if (valor.includes('efetiv')) return 'efetivada';
   if (valor.includes('cancel')) return 'cancelada';
   return 'pendente';
+}
+
+function normalizarTipoDespesa(valor: unknown): (typeof tiposDespesa)[number] {
+  const texto = String(valor ?? '').trim().toLowerCase();
+  const tipoEncontrado = tiposDespesa.find((tipo) => tipo.toLowerCase() === texto);
+  return tipoEncontrado ?? 'servicos';
+}
+
+function normalizarTipoPagamento(valor: unknown): (typeof tiposPagamento)[number] {
+  const texto = String(valor ?? '').trim().toLowerCase();
+  const mapaTiposPagamentoApi: Record<string, (typeof tiposPagamento)[number]> = {
+    pix: 'pix',
+    boleto: 'boleto',
+    transferencia: 'transferencia',
+    dinheiro: 'dinheiro',
+    cartaocredito: 'cartaoCredito',
+    cartaodebito: 'cartaoDebito',
+    credito: 'cartaoCredito',
+    debito: 'cartaoDebito',
+    teddoc: 'transferencia',
+  };
+  const chaveNormalizada = texto.replace(/[\s_-]/g, '');
+  return mapaTiposPagamentoApi[chaveNormalizada] ?? 'dinheiro';
 }
 
 
@@ -263,6 +293,7 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
   const imposto = Number(item.imposto ?? 0);
   const juros = Number(item.juros ?? 0);
   const valorLiquido = Number(item.valorLiquido ?? Math.max(0, valorBase - desconto + acrescimo + imposto + juros));
+  const tipoRateioAmigos = normalizarTipoRateioAmigos(item.tipoRateioAmigos ?? item.TipoRateioAmigos);
   const valorTotalRateioAmigos = Number(item.valorTotalRateioAmigos ?? item.ValorTotalRateioAmigos ?? 0);
 
   const amigosRateioContratoAtual = Array.isArray(item.amigosRateio)
@@ -354,8 +385,8 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
     dataLancamento: dataBase,
     dataVencimento: String(item.dataVencimento ?? dataBase).slice(0, 10),
     dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : undefined,
-    tipoDespesa: String(item.tipoDespesa ?? item.categoria ?? 'servicos'),
-    tipoPagamento: String(item.tipoPagamento ?? 'dinheiro'),
+    tipoDespesa: normalizarTipoDespesa(item.tipoDespesa ?? item.categoria),
+    tipoPagamento: normalizarTipoPagamento(item.tipoPagamento),
     recorrencia: normalizarRecorrenciaFinanceira(item.recorrencia),
     recorrenciaBase: normalizarRecorrenciaBaseFinanceira(
       item.recorrencia ?? item.recorrenciaBase ?? item.frequenciaRecorrencia,
@@ -372,6 +403,7 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
     valorEfetivacao: item.valorEfetivacao ? Number(item.valorEfetivacao) : undefined,
     status: normalizarStatusDespesa(item.status),
     amigosRateio,
+    tipoRateioAmigos,
     valorTotalRateioAmigos,
     rateioAmigosValores,
     areasRateio,
@@ -406,7 +438,9 @@ export default function TelaDespesa() {
   const { t } = usarTraducao();
   const { usuario, usuarioSimulado, estaSimulando } = usarAutenticacaoStore();
   const locale = obterLocaleAtivo();
-  const participanteRateioPadrao = t('financeiro.comum.campos.participanteRateioPadrao');
+  const participanteRateioLegado = t('financeiro.comum.campos.participanteRateioPadrao');
+  const nomeUsuarioRateio = (estaSimulando ? usuarioSimulado?.nome : usuario?.nome) ?? usuario?.nome ?? '';
+  const participanteRateioPadrao = nomeUsuarioRateio.trim() || participanteRateioLegado;
   const idUsuarioRateio = (estaSimulando ? usuarioSimulado?.id : usuario?.id) ?? usuario?.id ?? 0;
   const params = useLocalSearchParams();
   const idParamBruto = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -422,6 +456,7 @@ export default function TelaDespesa() {
   const [formulario, setFormulario] = useState<DespesaForm>(() => criarFormularioVazio(locale));
   const [camposInvalidos, setCamposInvalidos] = useState<Record<string, boolean>>({});
   const [tipoRateioAmigos, setTipoRateioAmigos] = useState<TipoRateioAmigos>('comum');
+  const tipoRateioAmigosRef = useRef<TipoRateioAmigos>('comum');
   const [novoAmigoRateio, setNovoAmigoRateio] = useState(participanteRateioPadrao);
   const [novoValorAmigoRateio, setNovoValorAmigoRateio] = useState(() => formatarMoedaParaInput(0, locale));
   const [novaAreaRateio, setNovaAreaRateio] = useState('');
@@ -438,6 +473,10 @@ export default function TelaDespesa() {
   const [escopoEdicaoRecorrente, setEscopoEdicaoRecorrente] = useState<EscopoAcaoRecorrencia>('apenasEsta');
   const [salvandoDespesa, setSalvandoDespesa] = useState(false);
   const [cancelandoDespesa, setCancelandoDespesa] = useState(false);
+  const definirTipoRateioAmigos = (valor: TipoRateioAmigos) => {
+    tipoRateioAmigosRef.current = valor;
+    setTipoRateioAmigos(valor);
+  };
 
   const despesaSelecionada = despesas.find((despesa) => despesa.id === despesaSelecionadaId) ?? null;
   const areasCatalogo = useMemo(() => opcoesAreasSubareasApi.filter((item) => item.tipo === 'despesa'), [opcoesAreasSubareasApi]);
@@ -445,6 +484,15 @@ export default function TelaDespesa() {
     const amigosApi = Array.from(new Set(opcoesAmigosRateioApi.map((item) => item.nome).filter(Boolean))).sort();
     return [participanteRateioPadrao, ...amigosApi.filter((nome) => nome !== participanteRateioPadrao)];
   }, [opcoesAmigosRateioApi, participanteRateioPadrao]);
+  const obterIdAmigoRateio = (amigoNome: string) => {
+    if (amigoNome === participanteRateioPadrao || amigoNome === participanteRateioLegado) return idUsuarioRateio;
+    return opcoesAmigosRateioApi.find((item) => item.nome === amigoNome)?.id ?? 0;
+  };
+  useEffect(() => {
+    if (!opcoesAmigosRateio.includes(novoAmigoRateio)) {
+      setNovoAmigoRateio(participanteRateioPadrao);
+    }
+  }, [novoAmigoRateio, opcoesAmigosRateio, participanteRateioPadrao]);
   const opcoesAreasRateio = useMemo(() => Array.from(new Set([...areasCatalogo.map((item) => item.nome), ...despesas.flatMap((despesa) => despesa.areasRateio.map((chave) => separarAreaSubarea(chave).area)).filter(Boolean)])).sort(), [areasCatalogo, despesas]);
   const mapaContasBancariasPorId = useMemo(
     () => new Map(opcoesContasBancariasApi.map((item) => [item.id, item.nome])),
@@ -469,6 +517,22 @@ export default function TelaDespesa() {
   const pagamentoComParcelas = ehPagamentoParcelado(formulario.tipoPagamento);
   const tipoPagamentoExigeContaBancaria = formulario.tipoPagamento === 'pix' || formulario.tipoPagamento === 'transferencia';
   const tipoPagamentoExigeCartao = formulario.tipoPagamento === 'cartaoCredito' || formulario.tipoPagamento === 'cartaoDebito';
+  const contaBancariaIdSelecionada = useMemo(() => {
+    const valorSelecionado = formulario.contaBancaria.trim();
+    if (!valorSelecionado) return undefined;
+    const idDireto = Number(valorSelecionado);
+    if (Number.isFinite(idDireto) && idDireto > 0) return idDireto;
+    const conta = opcoesContasBancariasApi.find((item) => item.nome === valorSelecionado);
+    return conta?.id;
+  }, [formulario.contaBancaria, opcoesContasBancariasApi]);
+  const cartaoIdSelecionado = useMemo(() => {
+    const valorSelecionado = formulario.cartao.trim();
+    if (!valorSelecionado) return undefined;
+    const idDireto = Number(valorSelecionado);
+    if (Number.isFinite(idDireto) && idDireto > 0) return idDireto;
+    const cartao = opcoesCartoesApi.find((item) => item.nome === valorSelecionado);
+    return cartao?.id;
+  }, [formulario.cartao, opcoesCartoesApi]);
   const tipoPagamentoComContaOuCartaoOpcional = Boolean(formulario.tipoPagamento) && !tipoPagamentoExigeContaBancaria && !tipoPagamentoExigeCartao;
   const ocultarContaBancariaPagamentoOpcional = tipoPagamentoComContaOuCartaoOpcional && Boolean(formulario.cartao);
   const ocultarCartaoPagamentoOpcional = tipoPagamentoComContaOuCartaoOpcional && Boolean(formulario.contaBancaria);
@@ -607,7 +671,7 @@ export default function TelaDespesa() {
   };
 
   const preencherFormulario = (despesa: DespesaRegistro) => {
-    setTipoRateioAmigos('comum');
+    definirTipoRateioAmigos(despesa.tipoRateioAmigos);
     setFormulario({
       descricao: despesa.descricao,
       observacao: despesa.observacao,
@@ -708,6 +772,11 @@ export default function TelaDespesa() {
       notificarErro(t('financeiro.despesa.mensagens.obrigatorio'));
       return;
     }
+    const amigoId = obterIdAmigoRateio(amigo);
+    if (amigoId <= 0) {
+      notificarErro('amigo_invalido');
+      return;
+    }
     const valorTotalRateioAmigos = converterTextoParaNumero(formulario.valorTotalRateioAmigos, locale);
     if (valorTotalRateioAmigos <= 0) {
       setCamposInvalidos((atual) => ({ ...atual, valorTotalRateioAmigos: true }));
@@ -716,7 +785,9 @@ export default function TelaDespesa() {
     }
     if (tipoRateioAmigos === 'igualitario') {
       setFormulario((atual) => {
-        const amigosRateio = atual.amigosRateio.includes(amigo) ? atual.amigosRateio : [...atual.amigosRateio, amigo];
+        const amigoExistente = atual.amigosRateio.find((nome) => obterIdAmigoRateio(nome) === amigoId);
+        const chaveAmigo = amigoExistente ?? amigo;
+        const amigosRateio = amigoExistente ? atual.amigosRateio : [...atual.amigosRateio, chaveAmigo];
         return {
           ...atual,
           amigosRateio,
@@ -732,10 +803,12 @@ export default function TelaDespesa() {
       notificarErro(t('financeiro.despesa.mensagens.obrigatorio'));
       return;
     }
-    const amigosRateioPropostos = formulario.amigosRateio.includes(amigo) ? formulario.amigosRateio : [...formulario.amigosRateio, amigo];
+    const amigoExistente = formulario.amigosRateio.find((nome) => obterIdAmigoRateio(nome) === amigoId);
+    const chaveAmigo = amigoExistente ?? amigo;
+    const amigosRateioPropostos = amigoExistente ? formulario.amigosRateio : [...formulario.amigosRateio, chaveAmigo];
     const rateioAmigosValoresPropostos = {
       ...serializarValores(formulario.rateioAmigosValores),
-      [amigo]: valor,
+      [chaveAmigo]: valor,
     };
     if (!rateioNaoUltrapassaValorTotal(valorTotalRateioAmigos, amigosRateioPropostos, rateioAmigosValoresPropostos)) {
       notificarErro(t('financeiro.comum.mensagens.rateioDeveBaterValorTotal'));
@@ -743,13 +816,15 @@ export default function TelaDespesa() {
     }
 
     setFormulario((atual) => {
-      const amigosRateio = atual.amigosRateio.includes(amigo) ? atual.amigosRateio : [...atual.amigosRateio, amigo];
+      const amigoExistenteAtual = atual.amigosRateio.find((nome) => obterIdAmigoRateio(nome) === amigoId);
+      const chaveAmigoAtual = amigoExistenteAtual ?? amigo;
+      const amigosRateio = amigoExistenteAtual ? atual.amigosRateio : [...atual.amigosRateio, chaveAmigoAtual];
       return {
         ...atual,
         amigosRateio,
         rateioAmigosValores: {
           ...atual.rateioAmigosValores,
-          [amigo]: formatarMoedaParaInput(valor, locale),
+          [chaveAmigoAtual]: formatarMoedaParaInput(valor, locale),
         },
       };
     });
@@ -840,8 +915,8 @@ export default function TelaDespesa() {
     if (!dataVencimento) invalidos.dataVencimento = true;
     if (!formulario.tipoDespesa) invalidos.tipoDespesa = true;
     if (!formulario.tipoPagamento) invalidos.tipoPagamento = true;
-    if (tipoPagamentoExigeContaBancaria && !formulario.contaBancaria) invalidos.contaBancaria = true;
-    if (tipoPagamentoExigeCartao && !formulario.cartao) invalidos.cartao = true;
+    if (tipoPagamentoExigeContaBancaria && !contaBancariaIdSelecionada) invalidos.contaBancaria = true;
+    if (tipoPagamentoExigeCartao && !cartaoIdSelecionado) invalidos.cartao = true;
     if (formulario.contaBancaria && formulario.cartao) {
       invalidos.contaBancaria = true;
       invalidos.cartao = true;
@@ -882,12 +957,7 @@ export default function TelaDespesa() {
     const rateioAmigosValores = serializarValores(formulario.rateioAmigosValores);
     const rateioAreasValores = serializarValores(formulario.rateioAreasValores);
 
-    if (formulario.amigosRateio.includes(participanteRateioPadrao) && idUsuarioRateio <= 0) {
-      notificarErro('amigo_invalido');
-      return;
-    }
-
-    if (formulario.amigosRateio.some((amigoNome) => amigoNome !== participanteRateioPadrao && !opcoesAmigosRateioApi.some((item) => item.nome === amigoNome))) {
+    if (formulario.amigosRateio.some((amigoNome) => obterIdAmigoRateio(amigoNome) <= 0)) {
       notificarErro('amigo_invalido');
       return;
     }
@@ -937,7 +1007,7 @@ export default function TelaDespesa() {
     setModoTela('lista');
     setDespesaSelecionadaId(null);
     setFormulario(criarFormularioVazio(locale));
-    setTipoRateioAmigos('comum');
+    definirTipoRateioAmigos('comum');
     setNovoAmigoRateio(participanteRateioPadrao);
     setNovoValorAmigoRateio(formatarMoedaParaInput(0, locale));
     setNovaAreaRateio('');
@@ -954,9 +1024,7 @@ export default function TelaDespesa() {
 
     const amigos = formulario.amigosRateio
       .map((amigoNome) => {
-        const amigoId = amigoNome === participanteRateioPadrao
-          ? idUsuarioRateio
-          : (opcoesAmigosRateioApi.find((item) => item.nome === amigoNome)?.id ?? 0);
+        const amigoId = obterIdAmigoRateio(amigoNome);
         return {
           amigoId,
           valor: Number(base.rateioAmigosValores[amigoNome] ?? 0),
@@ -987,8 +1055,10 @@ export default function TelaDespesa() {
       dataVencimento: base.dataVencimento,
       tipoDespesa: formulario.tipoDespesa,
       tipoPagamento: formulario.tipoPagamento,
-      contaBancaria: formulario.contaBancaria || undefined,
-      cartao: formulario.cartao || undefined,
+      vinculo: {
+        ContaBancariaId: contaBancariaIdSelecionada ?? null,
+        CartaoId: cartaoIdSelecionado ?? null,
+      },
       recorrencia: obterValorRecorrencia(pagamentoComParcelas ? 'mensal' : formulario.recorrenciaBase),
       recorrenciaFixa: pagamentoComParcelas || formulario.recorrenciaBase === 'unica' ? false : formulario.recorrenciaFixa,
       quantidadeRecorrencia:
@@ -1002,8 +1072,8 @@ export default function TelaDespesa() {
       acrescimo: base.acrescimo,
       imposto: base.imposto,
       juros: base.juros,
+      tipoRateioAmigos: TIPO_RATEIO_AMIGOS_API[tipoRateioAmigosRef.current],
       ...(formulario.amigosRateio.length > 0 ? { ValorTotalRateioAmigos: base.valorTotalRateioAmigos } : {}),
-      ...(formulario.amigosRateio.length > 0 ? { tipoRateioAmigos: TIPO_RATEIO_AMIGOS_API[tipoRateioAmigos] } : {}),
       amigosRateio: amigos,
       areasSubAreasRateio: areasRateioPayload,
       documentos: montarDocumentosPayload(formulario.documentos),
@@ -1082,6 +1152,10 @@ export default function TelaDespesa() {
         imposto: base.imposto,
         juros: base.juros,
         valorEfetivacao: base.valorLiquido,
+        vinculo: {
+          ContaBancariaId: contaBancariaIdSelecionada ?? null,
+          CartaoId: cartaoIdSelecionado ?? null,
+        },
         documentos: montarDocumentosPayload(formulario.documentos),
         status: 'efetivada',
       });
@@ -1200,7 +1274,7 @@ export default function TelaDespesa() {
             { value: 'igualitario', label: t('financeiro.comum.opcoesTipoRateio.igualitario') },
           ]}
           value={tipoRateioAmigos}
-          onChange={(valor) => setTipoRateioAmigos(valor as TipoRateioAmigos)}
+          onChange={(valor) => definirTipoRateioAmigos(valor as TipoRateioAmigos)}
         />
         <CampoTexto
           label={t('financeiro.comum.campos.valorTotalRateioAmigos')}
@@ -1317,11 +1391,11 @@ export default function TelaDespesa() {
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.dataVencimento'), formulario.dataVencimento ? formatarDataPorIdioma(formulario.dataVencimento) : '') : <CampoData label={t('financeiro.despesa.campos.dataVencimento')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataVencimento} onChange={(dataVencimento) => { setCamposInvalidos((atual) => ({ ...atual, dataVencimento: false })); setFormulario((atual) => ({ ...atual, dataVencimento })); }} error={camposInvalidos.dataVencimento} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoDespesa'), formulario.tipoDespesa ? t(`financeiro.despesa.tipoDespesa.${formulario.tipoDespesa}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoDespesa')} placeholder={t('comum.acoes.selecionar')} options={tiposDespesa.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoDespesa.${tipo}`) }))} value={formulario.tipoDespesa} onChange={(tipoDespesa) => { setCamposInvalidos((atual) => ({ ...atual, tipoDespesa: false })); setFormulario((atual) => ({ ...atual, tipoDespesa })); }} error={camposInvalidos.tipoDespesa} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoPagamento'), formulario.tipoPagamento ? t(`financeiro.despesa.tipoPagamento.${formulario.tipoPagamento}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoPagamento')} placeholder={t('comum.acoes.selecionar')} options={tiposPagamento.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoPagamento.${tipo}`) }))} value={formulario.tipoPagamento} onChange={(tipoPagamento) => { setCamposInvalidos((atual) => ({ ...atual, tipoPagamento: false, quantidadeRecorrencia: false, contaBancaria: false, cartao: false })); setFormulario((atual) => { const exigeContaBancaria = tipoPagamento === 'pix' || tipoPagamento === 'transferencia'; const exigeCartao = tipoPagamento === 'cartaoCredito' || tipoPagamento === 'cartaoDebito'; const contaOuCartaoOpcional = !exigeContaBancaria && !exigeCartao; return { ...atual, tipoPagamento, recorrenciaBase: ehPagamentoParcelado(tipoPagamento) ? 'mensal' : atual.recorrenciaBase, contaBancaria: exigeContaBancaria || contaOuCartaoOpcional ? atual.contaBancaria : '', cartao: exigeCartao || contaOuCartaoOpcional ? atual.cartao : '' }; }); }} error={camposInvalidos.tipoPagamento} />}
-      {exibeContaBancariaPagamento ? (somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.contaBancaria'), formulario.contaBancaria) : <CampoSelect label={t('financeiro.despesa.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancaria.map((conta) => ({ value: conta, label: conta }))} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false, cartao: false })); setFormulario((atual) => ({ ...atual, contaBancaria, cartao: contaBancaria ? '' : atual.cartao })); }} error={camposInvalidos.contaBancaria} />) : null}
-      {exibeCartaoPagamento ? (somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.cartao'), formulario.cartao) : <CampoSelect label={t('financeiro.despesa.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartao.map((cartao) => ({ value: cartao, label: cartao }))} value={formulario.cartao} onChange={(cartao) => { setCamposInvalidos((atual) => ({ ...atual, cartao: false, contaBancaria: false })); setFormulario((atual) => ({ ...atual, cartao, contaBancaria: cartao ? '' : atual.contaBancaria })); }} error={camposInvalidos.cartao} />) : null}
+      {exibeContaBancariaPagamento ? (somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.contaBancaria'), formulario.contaBancaria) : <CampoSelect label={t('financeiro.despesa.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancaria.map((conta) => ({ value: conta, label: conta }))} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false, cartao: false })); setFormulario((atual) => ({ ...atual, contaBancaria, cartao: contaBancaria ? '' : atual.cartao })); }} error={camposInvalidos.contaBancaria} obrigatorio={tipoPagamentoExigeContaBancaria} />) : null}
+      {exibeCartaoPagamento ? (somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.cartao'), formulario.cartao) : <CampoSelect label={t('financeiro.despesa.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartao.map((cartao) => ({ value: cartao, label: cartao }))} value={formulario.cartao} onChange={(cartao) => { setCamposInvalidos((atual) => ({ ...atual, cartao: false, contaBancaria: false })); setFormulario((atual) => ({ ...atual, cartao, contaBancaria: cartao ? '' : atual.contaBancaria })); }} error={camposInvalidos.cartao} obrigatorio={tipoPagamentoExigeCartao} />) : null}
       {pagamentoComParcelas ? null : (somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.recorrencia'), obterRotuloRecorrencia(formulario.recorrenciaBase, locale)) : <CampoSelect label={t('financeiro.despesa.campos.recorrencia')} placeholder={t('comum.acoes.selecionar')} options={RECORRENCIAS_FINANCEIRAS_BASE.map((item) => ({ value: item.chave, label: obterRotuloRecorrencia(item.chave, locale) }))} value={formulario.recorrenciaBase} onChange={(recorrenciaBase) => setFormulario((atual) => ({ ...atual, recorrenciaBase: recorrenciaBase as RecorrenciaFinanceiraBaseChave, recorrenciaFixa: recorrenciaBase === 'unica' ? false : atual.recorrenciaFixa, quantidadeRecorrencia: recorrenciaBase === 'unica' ? '' : atual.quantidadeRecorrencia }))} />)}
       {pagamentoComParcelas ? null : (somenteLeitura ? renderCampoBloqueado(t('financeiro.comum.campos.modoRecorrencia'), formulario.recorrenciaFixa ? t('financeiro.comum.opcoesRecorrencia.fixa') : t('financeiro.comum.opcoesRecorrencia.normal')) : <CampoSelect label={t('financeiro.comum.campos.modoRecorrencia')} placeholder={t('comum.acoes.selecionar')} options={formulario.recorrenciaBase === 'unica' ? [{ value: 'normal', label: t('financeiro.comum.opcoesRecorrencia.normal') }] : [{ value: 'normal', label: t('financeiro.comum.opcoesRecorrencia.normal') }, { value: 'fixa', label: t('financeiro.comum.opcoesRecorrencia.fixa') }]} value={formulario.recorrenciaFixa ? 'fixa' : 'normal'} onChange={(modo) => setFormulario((atual) => { const recorrenciaFixa = atual.recorrenciaBase !== 'unica' && modo === 'fixa'; return { ...atual, recorrenciaFixa, quantidadeRecorrencia: recorrenciaFixa ? '' : atual.quantidadeRecorrencia }; })} />)}
-      {somenteLeitura ? (exibirQuantidadeRecorrencia ? renderCampoBloqueado(rotuloQuantidadeRecorrencia, formulario.quantidadeRecorrencia || '-') : null) : (exibirQuantidadeRecorrencia ? <CampoTexto label={rotuloQuantidadeRecorrencia} placeholder='1' value={formulario.quantidadeRecorrencia} onChangeText={(quantidadeRecorrencia) => { setCamposInvalidos((atual) => ({ ...atual, quantidadeRecorrencia: false })); setFormulario((atual) => ({ ...atual, quantidadeRecorrencia: quantidadeRecorrencia.replace(/[^\d]/g, '') })); }} error={camposInvalidos.quantidadeRecorrencia} keyboardType='numeric' estilo={{ marginBottom: 12 }} /> : null)}
+      {somenteLeitura ? (exibirQuantidadeRecorrencia ? renderCampoBloqueado(rotuloQuantidadeRecorrencia, formulario.quantidadeRecorrencia || '-') : null) : (exibirQuantidadeRecorrencia ? <CampoTexto label={rotuloQuantidadeRecorrencia} placeholder='1' value={formulario.quantidadeRecorrencia} onChangeText={(quantidadeRecorrencia) => { setCamposInvalidos((atual) => ({ ...atual, quantidadeRecorrencia: false })); setFormulario((atual) => ({ ...atual, quantidadeRecorrencia: quantidadeRecorrencia.replace(/[^\d]/g, '') })); }} error={camposInvalidos.quantidadeRecorrencia} obrigatorio={quantidadeRecorrenciaObrigatoria} keyboardType='numeric' estilo={{ marginBottom: 12 }} /> : null)}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.valorTotal'), formulario.valorTotal) : <CampoTexto label={t('financeiro.despesa.campos.valorTotal')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.valorTotal} onChangeText={(valor) => { setCamposInvalidos((atual) => ({ ...atual, valorTotal: false })); atualizarCampoMoeda('valorTotal', valor); }} error={camposInvalidos.valorTotal} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.desconto'), formulario.desconto) : <CampoTexto label={t('financeiro.despesa.campos.desconto')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.desconto} onChangeText={(valor) => atualizarCampoMoeda('desconto', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.acrescimo'), formulario.acrescimo) : <CampoTexto label={t('financeiro.despesa.campos.acrescimo')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.acrescimo} onChangeText={(valor) => atualizarCampoMoeda('acrescimo', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
@@ -1504,21 +1578,6 @@ export default function TelaDespesa() {
     </View>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
