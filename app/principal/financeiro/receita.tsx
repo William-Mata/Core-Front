@@ -16,7 +16,7 @@ import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
 import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterIntervaloCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
-import { rateioConfereValorTotal } from '../../../src/utils/rateioValidacao';
+import { rateioConfereValorTotal, rateioNaoUltrapassaValorTotal } from '../../../src/utils/rateioValidacao';
 import {
   RECORRENCIAS_FINANCEIRAS_BASE,
   LIMITE_RECORRENCIA_NORMAL,
@@ -95,6 +95,7 @@ interface ReceitaRegistro {
   valorEfetivacao?: number;
   status: StatusReceita;
   amigosRateio: string[];
+  valorTotalRateioAmigos: number;
   rateioAmigosValores: Record<string, number>;
   areasRateio: string[];
   rateioAreasValores: Record<string, number>;
@@ -126,6 +127,7 @@ interface ReceitaForm {
   juros: string;
   valorEfetivacao: string;
   amigosRateio: string[];
+  valorTotalRateioAmigos: string;
   rateioAmigosValores: Record<string, string>;
   areasRateio: string[];
   rateioAreasValores: Record<string, string>;
@@ -137,6 +139,11 @@ interface ReceitaForm {
 
 const tiposReceita = ['salario', 'freelance', 'reembolso', 'investimento', 'bonus', 'outros'] as const;
 const tiposRecebimento = ['pix', 'transferencia', 'contaCorrente', 'cartaoCredito', 'cartaoDebito', 'dinheiro', 'boleto'] as const;
+type TipoRateioAmigos = 'comum' | 'igualitario';
+const TIPO_RATEIO_AMIGOS_API: Record<TipoRateioAmigos, 1 | 2> = {
+  comum: 1,
+  igualitario: 2,
+};
 
 function extrairDigitos(valor: string) {
   return valor.replace(/\D/g, '');
@@ -180,6 +187,7 @@ function criarFormularioVazio(locale: string): ReceitaForm {
     juros: formatarMoedaParaInput(0, locale),
     valorEfetivacao: formatarMoedaParaInput(0, locale),
     amigosRateio: [],
+    valorTotalRateioAmigos: formatarMoedaParaInput(0, locale),
     rateioAmigosValores: {},
     areasRateio: [],
     rateioAreasValores: {},
@@ -198,6 +206,21 @@ function calcularValorLiquido(formulario: ReceitaForm, locale: string) {
     converterTextoParaNumero(formulario.imposto, locale) +
     converterTextoParaNumero(formulario.juros, locale);
   return Math.max(0, Number(calculado.toFixed(2)));
+}
+
+function calcularRateioIgualitarioAmigos(amigosRateio: string[], valorTotalRateioAmigos: number, locale: string) {
+  const quantidadeParticipantes = amigosRateio.length;
+  if (quantidadeParticipantes === 0) return {};
+  const valorTotalEmCentavos = Math.round(valorTotalRateioAmigos * 100);
+  const valorBaseEmCentavos = Math.floor(valorTotalEmCentavos / quantidadeParticipantes);
+  const centavosRestantes = valorTotalEmCentavos - (valorBaseEmCentavos * quantidadeParticipantes);
+  return Object.fromEntries(
+    amigosRateio.map((amigo, indice) => {
+      const recebeCentavoExtra = indice >= quantidadeParticipantes - centavosRestantes;
+      const valorRateio = (valorBaseEmCentavos + (recebeCentavoExtra ? 1 : 0)) / 100;
+      return [amigo, formatarMoedaParaInput(valorRateio, locale)];
+    }),
+  );
 }
 
 function normalizarStatusReceita(status: unknown): StatusReceita {
@@ -237,6 +260,7 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
   const imposto = Number(item.imposto ?? 0);
   const juros = Number(item.juros ?? 0);
   const valorLiquido = Number(item.valorLiquido ?? Math.max(0, valorBase - desconto + acrescimo + imposto + juros));
+  const valorTotalRateioAmigos = Number(item.valorTotalRateioAmigos ?? item.ValorTotalRateioAmigos ?? 0);
 
   const amigosRateioContratoAtual = Array.isArray(item.amigosRateio)
     ? (item.amigosRateio as Array<Record<string, unknown>>)
@@ -342,6 +366,7 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
     valorEfetivacao: item.valorEfetivacao ? Number(item.valorEfetivacao) : undefined,
     status: normalizarStatusReceita(item.status),
     amigosRateio,
+    valorTotalRateioAmigos,
     rateioAmigosValores,
     areasRateio,
     rateioAreasValores,
@@ -388,6 +413,7 @@ export default function TelaReceita() {
   const [receitas, setReceitas] = useState<ReceitaRegistro[]>([]);
   const [formulario, setFormulario] = useState<ReceitaForm>(() => criarFormularioVazio(locale));
   const [camposInvalidos, setCamposInvalidos] = useState<Record<string, boolean>>({});
+  const [tipoRateioAmigos, setTipoRateioAmigos] = useState<TipoRateioAmigos>('comum');
   const [novoAmigoRateio, setNovoAmigoRateio] = useState(participanteRateioPadrao);
   const [novoValorAmigoRateio, setNovoValorAmigoRateio] = useState(() => formatarMoedaParaInput(0, locale));
   const [novaAreaRateio, setNovaAreaRateio] = useState('');
@@ -409,8 +435,10 @@ export default function TelaReceita() {
   const tipoRecebimentoExigeContaBancaria = formulario.tipoRecebimento === 'pix' || formulario.tipoRecebimento === 'transferencia' || formulario.tipoRecebimento === 'contaCorrente';
   const tipoRecebimentoExigeCartao = formulario.tipoRecebimento === 'cartaoCredito' || formulario.tipoRecebimento === 'cartaoDebito';
   const tipoRecebimentoComContaOuCartaoOpcional = Boolean(formulario.tipoRecebimento) && !tipoRecebimentoExigeContaBancaria && !tipoRecebimentoExigeCartao;
-  const exibeContaBancaria = tipoRecebimentoExigeContaBancaria || tipoRecebimentoComContaOuCartaoOpcional;
-  const exibeCartaoRecebimento = tipoRecebimentoExigeCartao || tipoRecebimentoComContaOuCartaoOpcional;
+  const ocultarContaBancariaRecebimentoOpcional = tipoRecebimentoComContaOuCartaoOpcional && Boolean(formulario.cartao);
+  const ocultarCartaoRecebimentoOpcional = tipoRecebimentoComContaOuCartaoOpcional && Boolean(formulario.contaBancaria);
+  const exibeContaBancaria = (tipoRecebimentoExigeContaBancaria || tipoRecebimentoComContaOuCartaoOpcional) && !ocultarContaBancariaRecebimentoOpcional;
+  const exibeCartaoRecebimento = (tipoRecebimentoExigeCartao || tipoRecebimentoComContaOuCartaoOpcional) && !ocultarCartaoRecebimentoOpcional;
   const areasCatalogo = useMemo(() => opcoesAreasSubareasApi.filter((item) => item.tipo === 'receita'), [opcoesAreasSubareasApi]);
   
   const opcoesAmigosRateio = useMemo(() => {
@@ -549,6 +577,7 @@ export default function TelaReceita() {
   };
 
   const preencherFormulario = (receita: ReceitaRegistro) => {
+    setTipoRateioAmigos('comum');
     setFormulario({
       descricao: receita.descricao,
       observacao: receita.observacao,
@@ -568,6 +597,7 @@ export default function TelaReceita() {
       juros: formatarMoedaParaInput(receita.juros, locale),
       valorEfetivacao: formatarMoedaParaInput(receita.valorEfetivacao ?? receita.valorLiquido, locale),
       amigosRateio: receita.amigosRateio,
+      valorTotalRateioAmigos: formatarMoedaParaInput(receita.valorTotalRateioAmigos, locale),
       rateioAmigosValores: Object.fromEntries(Object.entries(receita.rateioAmigosValores).map(([chave, valor]) => [chave, formatarMoedaParaInput(valor, locale)])),
       areasRateio: receita.areasRateio,
       rateioAreasValores: Object.fromEntries(Object.entries(receita.rateioAreasValores).map(([chave, valor]) => [chave, formatarMoedaParaInput(valor, locale)])),
@@ -608,6 +638,7 @@ export default function TelaReceita() {
     setModoTela('lista');
     setReceitaSelecionadaId(null);
     setFormulario(criarFormularioVazio(locale));
+    setTipoRateioAmigos('comum');
     setNovoAmigoRateio(participanteRateioPadrao);
     setNovoValorAmigoRateio(formatarMoedaParaInput(0, locale));
     setNovaAreaRateio('');
@@ -656,10 +687,41 @@ export default function TelaReceita() {
 
   const adicionarRateioAmigo = () => {
     const amigo = novoAmigoRateio.trim();
-    const valor = converterTextoParaNumero(novoValorAmigoRateio, locale);
-
-    if (!amigo || valor <= 0) {
+    if (!amigo) {
       notificarErro(t('financeiro.receita.mensagens.obrigatorio'));
+      return;
+    }
+    const valorTotalRateioAmigos = converterTextoParaNumero(formulario.valorTotalRateioAmigos, locale);
+    if (valorTotalRateioAmigos <= 0) {
+      setCamposInvalidos((atual) => ({ ...atual, valorTotalRateioAmigos: true }));
+      notificarErro(t('financeiro.receita.mensagens.valorObrigatorio'));
+      return;
+    }
+    if (tipoRateioAmigos === 'igualitario') {
+      setFormulario((atual) => {
+        const amigosRateio = atual.amigosRateio.includes(amigo) ? atual.amigosRateio : [...atual.amigosRateio, amigo];
+        return {
+          ...atual,
+          amigosRateio,
+          rateioAmigosValores: calcularRateioIgualitarioAmigos(amigosRateio, valorTotalRateioAmigos, locale),
+        };
+      });
+      setNovoAmigoRateio(participanteRateioPadrao);
+      setNovoValorAmigoRateio(formatarMoedaParaInput(0, locale));
+      return;
+    }
+    const valor = converterTextoParaNumero(novoValorAmigoRateio, locale);
+    if (valor <= 0) {
+      notificarErro(t('financeiro.receita.mensagens.obrigatorio'));
+      return;
+    }
+    const amigosRateioPropostos = formulario.amigosRateio.includes(amigo) ? formulario.amigosRateio : [...formulario.amigosRateio, amigo];
+    const rateioAmigosValoresPropostos = {
+      ...serializarValores(formulario.rateioAmigosValores),
+      [amigo]: valor,
+    };
+    if (!rateioNaoUltrapassaValorTotal(valorTotalRateioAmigos, amigosRateioPropostos, rateioAmigosValoresPropostos)) {
+      notificarErro(t('financeiro.comum.mensagens.rateioDeveBaterValorTotal'));
       return;
     }
 
@@ -685,24 +747,15 @@ export default function TelaReceita() {
       return;
     }
 
-    const valorTotal = converterTextoParaNumero(formulario.valorTotal, locale);
-    if (valorTotal <= 0) {
+    const valorTotalRateioAmigos = converterTextoParaNumero(formulario.valorTotalRateioAmigos, locale);
+    if (valorTotalRateioAmigos <= 0) {
       notificarErro(t('financeiro.receita.mensagens.valorObrigatorio'));
       return;
     }
 
-    const quantidadeParticipantes = formulario.amigosRateio.length;
-    const valorBase = Number((valorTotal / quantidadeParticipantes).toFixed(2));
-    const diferencaAjuste = Number((valorTotal - (valorBase * quantidadeParticipantes)).toFixed(2));
-
     setFormulario((atual) => ({
       ...atual,
-      rateioAmigosValores: Object.fromEntries(
-        atual.amigosRateio.map((amigo, indice) => {
-          const valorRateio = indice === atual.amigosRateio.length - 1 ? Number((valorBase + diferencaAjuste).toFixed(2)) : valorBase;
-          return [amigo, formatarMoedaParaInput(valorRateio, locale)];
-        }),
-      ),
+      rateioAmigosValores: calcularRateioIgualitarioAmigos(atual.amigosRateio, valorTotalRateioAmigos, locale),
     }));
   };
 
@@ -811,6 +864,7 @@ export default function TelaReceita() {
       notificarErro( t('financeiro.receita.mensagens.valorObrigatorio'));
       return null;
     }
+    const valorLiquido = calcularValorLiquido(formulario, locale);
     const rateioAmigosValores = serializarValores(formulario.rateioAmigosValores);
     const rateioAreasValores = serializarValores(formulario.rateioAreasValores);
 
@@ -824,7 +878,22 @@ export default function TelaReceita() {
       return;
     }
 
-    if (!rateioConfereValorTotal(valorTotal, formulario.amigosRateio, rateioAmigosValores)) {
+    let valorTotalRateioAmigos = 0;
+    if (formulario.amigosRateio.length > 0) {
+      valorTotalRateioAmigos = converterTextoParaNumero(formulario.valorTotalRateioAmigos, locale);
+      if (valorTotalRateioAmigos <= 0) {
+        setCamposInvalidos((atual) => ({ ...atual, valorTotalRateioAmigos: true }));
+        notificarErro(t('financeiro.receita.mensagens.valorObrigatorio'));
+        return null;
+      }
+      if (valorTotalRateioAmigos <= valorLiquido) {
+        setCamposInvalidos((atual) => ({ ...atual, valorTotalRateioAmigos: true }));
+        notificarErro(t('financeiro.comum.mensagens.valorTotalRateioAmigosMaiorQueValorLiquido'));
+        return null;
+      }
+    }
+
+    if (!rateioNaoUltrapassaValorTotal(valorTotalRateioAmigos, formulario.amigosRateio, rateioAmigosValores)) {
       notificarErro(t('financeiro.comum.mensagens.rateioDeveBaterValorTotal'));
       return null;
     }
@@ -838,12 +907,13 @@ export default function TelaReceita() {
       dataLancamento: formulario.dataLancamento,
       dataVencimento: formulario.dataVencimento,
       valorTotal,
-      valorLiquido: calcularValorLiquido(formulario, locale),
+      valorLiquido,
       desconto: converterTextoParaNumero(formulario.desconto, locale),
       acrescimo: converterTextoParaNumero(formulario.acrescimo, locale),
       imposto: converterTextoParaNumero(formulario.imposto, locale),
       juros: converterTextoParaNumero(formulario.juros, locale),
       quantidadeRecorrencia,
+      valorTotalRateioAmigos,
       rateioAmigosValores: serializarValores(formulario.rateioAmigosValores),
       rateioAreasValores: serializarValores(formulario.rateioAreasValores),
     };
@@ -901,6 +971,8 @@ export default function TelaReceita() {
       acrescimo: base.acrescimo,
       imposto: base.imposto,
       juros: base.juros,
+      ...(formulario.amigosRateio.length > 0 ? { ValorTotalRateioAmigos: base.valorTotalRateioAmigos } : {}),
+      ...(formulario.amigosRateio.length > 0 ? { tipoRateioAmigos: TIPO_RATEIO_AMIGOS_API[tipoRateioAmigos] } : {}),
       amigosRateio: amigos,
       areasSubAreasRateio: areasRateioPayload,
       contaBancaria: formulario.contaBancaria,
@@ -1082,28 +1154,62 @@ export default function TelaReceita() {
 
     if (somenteLeitura) {
       const conteudo = linhas.map((linha) => `${linha.amigo}: ${linha.valor}`).join(' | ');
-      return renderCampoBloqueado(t('financeiro.receita.campos.rateioAmigosValores'), conteudo);
+      return (
+        <>
+          {renderCampoBloqueado(t('financeiro.comum.campos.tipoRateio'), t(`financeiro.comum.opcoesTipoRateio.${tipoRateioAmigos}`))}
+          {renderCampoBloqueado(t('financeiro.comum.campos.valorTotalRateioAmigos'), formulario.valorTotalRateioAmigos)}
+          {renderCampoBloqueado(t('financeiro.receita.campos.rateioAmigosValores'), conteudo)}
+        </>
+      );
     }
 
     return (
       <View style={{ marginBottom: 12 }}>
         <CampoSelect
-          label={t('financeiro.receita.campos.rateioAmigos')}
+          label={t('financeiro.comum.campos.tipoRateio')}
+          placeholder={t('comum.acoes.selecionar')}
+          options={[
+            { value: 'comum', label: t('financeiro.comum.opcoesTipoRateio.comum') },
+            { value: 'igualitario', label: t('financeiro.comum.opcoesTipoRateio.igualitario') },
+          ]}
+          value={tipoRateioAmigos}
+          onChange={(valor) => setTipoRateioAmigos(valor as TipoRateioAmigos)}
+        />
+        <CampoTexto
+          label={t('financeiro.comum.campos.valorTotalRateioAmigos')}
+          placeholder={t('financeiro.receita.placeholders.valor')}
+          value={formulario.valorTotalRateioAmigos}
+          onChangeText={(valor) => {
+            setCamposInvalidos((atual) => ({ ...atual, valorTotalRateioAmigos: false }));
+            atualizarCampoMoeda('valorTotalRateioAmigos', valor);
+          }}
+          error={camposInvalidos.valorTotalRateioAmigos}
+          keyboardType="numeric"
+          estilo={{ marginBottom: 8 }}
+        />
+        <CampoSelect
+          label={t('financeiro.comum.campos.amigo')}
           placeholder={t('comum.acoes.selecionar')}
           options={opcoesAmigosRateio.map((amigo) => ({ value: amigo, label: amigo }))}
           value={novoAmigoRateio}
           onChange={setNovoAmigoRateio}
         />
-        <CampoTexto
-          label={t('dashboard.colunas.valor')}
-          placeholder={t('financeiro.receita.placeholders.valor')}
-          value={novoValorAmigoRateio}
-          onChangeText={(valor) => setNovoValorAmigoRateio(aplicarMascaraMoeda(valor, locale))}
-          keyboardType="numeric"
-          estilo={{ marginBottom: 8 }}
-        />
+        {tipoRateioAmigos === 'comum'
+          ? (
+            <CampoTexto
+              label={t('dashboard.colunas.valor')}
+              placeholder={t('financeiro.receita.placeholders.valor')}
+              value={novoValorAmigoRateio}
+              onChangeText={(valor) => setNovoValorAmigoRateio(aplicarMascaraMoeda(valor, locale))}
+              keyboardType="numeric"
+              estilo={{ marginBottom: 8 }}
+            />
+          )
+          : null}
         <Botao titulo={t('comum.acoes.confirmar')} onPress={adicionarRateioAmigo} tipo="secundario" estilo={{ marginBottom: 8 }} />
-        <Botao titulo={t('financeiro.comum.acoes.rateioIgualitario')} onPress={aplicarRateioIgualitarioAmigos} tipo="secundario" estilo={{ marginBottom: 8 }} />
+        {tipoRateioAmigos === 'comum'
+          ? <Botao titulo={t('financeiro.comum.acoes.rateioIgualitario')} onPress={aplicarRateioIgualitarioAmigos} tipo="secundario" estilo={{ marginBottom: 8 }} />
+          : null}
         {linhas.map((linha) => (
           <View key={linha.amigo} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 6 }}>
             <View style={{ flex: 1, paddingRight: 8 }}>
