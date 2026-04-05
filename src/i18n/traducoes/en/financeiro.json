@@ -208,7 +208,13 @@
   },
   "comum": {
     "campos": {
-      "rateio": "Split"
+      "rateio": "Split",
+      "participanteRateioPadrao": "Me"
+    },
+    "acoes": {
+      "rateioIgualitario": "Equal split",
+      "aceitar": "Accept",
+      "rejeitar": "Reject"
     },
     "opcoesEscopoRecorrencia": {
       "apenasEsta": "Cancel/edit only this one (default)",

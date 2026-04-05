@@ -209,7 +209,13 @@
   },
   "comum": {
     "campos": {
-      "rateio": "Rateio"
+      "rateio": "Rateio",
+      "participanteRateioPadrao": "Eu"
+    },
+    "acoes": {
+      "rateioIgualitario": "Rateio igualitário",
+      "aceitar": "Aceitar",
+      "rejeitar": "Rejeitar"
     },
     "opcoesEscopoRecorrencia": {
       "apenasEsta": "Cancelar/editar apenas essa (default)",

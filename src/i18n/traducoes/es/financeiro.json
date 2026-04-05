@@ -209,7 +209,13 @@
   },
   "comum": {
     "campos": {
-      "rateio": "Prorrateo"
+      "rateio": "Prorrateo",
+      "participanteRateioPadrao": "Yo"
+    },
+    "acoes": {
+      "rateioIgualitario": "Prorrateo igualitario",
+      "aceitar": "Aceptar",
+      "rejeitar": "Rechazar"
     },
     "opcoesEscopoRecorrencia": {
       "apenasEsta": "Cancelar/editar solo esta (default)",

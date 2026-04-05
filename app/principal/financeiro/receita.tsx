@@ -9,6 +9,7 @@ import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
+import { usarAutenticacaoStore } from '../../../src/store/usarAutenticacaoStore';
 import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
@@ -33,6 +34,7 @@ import {
 import { SEPARADOR_AREA_SUBAREA, montarChaveAreaSubarea, separarAreaSubarea } from '../../../src/utils/rateioRelacional';
 import { montarDocumentosPayload, normalizarDocumentosApi, type DocumentoFinanceiro } from '../../../src/utils/documentoUpload';
 import {
+  aprovarReceitaPendenteApi,
   atualizarReceitaApi,
   cancelarReceitaApi,
   criarReceitaApi,
@@ -42,6 +44,7 @@ import {
   listarAreasSubareasRateioApi,
   listarReceitasApi,
   obterReceitaApi,
+  rejeitarReceitaPendenteApi,
   type AmigoRateioApi,
   type AreaSubareaRateioApi,
   type CartaoOpcaoApi,
@@ -368,7 +371,10 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
 export default function TelaReceita() {
   const router = useRouter();
   const { t } = usarTraducao();
+  const { usuario, usuarioSimulado, estaSimulando } = usarAutenticacaoStore();
   const locale = obterLocaleAtivo();
+  const participanteRateioPadrao = t('financeiro.comum.campos.participanteRateioPadrao');
+  const idUsuarioRateio = (estaSimulando ? usuarioSimulado?.id : usuario?.id) ?? usuario?.id ?? 0;
   const params = useLocalSearchParams();
   const idParamBruto = Array.isArray(params.id) ? params.id[0] : params.id;
   const idParam = idParamBruto ? Number(idParamBruto) : null;
@@ -382,7 +388,7 @@ export default function TelaReceita() {
   const [receitas, setReceitas] = useState<ReceitaRegistro[]>([]);
   const [formulario, setFormulario] = useState<ReceitaForm>(() => criarFormularioVazio(locale));
   const [camposInvalidos, setCamposInvalidos] = useState<Record<string, boolean>>({});
-  const [novoAmigoRateio, setNovoAmigoRateio] = useState('');
+  const [novoAmigoRateio, setNovoAmigoRateio] = useState(participanteRateioPadrao);
   const [novoValorAmigoRateio, setNovoValorAmigoRateio] = useState(() => formatarMoedaParaInput(0, locale));
   const [novaAreaRateio, setNovaAreaRateio] = useState('');
   const [novaSubareaRateio, setNovaSubareaRateio] = useState('');
@@ -400,11 +406,17 @@ export default function TelaReceita() {
   const [cancelandoReceita, setCancelandoReceita] = useState(false);
 
   const receitaSelecionada = receitas.find((receita) => receita.id === receitaSelecionadaId) ?? null;
-  const exibeContaBancaria = formulario.tipoRecebimento === 'pix' || formulario.tipoRecebimento === 'transferencia' || formulario.tipoRecebimento === 'contaCorrente';
-  const exibeCartaoRecebimento = formulario.tipoRecebimento === 'cartaoCredito' || formulario.tipoRecebimento === 'cartaoDebito';
+  const tipoRecebimentoExigeContaBancaria = formulario.tipoRecebimento === 'pix' || formulario.tipoRecebimento === 'transferencia' || formulario.tipoRecebimento === 'contaCorrente';
+  const tipoRecebimentoExigeCartao = formulario.tipoRecebimento === 'cartaoCredito' || formulario.tipoRecebimento === 'cartaoDebito';
+  const tipoRecebimentoComContaOuCartaoOpcional = Boolean(formulario.tipoRecebimento) && !tipoRecebimentoExigeContaBancaria && !tipoRecebimentoExigeCartao;
+  const exibeContaBancaria = tipoRecebimentoExigeContaBancaria || tipoRecebimentoComContaOuCartaoOpcional;
+  const exibeCartaoRecebimento = tipoRecebimentoExigeCartao || tipoRecebimentoComContaOuCartaoOpcional;
   const areasCatalogo = useMemo(() => opcoesAreasSubareasApi.filter((item) => item.tipo === 'receita'), [opcoesAreasSubareasApi]);
   
-  const opcoesAmigosRateio = useMemo(() => Array.from(new Set(opcoesAmigosRateioApi.map((item) => item.nome).filter(Boolean))).sort(), [opcoesAmigosRateioApi]);
+  const opcoesAmigosRateio = useMemo(() => {
+    const amigosApi = Array.from(new Set(opcoesAmigosRateioApi.map((item) => item.nome).filter(Boolean))).sort();
+    return [participanteRateioPadrao, ...amigosApi.filter((nome) => nome !== participanteRateioPadrao)];
+  }, [opcoesAmigosRateioApi, participanteRateioPadrao]);
   const opcoesAreasRateio = useMemo(() => Array.from(new Set([...areasCatalogo.map((item) => item.nome), ...receitas.flatMap((receita) => receita.areasRateio.map((chave) => separarAreaSubarea(chave).area)).filter(Boolean)])).sort(), [areasCatalogo, receitas]);
   const opcoesSubareasRateio = useMemo(() => {
     if (!novaAreaRateio) return [];
@@ -596,7 +608,7 @@ export default function TelaReceita() {
     setModoTela('lista');
     setReceitaSelecionadaId(null);
     setFormulario(criarFormularioVazio(locale));
-    setNovoAmigoRateio('');
+    setNovoAmigoRateio(participanteRateioPadrao);
     setNovoValorAmigoRateio(formatarMoedaParaInput(0, locale));
     setNovaAreaRateio('');
     setNovaSubareaRateio('');
@@ -663,8 +675,35 @@ export default function TelaReceita() {
       };
     });
 
-    setNovoAmigoRateio('');
+    setNovoAmigoRateio(participanteRateioPadrao);
     setNovoValorAmigoRateio(formatarMoedaParaInput(0, locale));
+  };
+
+  const aplicarRateioIgualitarioAmigos = () => {
+    if (formulario.amigosRateio.length === 0) {
+      notificarErro(t('financeiro.receita.mensagens.obrigatorio'));
+      return;
+    }
+
+    const valorTotal = converterTextoParaNumero(formulario.valorTotal, locale);
+    if (valorTotal <= 0) {
+      notificarErro(t('financeiro.receita.mensagens.valorObrigatorio'));
+      return;
+    }
+
+    const quantidadeParticipantes = formulario.amigosRateio.length;
+    const valorBase = Number((valorTotal / quantidadeParticipantes).toFixed(2));
+    const diferencaAjuste = Number((valorTotal - (valorBase * quantidadeParticipantes)).toFixed(2));
+
+    setFormulario((atual) => ({
+      ...atual,
+      rateioAmigosValores: Object.fromEntries(
+        atual.amigosRateio.map((amigo, indice) => {
+          const valorRateio = indice === atual.amigosRateio.length - 1 ? Number((valorBase + diferencaAjuste).toFixed(2)) : valorBase;
+          return [amigo, formatarMoedaParaInput(valorRateio, locale)];
+        }),
+      ),
+    }));
   };
 
   const removerRateioAmigo = (amigo: string) => {
@@ -728,8 +767,12 @@ export default function TelaReceita() {
     if (!formulario.dataVencimento) invalidos.dataVencimento = true;
     if (!formulario.tipoReceita) invalidos.tipoReceita = true;
     if (!formulario.tipoRecebimento) invalidos.tipoRecebimento = true;
-    if (exibeContaBancaria && !formulario.contaBancaria) invalidos.contaBancaria = true;
-    if (exibeCartaoRecebimento && !formulario.cartao) invalidos.cartao = true;
+    if (tipoRecebimentoExigeContaBancaria && !formulario.contaBancaria) invalidos.contaBancaria = true;
+    if (tipoRecebimentoExigeCartao && !formulario.cartao) invalidos.cartao = true;
+    if (formulario.contaBancaria && formulario.cartao) {
+      invalidos.contaBancaria = true;
+      invalidos.cartao = true;
+    }
     if (quantidadeRecorrenciaObrigatoria && !quantidadeRecorrencia) invalidos.quantidadeRecorrencia = true;
     if (Object.keys(invalidos).length > 0) {
       setCamposInvalidos((atual) => ({ ...atual, ...invalidos }));
@@ -756,7 +799,7 @@ export default function TelaReceita() {
       return null;
     }
 
-    if (exibeContaBancaria && !formulario.contaBancaria) {
+    if (tipoRecebimentoExigeContaBancaria && !formulario.contaBancaria) {
       setCamposInvalidos((atual) => ({ ...atual, contaBancaria: true }));
       notificarErro( t('financeiro.receita.mensagens.contaObrigatoria'));
       return null;
@@ -771,7 +814,12 @@ export default function TelaReceita() {
     const rateioAmigosValores = serializarValores(formulario.rateioAmigosValores);
     const rateioAreasValores = serializarValores(formulario.rateioAreasValores);
 
-    if (formulario.amigosRateio.some((amigoNome) => !opcoesAmigosRateioApi.some((item) => item.nome === amigoNome))) {
+    if (formulario.amigosRateio.includes(participanteRateioPadrao) && idUsuarioRateio <= 0) {
+      notificarErro('amigo_invalido');
+      return;
+    }
+
+    if (formulario.amigosRateio.some((amigoNome) => amigoNome !== participanteRateioPadrao && !opcoesAmigosRateioApi.some((item) => item.nome === amigoNome))) {
       notificarErro('amigo_invalido');
       return;
     }
@@ -807,9 +855,11 @@ export default function TelaReceita() {
 
     const amigos = formulario.amigosRateio
       .map((amigoNome) => {
-        const amigoCatalogo = opcoesAmigosRateioApi.find((item) => item.nome === amigoNome);
+        const amigoId = amigoNome === participanteRateioPadrao
+          ? idUsuarioRateio
+          : (opcoesAmigosRateioApi.find((item) => item.nome === amigoNome)?.id ?? 0);
         return {
-          amigoId: amigoCatalogo?.id,
+          amigoId,
           valor: Number(base.rateioAmigosValores[amigoNome] ?? 0),
         };
       })
@@ -916,7 +966,7 @@ export default function TelaReceita() {
       return;
     }
 
-    if ((formulario.tipoRecebimento === 'pix' || formulario.tipoRecebimento === 'transferencia' || formulario.tipoRecebimento === 'contaCorrente') && !formulario.contaBancaria) {
+    if (tipoRecebimentoExigeContaBancaria && !formulario.contaBancaria) {
       setCamposInvalidos((atual) => ({ ...atual, contaBancaria: true }));
       notificarErro( t('financeiro.receita.mensagens.contaObrigatoria'));
       return;
@@ -994,6 +1044,28 @@ export default function TelaReceita() {
     }
   };
 
+  const aceitarReceitaPendenteAprovacao = async (receita: ReceitaRegistro) => {
+    if (receita.status !== 'pendenteAprovacao') return;
+    try {
+      await aprovarReceitaPendenteApi(receita.id);
+      await carregarReceitasApi();
+      return;
+    } catch {
+      return;
+    }
+  };
+
+  const rejeitarReceitaPendenteAprovacao = async (receita: ReceitaRegistro) => {
+    if (receita.status !== 'pendenteAprovacao') return;
+    try {
+      await rejeitarReceitaPendenteApi(receita.id);
+      await carregarReceitasApi();
+      return;
+    } catch {
+      return;
+    }
+  };
+
   const renderCampoBloqueado = (label: string, valor: string) => (
     <View style={{ marginBottom: 12 }}>
       <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
@@ -1031,6 +1103,7 @@ export default function TelaReceita() {
           estilo={{ marginBottom: 8 }}
         />
         <Botao titulo={t('comum.acoes.confirmar')} onPress={adicionarRateioAmigo} tipo="secundario" estilo={{ marginBottom: 8 }} />
+        <Botao titulo={t('financeiro.comum.acoes.rateioIgualitario')} onPress={aplicarRateioIgualitarioAmigos} tipo="secundario" estilo={{ marginBottom: 8 }} />
         {linhas.map((linha) => (
           <View key={linha.amigo} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 6 }}>
             <View style={{ flex: 1, paddingRight: 8 }}>
@@ -1110,12 +1183,12 @@ export default function TelaReceita() {
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.dataLancamento'), formulario.dataLancamento ? formatarDataPorIdioma(formulario.dataLancamento) : '') : <CampoData label={t('financeiro.receita.campos.dataLancamento')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataLancamento} onChange={(dataLancamento) => { setCamposInvalidos((atual) => ({ ...atual, dataLancamento: false })); setFormulario((atual) => ({ ...atual, dataLancamento })); }} error={camposInvalidos.dataLancamento} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.dataVencimento'), formulario.dataVencimento ? formatarDataPorIdioma(formulario.dataVencimento) : '') : <CampoData label={t('financeiro.receita.campos.dataVencimento')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataVencimento} onChange={(dataVencimento) => { setCamposInvalidos((atual) => ({ ...atual, dataVencimento: false })); setFormulario((atual) => ({ ...atual, dataVencimento })); }} error={camposInvalidos.dataVencimento} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.tipoReceita'), formulario.tipoReceita ? t(`financeiro.receita.tipoReceita.${formulario.tipoReceita}`) : '') : <CampoSelect label={t('financeiro.receita.campos.tipoReceita')} placeholder={t('comum.acoes.selecionar')} options={tiposReceita.map((tipo) => ({ value: tipo, label: t(`financeiro.receita.tipoReceita.${tipo}`) }))} value={formulario.tipoReceita} onChange={(tipoReceita) => { setCamposInvalidos((atual) => ({ ...atual, tipoReceita: false })); setFormulario((atual) => ({ ...atual, tipoReceita })); }} error={camposInvalidos.tipoReceita} />}
-      {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.tipoRecebimento'), formulario.tipoRecebimento ? t(`financeiro.receita.tipoRecebimento.${formulario.tipoRecebimento}`) : '') : <CampoSelect label={t('financeiro.receita.campos.tipoRecebimento')} placeholder={t('comum.acoes.selecionar')} options={tiposRecebimento.map((tipo) => ({ value: tipo, label: t(`financeiro.receita.tipoRecebimento.${tipo}`) }))} value={formulario.tipoRecebimento} onChange={(tipoRecebimento) => { setCamposInvalidos((atual) => ({ ...atual, tipoRecebimento: false, contaBancaria: false, cartao: false })); setFormulario((atual) => ({ ...atual, tipoRecebimento, contaBancaria: tipoRecebimento === 'pix' || tipoRecebimento === 'transferencia' || tipoRecebimento === 'contaCorrente' ? atual.contaBancaria : '', cartao: tipoRecebimento === 'cartaoCredito' || tipoRecebimento === 'cartaoDebito' ? atual.cartao : '' })); }} error={camposInvalidos.tipoRecebimento} />}
+      {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.tipoRecebimento'), formulario.tipoRecebimento ? t(`financeiro.receita.tipoRecebimento.${formulario.tipoRecebimento}`) : '') : <CampoSelect label={t('financeiro.receita.campos.tipoRecebimento')} placeholder={t('comum.acoes.selecionar')} options={tiposRecebimento.map((tipo) => ({ value: tipo, label: t(`financeiro.receita.tipoRecebimento.${tipo}`) }))} value={formulario.tipoRecebimento} onChange={(tipoRecebimento) => { setCamposInvalidos((atual) => ({ ...atual, tipoRecebimento: false, contaBancaria: false, cartao: false })); setFormulario((atual) => { const exigeContaBancaria = tipoRecebimento === 'pix' || tipoRecebimento === 'transferencia' || tipoRecebimento === 'contaCorrente'; const exigeCartao = tipoRecebimento === 'cartaoCredito' || tipoRecebimento === 'cartaoDebito'; const contaOuCartaoOpcional = !exigeContaBancaria && !exigeCartao; return { ...atual, tipoRecebimento, contaBancaria: exigeContaBancaria || contaOuCartaoOpcional ? atual.contaBancaria : '', cartao: exigeCartao || contaOuCartaoOpcional ? atual.cartao : '' }; }); }} error={camposInvalidos.tipoRecebimento} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.recorrencia'), obterRotuloRecorrencia(formulario.recorrenciaBase, locale)) : <CampoSelect label={t('financeiro.receita.campos.recorrencia')} placeholder={t('comum.acoes.selecionar')} options={RECORRENCIAS_FINANCEIRAS_BASE.map((item) => ({ value: item.chave, label: obterRotuloRecorrencia(item.chave, locale) }))} value={formulario.recorrenciaBase} onChange={(recorrenciaBase) => setFormulario((atual) => ({ ...atual, recorrenciaBase: recorrenciaBase as RecorrenciaFinanceiraBaseChave, recorrenciaFixa: recorrenciaBase === 'unica' ? false : atual.recorrenciaFixa, quantidadeRecorrencia: recorrenciaBase === 'unica' ? '' : atual.quantidadeRecorrencia }))} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.comum.campos.modoRecorrencia'), formulario.recorrenciaFixa ? t('financeiro.comum.opcoesRecorrencia.fixa') : t('financeiro.comum.opcoesRecorrencia.normal')) : <CampoSelect label={t('financeiro.comum.campos.modoRecorrencia')} placeholder={t('comum.acoes.selecionar')} options={formulario.recorrenciaBase === 'unica' ? [{ value: 'normal', label: t('financeiro.comum.opcoesRecorrencia.normal') }] : [{ value: 'normal', label: t('financeiro.comum.opcoesRecorrencia.normal') }, { value: 'fixa', label: t('financeiro.comum.opcoesRecorrencia.fixa') }]} value={formulario.recorrenciaFixa ? 'fixa' : 'normal'} onChange={(modo) => setFormulario((atual) => { const recorrenciaFixa = atual.recorrenciaBase !== 'unica' && modo === 'fixa'; return { ...atual, recorrenciaFixa, quantidadeRecorrencia: recorrenciaFixa ? '' : atual.quantidadeRecorrencia }; })} />}
       {somenteLeitura ? (exibirQuantidadeRecorrencia ? renderCampoBloqueado(t('financeiro.comum.campos.quantidadeRecorrencia'), formulario.quantidadeRecorrencia || '-') : null) : (exibirQuantidadeRecorrencia ? <CampoTexto label={t('financeiro.comum.campos.quantidadeRecorrencia')} placeholder='1' value={formulario.quantidadeRecorrencia} onChangeText={(quantidadeRecorrencia) => { setCamposInvalidos((atual) => ({ ...atual, quantidadeRecorrencia: false })); setFormulario((atual) => ({ ...atual, quantidadeRecorrencia: quantidadeRecorrencia.replace(/[^\d]/g, '') })); }} error={camposInvalidos.quantidadeRecorrencia} keyboardType='numeric' estilo={{ marginBottom: 12 }} /> : null)}
-      {exibeContaBancaria ? somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.contaBancaria'), formulario.contaBancaria) : <CampoSelect label={t('financeiro.receita.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancaria.map((conta) => ({ value: conta, label: conta }))} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false })); setFormulario((atual) => ({ ...atual, contaBancaria })); }} error={camposInvalidos.contaBancaria} /> : null}
-      {exibeCartaoRecebimento ? (somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.cartao'), formulario.cartao) : <CampoSelect label={t('financeiro.receita.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartao.map((cartao) => ({ value: cartao, label: cartao }))} value={formulario.cartao} onChange={(cartao) => { setCamposInvalidos((atual) => ({ ...atual, cartao: false })); setFormulario((atual) => ({ ...atual, cartao })); }} error={camposInvalidos.cartao} />) : null}
+      {exibeContaBancaria ? somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.contaBancaria'), formulario.contaBancaria) : <CampoSelect label={t('financeiro.receita.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancaria.map((conta) => ({ value: conta, label: conta }))} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false, cartao: false })); setFormulario((atual) => ({ ...atual, contaBancaria, cartao: contaBancaria ? '' : atual.cartao })); }} error={camposInvalidos.contaBancaria} /> : null}
+      {exibeCartaoRecebimento ? (somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.cartao'), formulario.cartao) : <CampoSelect label={t('financeiro.receita.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartao.map((cartao) => ({ value: cartao, label: cartao }))} value={formulario.cartao} onChange={(cartao) => { setCamposInvalidos((atual) => ({ ...atual, cartao: false, contaBancaria: false })); setFormulario((atual) => ({ ...atual, cartao, contaBancaria: cartao ? '' : atual.contaBancaria })); }} error={camposInvalidos.cartao} />) : null}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.valorTotal'), formulario.valorTotal) : <CampoTexto label={t('financeiro.receita.campos.valorTotal')} placeholder={t('financeiro.receita.placeholders.valor')} value={formulario.valorTotal} onChangeText={(valor) => { setCamposInvalidos((atual) => ({ ...atual, valorTotal: false })); atualizarCampoMoeda('valorTotal', valor); }} error={camposInvalidos.valorTotal} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.desconto'), formulario.desconto) : <CampoTexto label={t('financeiro.receita.campos.desconto')} placeholder={t('financeiro.receita.placeholders.valor')} value={formulario.desconto} onChangeText={(valor) => atualizarCampoMoeda('desconto', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.acrescimo'), formulario.acrescimo) : <CampoTexto label={t('financeiro.receita.campos.acrescimo')} placeholder={t('financeiro.receita.placeholders.valor')} value={formulario.acrescimo} onChangeText={(valor) => atualizarCampoMoeda('acrescimo', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
@@ -1185,6 +1258,8 @@ export default function TelaReceita() {
                     {receita.status === 'pendente' ? <TouchableOpacity onPress={() => abrirEdicao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
                     {receita.status === 'pendente' ? <TouchableOpacity onPress={() => abrirEfetivacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.receita.acoes.efetivar')}</Text></TouchableOpacity> : null}
                     {receita.status === 'pendente' ? <TouchableOpacity onPress={() => cancelarReceita(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.receita.acoes.cancelarReceita')}</Text></TouchableOpacity> : null}
+                    {receita.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => aceitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
+                    {receita.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => rejeitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
                     {receita.status === 'efetivada' ? <TouchableOpacity onPress={() => estornarReceita(receita)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.receita.acoes.estornar')}</Text></TouchableOpacity> : null}
                   </View>
                 </View>
@@ -1224,9 +1299,9 @@ export default function TelaReceita() {
             {renderCampoBloqueado(t('financeiro.receita.campos.valorLiquido'), formulario.valorLiquido)}
             {renderCampoBloqueado(t('financeiro.receita.campos.valorEfetivacao'), formulario.valorEfetivacao)}
             <CampoData label={t('financeiro.receita.campos.dataEfetivacao')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataEfetivacao} onChange={(dataEfetivacao) => { setCamposInvalidos((atual) => ({ ...atual, dataEfetivacao: false })); setFormulario((atual) => ({ ...atual, dataEfetivacao })); }} error={camposInvalidos.dataEfetivacao} estilo={{ marginBottom: 12 }} />
-            <CampoSelect label={t('financeiro.receita.campos.tipoRecebimento')} placeholder={t('comum.acoes.selecionar')} options={tiposRecebimento.map((tipo) => ({ value: tipo, label: t(`financeiro.receita.tipoRecebimento.${tipo}`) }))} value={formulario.tipoRecebimento} onChange={(tipoRecebimento) => { setCamposInvalidos((atual) => ({ ...atual, tipoRecebimento: false })); setFormulario((atual) => ({ ...atual, tipoRecebimento })); }} error={camposInvalidos.tipoRecebimento} />
-            {(formulario.tipoRecebimento === 'pix' || formulario.tipoRecebimento === 'transferencia' || formulario.tipoRecebimento === 'contaCorrente') ? <CampoSelect label={t('financeiro.receita.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancaria.map((conta) => ({ value: conta, label: conta }))} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false })); setFormulario((atual) => ({ ...atual, contaBancaria })); }} error={camposInvalidos.contaBancaria} /> : null}
-            {(formulario.tipoRecebimento === 'cartaoCredito' || formulario.tipoRecebimento === 'cartaoDebito') ? <CampoSelect label={t('financeiro.receita.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartao.map((cartao) => ({ value: cartao, label: cartao }))} value={formulario.cartao} onChange={(cartao) => { setCamposInvalidos((atual) => ({ ...atual, cartao: false })); setFormulario((atual) => ({ ...atual, cartao })); }} error={camposInvalidos.cartao} /> : null}
+            <CampoSelect label={t('financeiro.receita.campos.tipoRecebimento')} placeholder={t('comum.acoes.selecionar')} options={tiposRecebimento.map((tipo) => ({ value: tipo, label: t(`financeiro.receita.tipoRecebimento.${tipo}`) }))} value={formulario.tipoRecebimento} onChange={(tipoRecebimento) => { setCamposInvalidos((atual) => ({ ...atual, tipoRecebimento: false, contaBancaria: false, cartao: false })); setFormulario((atual) => { const exigeContaBancaria = tipoRecebimento === 'pix' || tipoRecebimento === 'transferencia' || tipoRecebimento === 'contaCorrente'; const exigeCartao = tipoRecebimento === 'cartaoCredito' || tipoRecebimento === 'cartaoDebito'; const contaOuCartaoOpcional = !exigeContaBancaria && !exigeCartao; return { ...atual, tipoRecebimento, contaBancaria: exigeContaBancaria || contaOuCartaoOpcional ? atual.contaBancaria : '', cartao: exigeCartao || contaOuCartaoOpcional ? atual.cartao : '' }; }); }} error={camposInvalidos.tipoRecebimento} />
+            {exibeContaBancaria ? <CampoSelect label={t('financeiro.receita.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancaria.map((conta) => ({ value: conta, label: conta }))} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false, cartao: false })); setFormulario((atual) => ({ ...atual, contaBancaria, cartao: contaBancaria ? '' : atual.cartao })); }} error={camposInvalidos.contaBancaria} /> : null}
+            {exibeCartaoRecebimento ? <CampoSelect label={t('financeiro.receita.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartao.map((cartao) => ({ value: cartao, label: cartao }))} value={formulario.cartao} onChange={(cartao) => { setCamposInvalidos((atual) => ({ ...atual, cartao: false, contaBancaria: false })); setFormulario((atual) => ({ ...atual, cartao, contaBancaria: cartao ? '' : atual.contaBancaria })); }} error={camposInvalidos.cartao} /> : null}
             <CampoTexto label={t('financeiro.receita.campos.valorTotal')} placeholder={t('financeiro.receita.placeholders.valor')} value={formulario.valorTotal} onChangeText={(valor) => { setCamposInvalidos((atual) => ({ ...atual, valorTotal: false })); atualizarCampoMoeda('valorTotal', valor); }} error={camposInvalidos.valorTotal} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
             <CampoTexto label={t('financeiro.receita.campos.desconto')} placeholder={t('financeiro.receita.placeholders.valor')} value={formulario.desconto} onChangeText={(valor) => atualizarCampoMoeda('desconto', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
             <CampoTexto label={t('financeiro.receita.campos.acrescimo')} placeholder={t('financeiro.receita.placeholders.valor')} value={formulario.acrescimo} onChangeText={(valor) => atualizarCampoMoeda('acrescimo', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
