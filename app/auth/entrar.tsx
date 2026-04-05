@@ -106,6 +106,9 @@ export default function Entrar() {
       });
   };
 
+  const placeholderEmailObrigatorio = `${t('comum.email')} *`;
+  const placeholderSenhaObrigatoria = `${t('comum.senha')} *`;
+
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.bgPrimary, paddingHorizontal: 16 }}>
       <Text style={{ color: COLORS.accent, fontSize: 32, fontWeight: 'bold', marginBottom: 8 }}>
@@ -116,7 +119,7 @@ export default function Entrar() {
       </Text>
 
       <TextInput
-        placeholder={t('comum.email')}
+        placeholder={placeholderEmailObrigatorio}
         placeholderTextColor={COLORS.textSecondary}
         value={email}
         onChangeText={setEmail}
@@ -158,7 +161,7 @@ export default function Entrar() {
           }}
         >
           <TextInput
-            placeholder={t('comum.senha')}
+            placeholder={placeholderSenhaObrigatoria}
             placeholderTextColor={COLORS.textSecondary}
             value={senha}
             onChangeText={setSenha}

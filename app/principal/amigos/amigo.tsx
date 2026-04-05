@@ -55,7 +55,7 @@ export default function FormAmigo() {
           <Text style={{ color: COLORS.textSecondary, fontSize: 12, lineHeight: 18 }}>{t('amigos.form.descricao')}</Text>
         </View>
 
-        <CampoTexto label={t('amigos.form.emailLabel')} placeholder={t('amigos.form.emailPlaceholder')} value={email} onChangeText={setEmail} estilo={{ marginBottom: 16 }} keyboardType="email-address" />
+        <CampoTexto label={t('amigos.form.emailLabel')} placeholder={t('amigos.form.emailPlaceholder')} value={email} onChangeText={setEmail} obrigatorio estilo={{ marginBottom: 16 }} keyboardType="email-address" />
 
         <CampoTexto label={t('amigos.form.msgLabel')} placeholder={t('amigos.form.msgPlaceholder')} value={mensagem} onChangeText={setMensagem} estilo={{ marginBottom: 24, minHeight: 80 }} multiline numberOfLines={3} />
 

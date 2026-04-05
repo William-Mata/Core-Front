@@ -529,6 +529,7 @@ export default function TelaReembolso() {
               placeholder={t('financeiro.reembolso.placeholderDescricao')}
               value={reembolsoAtual.descricao}
               onChangeText={(descricao) => setReembolsoAtual((atual) => ({ ...atual, descricao }))}
+              obrigatorio
               multiline
               numberOfLines={3}
               estilo={{ marginBottom: 12 }}
@@ -546,12 +547,12 @@ export default function TelaReembolso() {
       {exibeContaBancaria
         ? (somenteLeitura
             ? renderCampoBloqueado(t('financeiro.receita.campos.contaBancaria'), opcoesContasBancariasApi.find((item) => item.id === reembolsoAtual.contaBancariaId)?.nome ?? '')
-            : <CampoSelect label={t('financeiro.receita.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancaria} value={reembolsoAtual.contaBancariaId ? String(reembolsoAtual.contaBancariaId) : ''} onChange={(contaBancariaId) => setReembolsoAtual((atual) => ({ ...atual, contaBancariaId: Number(contaBancariaId) || undefined }))} />)
+            : <CampoSelect label={t('financeiro.receita.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancaria} value={reembolsoAtual.contaBancariaId ? String(reembolsoAtual.contaBancariaId) : ''} onChange={(contaBancariaId) => setReembolsoAtual((atual) => ({ ...atual, contaBancariaId: Number(contaBancariaId) || undefined }))} obrigatorio={exibeContaBancaria} />)
         : null}
       {exibeCartao
         ? (somenteLeitura
             ? renderCampoBloqueado(t('financeiro.receita.campos.cartao'), opcoesCartoesApi.find((item) => item.id === reembolsoAtual.cartaoId)?.nome ?? '')
-            : <CampoSelect label={t('financeiro.receita.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartao} value={reembolsoAtual.cartaoId ? String(reembolsoAtual.cartaoId) : ''} onChange={(cartaoId) => setReembolsoAtual((atual) => ({ ...atual, cartaoId: Number(cartaoId) || undefined }))} />)
+            : <CampoSelect label={t('financeiro.receita.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartao} value={reembolsoAtual.cartaoId ? String(reembolsoAtual.cartaoId) : ''} onChange={(cartaoId) => setReembolsoAtual((atual) => ({ ...atual, cartaoId: Number(cartaoId) || undefined }))} obrigatorio={exibeCartao} />)
         : null}
       {renderSecaoRateio(somenteLeitura)}
       {somenteLeitura
@@ -719,6 +720,7 @@ export default function TelaReembolso() {
               placeholder={t('financeiro.reembolso.placeholderData')}
               value={reembolsoAtual.dataEfetivacao || ''}
               onChange={(dataEfetivacao) => setReembolsoAtual((atual) => ({ ...atual, dataEfetivacao }))}
+              obrigatorio
               estilo={{ marginBottom: 12 }}
             />
 
