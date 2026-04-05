@@ -14,6 +14,12 @@ interface CampoTextoProps {
   estilo?: ViewStyle;
   multiline?: boolean;
   numberOfLines?: number;
+  obrigatorio?: boolean;
+}
+
+function formatarLabelObrigatorio(label: string, obrigatorio: boolean): string {
+  if (!obrigatorio) return label;
+  return /\*\s*$/.test(label) ? label : `${label} *`;
 }
 
 const estilos = StyleSheet.create({
@@ -43,25 +49,29 @@ const estilos = StyleSheet.create({
   },
 });
 
-export function CampoTexto({
-  label,
-  valor,
-  value,
-  onChangeText,
-  placeholder,
-  secureTextEntry,
-  error,
-  keyboardType = 'default',
-  estilo,
-  multiline,
-  numberOfLines,
-}: CampoTextoProps) {
+export function CampoTexto(props: CampoTextoProps) {
+  const {
+    label,
+    valor,
+    value,
+    onChangeText,
+    placeholder,
+    secureTextEntry,
+    error,
+    keyboardType = 'default',
+    estilo,
+    multiline,
+    numberOfLines,
+    obrigatorio,
+  } = props;
   const valorFinal = value || valor;
   const [focado, setFocado] = useState(false);
+  const obrigatorioFinal = obrigatorio ?? Object.prototype.hasOwnProperty.call(props, 'error');
+  const labelFormatada = label ? formatarLabelObrigatorio(label, obrigatorioFinal) : '';
 
   return (
     <View style={[estilos.container, estilo]}>
-      {label && <Text style={estilos.label}>{label}</Text>}
+      {label ? <Text style={estilos.label}>{labelFormatada}</Text> : null}
       <TextInput
         value={valorFinal}
         onChangeText={onChangeText}

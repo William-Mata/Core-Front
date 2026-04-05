@@ -20,21 +20,31 @@ interface CampoSelectProps {
   error?: string | boolean;
   onChange?: (value: string) => void;
   onChangeMultiple?: (values: string[]) => void;
+  obrigatorio?: boolean;
 }
 
-export function CampoSelect({
-  label,
-  placeholder = 'Selecionar',
-  options,
-  value,
-  values = [],
-  multiple = false,
-  error,
-  onChange,
-  onChangeMultiple,
-}: CampoSelectProps) {
+function formatarLabelObrigatorio(label: string, obrigatorio: boolean): string {
+  if (!obrigatorio) return label;
+  return /\*\s*$/.test(label) ? label : `${label} *`;
+}
+
+export function CampoSelect(props: CampoSelectProps) {
+  const {
+    label,
+    placeholder = 'Selecionar',
+    options,
+    value,
+    values = [],
+    multiple = false,
+    error,
+    onChange,
+    onChangeMultiple,
+    obrigatorio,
+  } = props;
   const [aberto, setAberto] = useState(false);
   const { t } = usarTraducao();
+  const obrigatorioFinal = obrigatorio ?? Object.prototype.hasOwnProperty.call(props, 'error');
+  const labelFormatada = formatarLabelObrigatorio(label, obrigatorioFinal);
 
   const textoSelecionado = useMemo(() => {
     if (multiple) {
@@ -58,7 +68,7 @@ export function CampoSelect({
 
   return (
     <View style={{ marginBottom: 12 }}>
-      <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
+      <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{labelFormatada}</Text>
 
       <TouchableOpacity
         onPress={() => setAberto(true)}
@@ -80,7 +90,7 @@ export function CampoSelect({
       {typeof error === 'string' && error ? <Text style={{ color: COLORS.error, fontSize: 12, marginTop: 4 }}>{error}</Text> : null}
 
       {aberto ? (
-        <Modal visivel onFechar={() => setAberto(false)} titulo={label}>
+        <Modal visivel onFechar={() => setAberto(false)} titulo={labelFormatada}>
           <ScrollView style={{ maxHeight: 320 }}>
             {options.map((option) => {
               const ativo = multiple ? values.includes(option.value) : value === option.value;

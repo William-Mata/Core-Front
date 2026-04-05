@@ -13,6 +13,7 @@ interface CampoDataProps {
   placeholder?: string;
   estilo?: ViewStyle;
   error?: string | boolean;
+  obrigatorio?: boolean;
 }
 
 interface CampoDataIntervaloProps {
@@ -23,6 +24,12 @@ interface CampoDataIntervaloProps {
   placeholder?: string;
   estilo?: ViewStyle;
   error?: string | boolean;
+  obrigatorio?: boolean;
+}
+
+function formatarLabelObrigatorio(label: string, obrigatorio: boolean): string {
+  if (!obrigatorio) return label;
+  return /\*\s*$/.test(label) ? label : `${label} *`;
 }
 
 function obterLocaleDatePicker(): string {
@@ -95,12 +102,15 @@ function usePopoverData(aberto: boolean, aoFechar: () => void) {
   return { focadoWeb, setFocadoWeb, posicaoPopover, setPosicaoPopover, containerRef, portalRef };
 }
 
-export function CampoData({ label, value, onChange, placeholder, estilo, error }: CampoDataProps) {
+export function CampoData(props: CampoDataProps) {
+  const { label, value, onChange, placeholder, estilo, error, obrigatorio } = props;
   const [aberto, setAberto] = useState(false);
   const { t } = usarTraducao();
   const { focadoWeb, setFocadoWeb, posicaoPopover, containerRef, portalRef } = usePopoverData(aberto, () => setAberto(false));
   const localeDatePicker = useMemo(() => obterLocaleDatePicker(), []);
   const dataSelecionada = value ? converterIsoParaDate(value) : new Date();
+  const obrigatorioFinal = obrigatorio ?? Object.prototype.hasOwnProperty.call(props, 'error');
+  const labelFormatada = formatarLabelObrigatorio(label, obrigatorioFinal);
 
   const renderPicker = () => (
     <View
@@ -213,7 +223,7 @@ export function CampoData({ label, value, onChange, placeholder, estilo, error }
           maxWidth: '100%',
         }}
       >
-        <div style={{ color: COLORS.accent, fontSize: 12, fontWeight: 600, marginBottom: 8 }}>{label}</div>
+        <div style={{ color: COLORS.accent, fontSize: 12, fontWeight: 600, marginBottom: 8 }}>{labelFormatada}</div>
         <button
           type="button"
           onClick={() => {
@@ -295,7 +305,7 @@ export function CampoData({ label, value, onChange, placeholder, estilo, error }
 
   return (
     <View style={estilo}>
-      <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
+      <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{labelFormatada}</Text>
       <TouchableOpacity
         onPress={() => setAberto((estadoAtual) => !estadoAtual)}
         style={{
@@ -322,13 +332,16 @@ export function CampoData({ label, value, onChange, placeholder, estilo, error }
   );
 }
 
-export function CampoDataIntervalo({ label, dataInicio, dataFim, onChange, placeholder, estilo, error }: CampoDataIntervaloProps) {
+export function CampoDataIntervalo(props: CampoDataIntervaloProps) {
+  const { label, dataInicio, dataFim, onChange, placeholder, estilo, error, obrigatorio } = props;
   const [aberto, setAberto] = useState(false);
   const { t } = usarTraducao();
   const { focadoWeb, setFocadoWeb, posicaoPopover, containerRef, portalRef } = usePopoverData(aberto, () => setAberto(false));
   const localeDatePicker = useMemo(() => obterLocaleDatePicker(), []);
   const textoPlaceholder = placeholder || t('comum.acoes.selecionar');
   const possuiIntervaloSelecionado = Boolean(dataInicio || dataFim);
+  const obrigatorioFinal = obrigatorio ?? Object.prototype.hasOwnProperty.call(props, 'error');
+  const labelFormatada = formatarLabelObrigatorio(label, obrigatorioFinal);
 
   const limparIntervalo = () => {
     onChange({ dataInicio: '', dataFim: '' });
@@ -468,7 +481,7 @@ export function CampoDataIntervalo({ label, dataInicio, dataFim, onChange, place
           maxWidth: '100%',
         }}
       >
-        <div style={{ color: COLORS.accent, fontSize: 12, fontWeight: 600, marginBottom: 8 }}>{label}</div>
+        <div style={{ color: COLORS.accent, fontSize: 12, fontWeight: 600, marginBottom: 8 }}>{labelFormatada}</div>
         <button
           type="button"
           onClick={() => {
@@ -543,7 +556,7 @@ export function CampoDataIntervalo({ label, dataInicio, dataFim, onChange, place
 
   return (
     <View style={estilo}>
-      <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
+      <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{labelFormatada}</Text>
       <TouchableOpacity
         onPress={() => setAberto((estadoAtual) => !estadoAtual)}
         style={{

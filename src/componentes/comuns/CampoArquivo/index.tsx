@@ -14,6 +14,12 @@ interface CampoArquivoProps {
   placeholder?: string;
   estilo?: ViewStyle;
   error?: string | boolean;
+  obrigatorio?: boolean;
+}
+
+function formatarLabelObrigatorio(label: string, obrigatorio: boolean): string {
+  if (!obrigatorio) return label;
+  return /\*\s*$/.test(label) ? label : `${label} *`;
 }
 
 function lerArquivoWebComoBase64(arquivo: File): Promise<string> {
@@ -48,10 +54,13 @@ async function montarDocumentoNativo(asset: DocumentPicker.DocumentPickerAsset):
   };
 }
 
-export function CampoArquivo({ label, value, onChange, onSelecionarArquivo, placeholder, estilo, error }: CampoArquivoProps) {
+export function CampoArquivo(props: CampoArquivoProps) {
+  const { label, value, onChange, onSelecionarArquivo, placeholder, estilo, error, obrigatorio } = props;
   const { t } = usarTraducao();
   const [focadoWeb, setFocadoWeb] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const obrigatorioFinal = obrigatorio ?? Object.prototype.hasOwnProperty.call(props, 'error');
+  const labelFormatada = formatarLabelObrigatorio(label, obrigatorioFinal);
 
   const selecionarArquivoNativo = async () => {
     const resultado = await DocumentPicker.getDocumentAsync({
@@ -73,7 +82,7 @@ export function CampoArquivo({ label, value, onChange, onSelecionarArquivo, plac
   if (Platform.OS === 'web') {
     return (
       <View style={estilo}>
-        <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
+        <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{labelFormatada}</Text>
         <input
           ref={inputRef}
           type="file"
@@ -153,7 +162,7 @@ export function CampoArquivo({ label, value, onChange, onSelecionarArquivo, plac
 
   return (
     <View style={estilo}>
-      <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
+      <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{labelFormatada}</Text>
       <TouchableOpacity
         onPress={selecionarArquivoNativo}
         style={{

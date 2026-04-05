@@ -38,9 +38,14 @@ const finalizarCarregamentoSeNecessario = (config?: ConfiguracaoComCarregamento)
 
 export const criarInstanciaApi = (): AxiosInstance => {
   const apiUrl = (process.env.EXPO_PUBLIC_API_URL || 'https://localhost:5001/api').trim();
+  const timeoutRequisicaoConfigurado = Number(process.env.EXPO_PUBLIC_TIMEOUT_REQUISICAO_MS);
+  const timeoutRequisicao =
+    Number.isFinite(timeoutRequisicaoConfigurado) && timeoutRequisicaoConfigurado > 0
+      ? timeoutRequisicaoConfigurado
+      : 30000;
   const instancia = axios.create({
     baseURL: apiUrl,
-    timeout: 30000,
+    timeout: timeoutRequisicao,
     headers: { 'Content-Type': 'application/json' },
   });
 
