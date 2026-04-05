@@ -16,7 +16,7 @@ import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
 import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterIntervaloCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
-import { rateioConfereValorTotal, rateioNaoUltrapassaValorTotal } from '../../../src/utils/rateioValidacao';
+import { rateioConfereValorTotalExato, rateioNaoUltrapassaValorTotal } from '../../../src/utils/rateioValidacao';
 import {
   RECORRENCIAS_FINANCEIRAS_BASE,
   LIMITE_RECORRENCIA_NORMAL,
@@ -977,12 +977,12 @@ export default function TelaDespesa() {
       }
     }
 
-    if (!rateioNaoUltrapassaValorTotal(valorTotalRateioAmigos, formulario.amigosRateio, rateioAmigosValores)) {
+    if (!rateioConfereValorTotalExato(valorTotalRateioAmigos, formulario.amigosRateio, rateioAmigosValores)) {
       notificarErro(t('financeiro.comum.mensagens.rateioDeveBaterValorTotal'));
       return null;
     }
 
-    if (!rateioConfereValorTotal(valorTotal, formulario.areasRateio, rateioAreasValores)) {
+    if (!rateioConfereValorTotalExato(valorTotal, formulario.areasRateio, rateioAreasValores)) {
       notificarErro(t('financeiro.comum.mensagens.rateioDeveBaterValorTotal'));
       return null;
     }
