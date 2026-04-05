@@ -45,6 +45,8 @@ export function CarregamentoGlobal() {
 
   return (
     <>
+      {mostrarBarra ? <View pointerEvents="auto" style={estilos.overlayBloqueioRequisicao} /> : null}
+
       {mostrarBarra ? (
         <View pointerEvents="none" style={estilos.barraContainer}>
           <View style={estilos.barraTrilho}>
@@ -72,6 +74,11 @@ const estilos = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 12000,
+  },
+  overlayBloqueioRequisicao: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 11995,
+    backgroundColor: 'transparent',
   },
   barraTrilho: {
     height: 3,
