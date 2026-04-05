@@ -27,6 +27,9 @@ Leia o arquivo do skill correspondente antes de iniciar a tarefa.
 - Nenhum `console.log` em código de produção.
 - Commits sempre em PT-BR com semântica convencional.
 - Nunca versionar `.env`, tokens, secrets ou chaves reais.
+- Em formulários, todo campo obrigatório deve exibir `*` no label ou no padrão visual adotado pelo sistema.
+- A regra do `*` também vale para campos condicionalmente obrigatórios.
+- Campos opcionais não devem exibir `*`.
 
 ---
 
