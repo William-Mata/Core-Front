@@ -210,7 +210,10 @@
   "comum": {
     "campos": {
       "rateio": "Prorrateo",
-      "participanteRateioPadrao": "Yo"
+      "participanteRateioPadrao": "Yo",
+      "valorTotalRateioAmigos": "Valor total prorrateo amigos",
+      "tipoRateio": "Tipo de prorrateo",
+      "amigo": "Amigo"
     },
     "acoes": {
       "rateioIgualitario": "Prorrateo igualitario",
@@ -232,13 +235,18 @@
       "estaEProximas": "Editar esta y las proximas",
       "todasPendentes": "Editar todas las pendientes"
     },
+    "opcoesTipoRateio": {
+      "comum": "Comun",
+      "igualitario": "Igualitario"
+    },
     "mensagens": {
       "recorrenciaApenasPendentes": "Observacion: en lanzamientos recurrentes, solo los elementos con estado pendiente se pueden cancelar o editar.",
       "cancelamentoApenasPendentes": "Observacion: en lanzamientos recurrentes, solo los elementos con estado pendiente se pueden cancelar.",
       "edicaoApenasPendentes": "Observacion: en lanzamientos recurrentes, solo los elementos con estado pendiente se pueden editar.",
       "cancelamentoFixaTodasPendentes": "Al cancelar todas las pendientes en recurrencia fija, no se generaran nuevas ocurrencias.",
       "edicaoReplicaPendentes": "Al editar esta y las proximas, o todas las pendientes, los nuevos datos se replicaran respetando las fechas de la regla de recurrencia.",
-      "confirmarEdicaoRecorrente": "Seleccione el tipo de edicion para este lanzamiento recurrente."
+      "confirmarEdicaoRecorrente": "Seleccione el tipo de edicion para este lanzamiento recurrente.",
+      "valorTotalRateioAmigosMaiorQueValorLiquido": "El valor total del prorrateo de amigos debe ser mayor que el valor neto."
     },
     "status": {
       "pendenteAprovacao": "PENDIENTE APROBACION",

@@ -209,7 +209,10 @@
   "comum": {
     "campos": {
       "rateio": "Split",
-      "participanteRateioPadrao": "Me"
+      "participanteRateioPadrao": "Me",
+      "valorTotalRateioAmigos": "Friends split total amount",
+      "tipoRateio": "Split type",
+      "amigo": "Friend"
     },
     "acoes": {
       "rateioIgualitario": "Equal split",
@@ -231,13 +234,18 @@
       "estaEProximas": "Edit this one and next",
       "todasPendentes": "Edit all pending"
     },
+    "opcoesTipoRateio": {
+      "comum": "Common",
+      "igualitario": "Equal"
+    },
     "mensagens": {
       "recorrenciaApenasPendentes": "Note: for recurring entries, only items with pending status can be canceled or edited.",
       "cancelamentoApenasPendentes": "Note: for recurring entries, only items with pending status can be canceled.",
       "edicaoApenasPendentes": "Note: for recurring entries, only items with pending status can be edited.",
       "cancelamentoFixaTodasPendentes": "When canceling all pending in fixed recurrence, no new occurrences will be generated.",
       "edicaoReplicaPendentes": "When editing this and next, or all pending, the new data will be replicated respecting recurrence rule dates.",
-      "confirmarEdicaoRecorrente": "Select the edit type for this recurring entry."
+      "confirmarEdicaoRecorrente": "Select the edit type for this recurring entry.",
+      "valorTotalRateioAmigosMaiorQueValorLiquido": "Friends split total amount must be greater than net amount."
     },
     "status": {
       "pendenteAprovacao": "PENDING APPROVAL",

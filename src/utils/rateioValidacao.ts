@@ -12,3 +12,14 @@ export function rateioConfereValorTotal(
   const soma = somaRateioSelecionado(chavesSelecionadas, valores);
   return Math.abs(soma - valorTotal) <= tolerancia;
 }
+
+export function rateioNaoUltrapassaValorTotal(
+  valorTotal: number,
+  chavesSelecionadas: string[],
+  valores: Record<string, number>,
+  tolerancia = 0.01,
+) {
+  if (chavesSelecionadas.length === 0) return true;
+  const soma = somaRateioSelecionado(chavesSelecionadas, valores);
+  return soma <= valorTotal + tolerancia;
+}
