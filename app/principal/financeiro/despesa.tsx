@@ -107,6 +107,7 @@ interface DespesaRegistro {
   contaBancaria?: string;
   contaBancariaId?: number;
   cartao?: string;
+  cartaoId?: number;
   anexoDocumento: string;
   documentos: DocumentoFinanceiro[];
   logs: LogDespesa[];
@@ -372,11 +373,9 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
           ]),
         );
 
-  const vinculo = (item.vinculo && typeof item.vinculo === 'object')
-    ? (item.vinculo as Record<string, unknown>)
-    : undefined;
   const documentos = normalizarDocumentosApi(item.documentos);
-  const contaBancariaIdNormalizada = Number(item.contaBancariaId ?? vinculo?.contaBancariaId ?? NaN);
+  const contaBancariaIdNormalizada = Number(item.contaBancariaId ?? NaN);
+  const cartaoIdNormalizado = Number(item.cartaoId ?? NaN);
 
   return {
     id: Number(item.id),
@@ -422,9 +421,12 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
       : undefined,
     cartao: item.cartao
       ? String(item.cartao)
-      : vinculo?.cartaoId
-        ? String(vinculo.cartaoId)
+      : Number.isFinite(cartaoIdNormalizado) && cartaoIdNormalizado > 0
+        ? String(cartaoIdNormalizado)
         : undefined,
+    cartaoId: Number.isFinite(cartaoIdNormalizado) && cartaoIdNormalizado > 0
+      ? cartaoIdNormalizado
+      : undefined,
     anexoDocumento: documentos[0]?.nomeArquivo ?? String(item.anexoDocumento ?? ''),
     documentos,
     logs: Array.isArray(item.logs)
@@ -498,6 +500,10 @@ export default function TelaDespesa() {
     () => new Map(opcoesContasBancariasApi.map((item) => [item.id, item.nome])),
     [opcoesContasBancariasApi],
   );
+  const mapaCartoesPorId = useMemo(
+    () => new Map(opcoesCartoesApi.map((item) => [item.id, item.nome])),
+    [opcoesCartoesApi],
+  );
   const opcoesContaBancaria = useMemo(
     () =>
       Array.from(
@@ -513,7 +519,21 @@ export default function TelaDespesa() {
       ).sort(),
     [opcoesContasBancariasApi, despesas, mapaContasBancariasPorId],
   );
-  const opcoesCartao = useMemo(() => Array.from(new Set([...opcoesCartoesApi.map((item) => item.nome), ...despesas.map((despesa) => despesa.cartao || '')].filter((cartao) => Boolean(cartao.trim())))).sort(), [opcoesCartoesApi, despesas]);
+  const opcoesCartao = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...opcoesCartoesApi.map((item) => item.nome),
+          ...despesas.map((despesa) => {
+            const nomeCartao = despesa.cartao?.trim();
+            if (nomeCartao) return nomeCartao;
+            if (!despesa.cartaoId) return '';
+            return mapaCartoesPorId.get(despesa.cartaoId) ?? '';
+          }),
+        ].filter((cartao) => Boolean(cartao.trim()))),
+      ).sort(),
+    [opcoesCartoesApi, despesas, mapaCartoesPorId],
+  );
   const pagamentoComParcelas = ehPagamentoParcelado(formulario.tipoPagamento);
   const tipoPagamentoExigeContaBancaria = formulario.tipoPagamento === 'pix' || formulario.tipoPagamento === 'transferencia';
   const tipoPagamentoExigeCartao = formulario.tipoPagamento === 'cartaoCredito' || formulario.tipoPagamento === 'cartaoDebito';
@@ -698,7 +718,9 @@ export default function TelaDespesa() {
       contaBancaria: despesa.contaBancaria?.trim()
         ? despesa.contaBancaria
         : (despesa.contaBancariaId ? (mapaContasBancariasPorId.get(despesa.contaBancariaId) ?? '') : ''),
-      cartao: despesa.cartao || '',
+      cartao: despesa.cartao?.trim()
+        ? despesa.cartao
+        : (despesa.cartaoId ? (mapaCartoesPorId.get(despesa.cartaoId) ?? '') : ''),
       anexoDocumento: despesa.anexoDocumento,
       documentos: despesa.documentos,
     });
@@ -1055,10 +1077,8 @@ export default function TelaDespesa() {
       dataVencimento: base.dataVencimento,
       tipoDespesa: formulario.tipoDespesa,
       tipoPagamento: formulario.tipoPagamento,
-      vinculo: {
-        ContaBancariaId: contaBancariaIdSelecionada ?? null,
-        CartaoId: cartaoIdSelecionado ?? null,
-      },
+      contaBancariaId: contaBancariaIdSelecionada ?? null,
+      cartaoId: cartaoIdSelecionado ?? null,
       recorrencia: obterValorRecorrencia(pagamentoComParcelas ? 'mensal' : formulario.recorrenciaBase),
       recorrenciaFixa: pagamentoComParcelas || formulario.recorrenciaBase === 'unica' ? false : formulario.recorrenciaFixa,
       quantidadeRecorrencia:
@@ -1152,12 +1172,8 @@ export default function TelaDespesa() {
         imposto: base.imposto,
         juros: base.juros,
         valorEfetivacao: base.valorLiquido,
-        ContaBancariaId: contaBancariaIdSelecionada ?? null,
-        CartaoId: cartaoIdSelecionado ?? null,
-        vinculo: {
-          ContaBancariaId: contaBancariaIdSelecionada ?? null,
-          CartaoId: cartaoIdSelecionado ?? null,
-        },
+        contaBancariaId: contaBancariaIdSelecionada ?? null,
+        cartaoId: cartaoIdSelecionado ?? null,
         documentos: montarDocumentosPayload(formulario.documentos),
         status: 'efetivada',
       });

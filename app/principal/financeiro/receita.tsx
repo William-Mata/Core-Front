@@ -103,7 +103,9 @@ interface ReceitaRegistro {
   rateiosAmigos?: Array<{ amigo: string; valor: number }>;
   rateiosAreaSubarea?: Array<{ area: string; subarea: string; valor: number }>;
   contaBancaria?: string;
+  contaBancariaId?: number;
   cartao?: string;
+  cartaoId?: number;
   anexoDocumento: string;
   documentos: DocumentoFinanceiro[];
   logs: LogReceita[];
@@ -344,10 +346,9 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
           ]),
         );
 
-  const vinculo = (item.vinculo && typeof item.vinculo === 'object')
-    ? (item.vinculo as Record<string, unknown>)
-    : undefined;
   const documentos = normalizarDocumentosApi(item.documentos);
+  const contaBancariaIdNormalizado = Number(item.contaBancariaId ?? NaN);
+  const cartaoIdNormalizado = Number(item.cartaoId ?? NaN);
 
   return {
     id: Number(item.id),
@@ -384,16 +385,18 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
       const { area, subarea } = separarAreaSubarea(chave);
       return { area, subarea, valor: Number(rateioAreasValores[chave] ?? 0) };
     }),
-    contaBancaria: item.contaBancaria
-      ? String(item.contaBancaria)
-      : vinculo?.contaBancariaId
-        ? String(vinculo.contaBancariaId)
-        : undefined,
-    cartao: item.cartao
-      ? String(item.cartao)
-      : vinculo?.cartaoId
-        ? String(vinculo.cartaoId)
-        : undefined,
+    contaBancaria: Number.isFinite(contaBancariaIdNormalizado) && contaBancariaIdNormalizado > 0
+      ? String(contaBancariaIdNormalizado)
+      : undefined,
+    contaBancariaId: Number.isFinite(contaBancariaIdNormalizado) && contaBancariaIdNormalizado > 0
+      ? contaBancariaIdNormalizado
+      : undefined,
+    cartao: Number.isFinite(cartaoIdNormalizado) && cartaoIdNormalizado > 0
+      ? String(cartaoIdNormalizado)
+      : undefined,
+    cartaoId: Number.isFinite(cartaoIdNormalizado) && cartaoIdNormalizado > 0
+      ? cartaoIdNormalizado
+      : undefined,
     anexoDocumento: documentos[0]?.nomeArquivo ?? String(item.anexoDocumento ?? ''),
     documentos,
     logs: Array.isArray(item.logs)
@@ -497,8 +500,44 @@ export default function TelaReceita() {
       .map((item) => item.subarea);
     return Array.from(new Set([...subareasApi, ...subareasHistoricas].filter(Boolean))).sort();
   }, [novaAreaRateio, areasCatalogo, receitas]);
-  const opcoesContaBancaria = useMemo(() => Array.from(new Set([...opcoesContasBancariasApi.map((item) => item.nome), ...receitas.map((receita) => receita.contaBancaria || '')].filter((conta) => Boolean(conta.trim())))).sort(), [opcoesContasBancariasApi, receitas]);
-  const opcoesCartao = useMemo(() => Array.from(new Set([...opcoesCartoesApi.map((item) => item.nome), ...receitas.map((receita) => receita.cartao || '')].filter((cartao) => Boolean(cartao.trim())))).sort(), [opcoesCartoesApi, receitas]);
+  const mapaContasBancariasPorId = useMemo(
+    () => new Map(opcoesContasBancariasApi.map((item) => [item.id, item.nome])),
+    [opcoesContasBancariasApi],
+  );
+  const mapaCartoesPorId = useMemo(
+    () => new Map(opcoesCartoesApi.map((item) => [item.id, item.nome])),
+    [opcoesCartoesApi],
+  );
+  const opcoesContaBancaria = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...opcoesContasBancariasApi.map((item) => item.nome),
+          ...receitas.map((receita) => {
+            const nomeConta = receita.contaBancaria?.trim();
+            if (nomeConta) return nomeConta;
+            if (!receita.contaBancariaId) return '';
+            return mapaContasBancariasPorId.get(receita.contaBancariaId) ?? '';
+          }),
+        ].filter((conta) => Boolean(conta.trim()))),
+      ).sort(),
+    [opcoesContasBancariasApi, receitas, mapaContasBancariasPorId],
+  );
+  const opcoesCartao = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...opcoesCartoesApi.map((item) => item.nome),
+          ...receitas.map((receita) => {
+            const nomeCartao = receita.cartao?.trim();
+            if (nomeCartao) return nomeCartao;
+            if (!receita.cartaoId) return '';
+            return mapaCartoesPorId.get(receita.cartaoId) ?? '';
+          }),
+        ].filter((cartao) => Boolean(cartao.trim()))),
+      ).sort(),
+    [opcoesCartoesApi, receitas, mapaCartoesPorId],
+  );
   const quantidadeRecorrenciaObrigatoria = !formulario.recorrenciaFixa && recorrenciaExigeQuantidade(formulario.recorrenciaBase);
   const exibirQuantidadeRecorrencia = !formulario.recorrenciaFixa && recorrenciaAceitaQuantidade(formulario.recorrenciaBase);
   const rotuloQuantidadeRecorrencia = t('financeiro.comum.campos.quantidadeRecorrencia');
@@ -642,8 +681,12 @@ export default function TelaReceita() {
       rateioAmigosValores: Object.fromEntries(Object.entries(receita.rateioAmigosValores).map(([chave, valor]) => [chave, formatarMoedaParaInput(valor, locale)])),
       areasRateio: receita.areasRateio,
       rateioAreasValores: Object.fromEntries(Object.entries(receita.rateioAreasValores).map(([chave, valor]) => [chave, formatarMoedaParaInput(valor, locale)])),
-      contaBancaria: receita.contaBancaria || '',
-      cartao: receita.cartao || '',
+      contaBancaria: receita.contaBancaria?.trim()
+        ? receita.contaBancaria
+        : (receita.contaBancariaId ? (mapaContasBancariasPorId.get(receita.contaBancariaId) ?? '') : ''),
+      cartao: receita.cartao?.trim()
+        ? receita.cartao
+        : (receita.cartaoId ? (mapaCartoesPorId.get(receita.cartaoId) ?? '') : ''),
       anexoDocumento: receita.anexoDocumento,
       documentos: receita.documentos,
     });
@@ -1003,10 +1046,8 @@ export default function TelaReceita() {
       dataVencimento: formulario.dataVencimento,
       tipoReceita: formulario.tipoReceita,
       tipoRecebimento: formulario.tipoRecebimento,
-      vinculo: {
-        ContaBancariaId: contaBancariaIdSelecionada ?? null,
-        CartaoId: cartaoIdSelecionado ?? null,
-      },
+      contaBancariaId: contaBancariaIdSelecionada ?? null,
+      cartaoId: cartaoIdSelecionado ?? null,
       recorrencia: obterValorRecorrencia(formulario.recorrenciaBase),
       recorrenciaFixa: formulario.recorrenciaBase === 'unica' ? false : formulario.recorrenciaFixa,
       quantidadeRecorrencia:
@@ -1102,12 +1143,8 @@ export default function TelaReceita() {
         imposto: base.imposto,
         juros: base.juros,
         valorEfetivacao: base.valorLiquido,
-        ContaBancariaId: contaBancariaIdSelecionada ?? null,
-        CartaoId: cartaoIdSelecionado ?? null,
-        vinculo: {
-          ContaBancariaId: contaBancariaIdSelecionada ?? null,
-          CartaoId: cartaoIdSelecionado ?? null,
-        },
+        contaBancariaId: contaBancariaIdSelecionada ?? null,
+        cartaoId: cartaoIdSelecionado ?? null,
         documentos: montarDocumentosPayload(formulario.documentos),
         status: 'efetivada',
       });
