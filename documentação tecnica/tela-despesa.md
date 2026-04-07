@@ -173,6 +173,8 @@ Quando informado com valor fora do enum, a API retorna `escopo_recorrencia_inval
   "imposto": 0.0,
   "juros": 0.0,
   "documentos": [],
+  "ContaBancariaId": 3,
+  "CartaoId": null,
   "contaBancariaId": 3,
   "cartaoId": null,
   "vinculo": {
