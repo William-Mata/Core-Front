@@ -24,10 +24,11 @@ describe('servico financeiro - detalhes por id', () => {
       tipoDespesa: 'moradia',
       tipoPagamento: 'pix',
       valorTotal: 2500.0,
+      contaBancariaId: 7,
+      cartaoId: null,
       amigosRateio: [{ amigoId: 45, nome: 'Carlos Silva', valor: 1250.0 }],
       areasSubAreasRateio: [{ areaId: 1, areaNome: 'Casa', subAreaId: 10, subAreaNome: 'Aluguel', valor: 2500.0 }],
       documentos: [{ nomeArquivo: 'comprovante-pix.pdf', caminhoArquivo: 'https://storage.exemplo.com/docs/comprovante-pix.pdf' }],
-      vinculo: { contaBancariaId: 7, cartaoId: null },
       logs: [{ id: 9001, data: '2026-04-02', acao: 'Atualizacao', descricao: 'Despesa efetivada.' }],
     };
     mockGet.mockResolvedValueOnce({ data: { sucesso: true, dados: respostaApi } });
@@ -45,10 +46,10 @@ describe('servico financeiro - detalhes por id', () => {
       tipoReceita: 'salario',
       tipoRecebimento: 'transferencia',
       valorLiquido: 9800.0,
+      contaBancariaId: 7,
+      cartaoId: null,
       areasSubAreasRateio: [{ areaId: 2, areaNome: 'Trabalho', subAreaId: 22, subAreaNome: 'Salario', valor: 10000.0 }],
-      contaBancaria: '7',
       documentos: [{ nomeArquivo: 'holerite-abril.pdf', caminhoArquivo: 'https://storage.exemplo.com/docs/holerite-abril.pdf' }],
-      vinculo: { contaBancariaId: 7, cartaoId: null },
       status: 'efetivada',
     };
     mockGet.mockResolvedValueOnce({ data: respostaApi });
