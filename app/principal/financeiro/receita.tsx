@@ -1102,6 +1102,8 @@ export default function TelaReceita() {
         imposto: base.imposto,
         juros: base.juros,
         valorEfetivacao: base.valorLiquido,
+        ContaBancariaId: contaBancariaIdSelecionada ?? null,
+        CartaoId: cartaoIdSelecionado ?? null,
         vinculo: {
           ContaBancariaId: contaBancariaIdSelecionada ?? null,
           CartaoId: cartaoIdSelecionado ?? null,
