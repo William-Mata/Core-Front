@@ -51,6 +51,19 @@ interface OpcoesEscopoRecorrencia {
   escopoRecorrencia?: 1 | 2 | 3;
 }
 
+interface EfetivarDespesaPayloadApi {
+  dataEfetivacao: string;
+  tipoPagamento: string;
+  valorTotal: number;
+  desconto: number;
+  acrescimo: number;
+  imposto: number;
+  juros: number;
+  documentos: unknown[];
+  contaBancariaId: number | null;
+  cartaoId: number | null;
+}
+
 function montarCompetencia(opcoes?: OpcoesRequisicao): string | undefined {
   if (!opcoes) return undefined;
   if (opcoes.competencia) return opcoes.competencia;
@@ -194,6 +207,24 @@ export async function cancelarDespesaApi(
     '/financeiro/despesas/' + id + '/cancelar',
     undefined,
     montarConfigEscopoRecorrencia(opcoesEscopoRecorrencia),
+  );
+  return extrairDados(data);
+}
+
+export async function efetivarDespesaApi(
+  id: number,
+  payload: EfetivarDespesaPayloadApi,
+): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
+    '/financeiro/despesas/' + id + '/efetivar',
+    payload,
+  );
+  return extrairDados(data);
+}
+
+export async function estornarDespesaApi(id: number): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
+    '/financeiro/despesas/' + id + '/estornar',
   );
   return extrairDados(data);
 }

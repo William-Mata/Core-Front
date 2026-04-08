@@ -1,4 +1,4 @@
-import { cancelarDespesaApi, cancelarReceitaApi } from '../../src/servicos/financeiro';
+import { cancelarDespesaApi, cancelarReceitaApi, efetivarDespesaApi, estornarDespesaApi } from '../../src/servicos/financeiro';
 
 const mockPost = jest.fn();
 
@@ -35,5 +35,33 @@ describe('servico financeiro - cancelamentos', () => {
     await cancelarDespesaApi(3, { escopoRecorrencia: 3 });
 
     expect(mockPost).toHaveBeenCalledWith('/financeiro/despesas/3/cancelar', undefined, { params: { escopoRecorrencia: 3 } });
+  });
+
+  it('deve efetivar despesa usando endpoint dedicado', async () => {
+    const payload = {
+      dataEfetivacao: '2026-03-15',
+      tipoPagamento: 'pix',
+      valorTotal: 150,
+      desconto: 5,
+      acrescimo: 0,
+      imposto: 0,
+      juros: 0,
+      documentos: [],
+      contaBancariaId: 3,
+      cartaoId: null,
+    };
+    mockPost.mockResolvedValueOnce({ data: { id: 5 } });
+
+    await efetivarDespesaApi(5, payload);
+
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/despesas/5/efetivar', payload);
+  });
+
+  it('deve estornar despesa usando endpoint dedicado', async () => {
+    mockPost.mockResolvedValueOnce({ data: { id: 8 } });
+
+    await estornarDespesaApi(8);
+
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/despesas/8/estornar');
   });
 });
