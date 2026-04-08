@@ -10,7 +10,7 @@ A tela de Reembolso permite registrar pedidos de reembolso vinculando despesas j
 - editar reembolso pendente
 - efetivar reembolso pendente
 - estornar reembolso efetivado
-- remover reembolso
+- cancelar reembolso pendente
 
 ## Campos do reembolso
 - `Descricao` (obrigatorio)
@@ -28,6 +28,7 @@ A tela de Reembolso permite registrar pedidos de reembolso vinculando despesas j
 - apenas reembolso `Pendente` pode ser editado
 - apenas reembolso `Pendente` pode ser efetivado
 - apenas reembolso `Efetivada` pode ser estornado
+- apenas reembolso `Pendente` pode ser cancelado
 
 ## Como cadastrar um reembolso
 1. Clique em `+ Novo Reembolso`.
@@ -52,9 +53,10 @@ A tela de Reembolso permite registrar pedidos de reembolso vinculando despesas j
 1. Na lista, clique em `Estornar`.
 2. O status volta para `Pendente`.
 
-## Como remover
-1. Na lista, clique em `Remover`.
-2. O registro sera excluido.
+## Como cancelar
+1. Na lista, clique em `Cancelar`.
+2. Confirme a acao no modal exibido.
+3. O status do reembolso passa para `Cancelada`.
 
 ## Dica de uso
 Use os filtros para localizar rapidamente reembolsos por periodo, descricao ou solicitante.

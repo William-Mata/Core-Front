@@ -14,6 +14,11 @@ Widgets atuais:
 - Ultimas Transacoes
 - Balanco Geral
 
+## Dados e filtros
+- ao abrir a tela, o sistema carrega despesas, receitas e reembolsos
+- todos os widgets usam esse mesmo conjunto de transacoes carregadas
+- no estado atual, a dashboard nao possui filtros locais por periodo, descricao, tipo ou categoria
+
 ## Como usar cada widget
 
 ### 1. Resumo Financeiro
@@ -24,6 +29,9 @@ Exibe os valores consolidados das transacoes carregadas:
 - estornos
 - saldo
 
+Regra importante:
+- o card de `Estornos` existe e entra no calculo do saldo, mas depende de transacoes do tipo `estorno`
+
 Use este widget para obter uma leitura rapida da situacao financeira.
 
 ### 2. Grafico por Area e Subarea de Receitas
@@ -32,6 +40,7 @@ Exibe como as receitas estao distribuidas por area e subarea.
 Como interpretar:
 - cada fatia representa uma combinacao de area e subarea
 - a lista lateral ajuda a identificar as categorias presentes no grafico
+- o grafico mostra ate 30 combinacoes por volume total
 
 ### 3. Grafico por Area e Subarea de Despesas
 Exibe como as despesas estao distribuidas por area e subarea.
@@ -40,9 +49,10 @@ Como interpretar:
 - cada fatia representa uma combinacao de area e subarea
 - a lista lateral ajuda a localizar categorias com maior impacto
 - a lista possui rolagem quando houver muitas combinacoes
+- o grafico mostra ate 30 combinacoes por volume total
 
 ### 4. Grafico Anual
-Exibe a evolucao mensal de:
+Exibe a evolucao mensal do ano atual de:
 - receitas
 - despesas
 - reembolsos
@@ -73,11 +83,11 @@ Regra importante:
 - a coluna `Cartao` so sera preenchida quando a transacao usar cartao de credito
 
 ### 6. Balanco Geral
-Exibe os saldos atuais de contas e cartoes.
+Exibe os saldos calculados por conta bancaria e cartao a partir das transacoes carregadas.
 
 Como interpretar:
 - cada card representa uma conta bancaria ou cartao
-- o valor principal mostra o saldo ou saldo disponivel atual
+- o valor principal mostra o saldo calculado para aquele item
 
 ## Reordenacao de widgets
 A dashboard permite reorganizar a ordem das widgets.
@@ -100,6 +110,8 @@ Como usar:
 - reorganize as widgets conforme sua prioridade de acompanhamento
 
 ## Mensagens e comportamentos esperados
+- durante o carregamento inicial, cada widget exibe estado de carregamento
 - quando nao houver dados suficientes, alguns widgets podem exibir menos informacoes
+- os graficos de area e subarea exibem `Sem dados para exibir` quando nao houver itens
 - os valores e datas seguem o idioma selecionado no sistema
 - a ordem das widgets vale para a sessao atual da tela
