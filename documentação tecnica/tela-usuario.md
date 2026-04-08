@@ -39,7 +39,7 @@ Quando a validacao falha:
 - o front mostra mensagem em tela (toast), sem popup nativo
 
 ## Endpoint esperado para alterar senha
-- `POST /api/autenticacao/alterar-senha`
+- `POST /api/usuarios/alterar-senha`
 
 Payload:
 
@@ -71,7 +71,7 @@ Exemplo:
   "title": "Requisicao invalida",
   "status": 400,
   "detail": "Os dados informados sao invalidos.",
-  "instance": "/api/autenticacao/alterar-senha",
+  "instance": "/api/usuarios/alterar-senha",
   "errors": {
     "novaSenha": [
       "A senha deve ter no minimo 10 caracteres."
@@ -123,4 +123,3 @@ Chaves usadas:
 - `usuarioPainel.erros.senhaMinima`
 - `usuarioPainel.erros.confirmacaoDiferente`
 - `usuarioPainel.erros.falhaAlterarSenha`
-

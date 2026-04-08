@@ -12,91 +12,45 @@ Arquivo principal:
 
 ## Estrategia atual da tela
 No estado atual do front, a dashboard monta os widgets a partir de:
-- lista de transacoes efetivadas
-- lista de contas e cartoes com saldo
+- lista de despesas (`GET /financeiro/despesas`)
+- lista de receitas (`GET /financeiro/receitas`)
+- lista de reembolsos (`GET /financeiro/reembolsos`)
 
-Ou seja, a integracao mais aderente ao comportamento atual pode seguir dois caminhos:
-1. retornar tudo consolidado em um endpoint unico da dashboard
-2. retornar transacoes e saldos, deixando o front calcular os widgets
-
-Como a tela atual ja calcula os widgets localmente, o contrato mais aderente hoje e o segundo.
-
-## Contrato recomendado para a API
-Endpoint sugerido:
-- `GET /api/dashboard`
-
-Resposta recomendada:
-
-```json
-{
-  "transacoes": [
-    {
-      "id": 1001,
-      "tipo": "despesa",
-      "valor": 145.00,
-      "descricao": "Almoco com cliente",
-      "dataEfetivacao": "2026-03-15",
-      "codigoPagamento": "CARTAO_CREDITO",
-      "tipoPagamento": "Cartao de credito",
-      "contaBancaria": "Itau",
-      "cartao": "Visa Platinum",
-      "area": "Operacoes",
-      "subarea": "Suprimentos"
-    }
-  ],
-  "balanco": [
-    {
-      "id": "conta-1",
-      "tipo": "conta",
-      "nome": "Itau",
-      "subtitulo": "Saldo atual da conta",
-      "saldo": 8650.42
-    },
-    {
-      "id": "cartao-1",
-      "tipo": "cartao",
-      "nome": "Visa Platinum",
-      "subtitulo": "Saldo disponivel do cartao",
-      "saldo": 3870.90
-    }
-  ]
-}
-```
+Nao existe chamada para endpoint consolidado de dashboard no estado atual.
+Nao existe carga dedicada de estornos no estado atual.
+Nao existe carga de saldo pronto de conta/cartao no estado atual.
 
 ## Estrutura esperada de transacao
-Campos esperados pelo front:
-- `id`: numero da transacao
-- `tipo`: um dos valores:
-  - `despesa`
-  - `receita`
-  - `reembolso`
-  - `estorno`
-- `valor`: numero decimal
-- `descricao`: texto exibivel ja pronto para UI
-- `dataEfetivacao`: data ISO `yyyy-MM-dd`
-- `codigoPagamento`: codigo tecnico usado para regra de exibicao
-- `tipoPagamento`: texto exibivel ja pronto para UI
-- `contaBancaria`: texto exibivel opcional
-- `cartao`: texto exibivel opcional
-- `area`: texto exibivel da area
-- `subarea`: texto exibivel da subarea
+Campos consumidos no mapeamento atual (`mapearTransacoesApiParaDashboard`):
+- `id` (fallback para indice)
+- `valor` (fallback: `valorLiquido` ou `valorTotal`, senao `0`)
+- `descricao` (fallback: `titulo`)
+- `dataEfetivacao` (fallback: `dataLancamento` ou `data`)
+- `tipoPagamento` / `tipoRecebimento` (normalizado para codigo interno)
+- `contaBancaria` (opcional)
+- `cartao` (opcional)
+- `area` (fallback: `categoria`)
+- `subarea` (fallback: `descricao` ou `titulo`)
+
+Campos derivados no front:
+- `tipo`: definido pelo endpoint de origem (`despesa`, `receita` ou `reembolso`)
+- `codigoPagamento`: mapeado para `CARTAO_CREDITO`, `PIX`, `TRANSFERENCIA`, `BOLETO` ou `DINHEIRO`
+- `tipoPagamento`: texto i18n a partir do `codigoPagamento`
 
 ## Regras do front para pagamento e cartao
 - a coluna `Cartao` da widget `Ultimas Transacoes` so deve exibir valor quando `codigoPagamento = CARTAO_CREDITO`
 - para outros tipos de pagamento / recebimento, a coluna deve exibir `-`
 - `tipoPagamento` e exibido como texto diretamente na grid
 
-## Estrutura esperada de balanco
-Campos esperados:
-- `id`
-- `tipo`: `conta` ou `cartao`
-- `nome`
-- `subtitulo`
-- `saldo`
+## Estrutura do balanco no front
+O balanco geral e calculado localmente a partir de `transacoes`:
+- para `contaBancaria`: soma por nome da conta
+- para `cartao`: soma por nome do cartao
+- regra de sinal: `despesa` subtrai, demais tipos somam
 
-Regras do front:
-- `tipo = conta` usa a traducao de conta bancaria no card
-- `tipo = cartao` usa a traducao de cartao no card
+Regras de exibicao:
+- `tipo = conta` usa traducao de conta bancaria no card
+- `tipo = cartao` usa traducao de cartao no card
 - saldo positivo e destacado como sucesso
 - saldo negativo e destacado como erro
 
@@ -152,6 +106,7 @@ Regras:
 - o usuario pode ativar e desativar series individualmente
 - o front nao permite desligar todas as series ao mesmo tempo
 - o tooltip do ponto usa os dados do mes selecionado
+- como nao ha carga dedicada de estornos na tela, a serie de estornos tende a permanecer zerada
 
 ### 5. Ultimas Transacoes
 Regras atuais:
@@ -171,8 +126,8 @@ Regras atuais:
 ### 6. Balanco Geral
 Regras atuais:
 - exibe contas e cartoes no mesmo bloco
-- cada item precisa trazer seu saldo pronto
-- o front nao recalcula saldo a partir das transacoes dentro desta widget
+- saldo e recalculado no front a partir das transacoes carregadas
+- itens sem `contaBancaria` e sem `cartao` nao entram no balanco
 
 ## Reordenacao de widgets
 A dashboard permite reordenacao de widgets por dois meios:

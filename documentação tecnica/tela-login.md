@@ -125,13 +125,3 @@ Padrao principal:
 Regra do front:
 - se existir `detail`, exibir `detail`
 - para `401` e `403`, registrar falha de tentativa
-
-## Renovacao de token
-Cliente HTTP possui suporte de renovacao.
-- endpoint esperado: `POST /api/autenticacao/renovar`
-- payload:
-```json
-{
-  "refreshToken": "jwt"
-}
-```
