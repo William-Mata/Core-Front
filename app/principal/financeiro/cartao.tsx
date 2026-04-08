@@ -22,6 +22,7 @@ import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao'
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
 import { BANDEIRAS_CARTAO_POPULARES, obterIconeBandeiraCartao } from '../../../src/utils/icones';
+import { calcularTotalLancamentos } from '../../../src/utils/calcularTotalLancamentos';
 
 type TipoCartao = 'credito' | 'debito';
 type StatusCartao = 'ativo' | 'inativo';
@@ -471,7 +472,7 @@ export default function TelaCartao() {
     return cartao.lancamentos.filter((lancamento) => lancamento.data.startsWith(mesSelecionado));
   };
 
-  const totalPeriodo = (cartao: Cartao) => obterLancamentosDoMes(cartao).reduce((total, lancamento) => total + lancamento.valor, 0);
+  const totalPeriodo = (cartao: Cartao) => calcularTotalLancamentos(obterLancamentosDoMes(cartao));
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bgPrimary }}>

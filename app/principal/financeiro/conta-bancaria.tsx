@@ -22,6 +22,7 @@ import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao'
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
 import { BANCOS_POPULARES, obterIconeBanco } from '../../../src/utils/icones';
+import { calcularTotalLancamentos } from '../../../src/utils/calcularTotalLancamentos';
 
 type StatusConta = 'ativa' | 'inativa';
 type ModoTela = 'lista' | 'novo' | 'edicao' | 'visualizacao';
@@ -428,7 +429,7 @@ export default function TelaContaBancaria() {
     return conta.extrato.filter((movimento) => movimento.data.startsWith(mesSelecionado));
   };
 
-  const totalPeriodo = (conta: ContaBancaria) => obterMovimentosDoMes(conta).reduce((total, movimento) => total + movimento.valor, 0);
+  const totalPeriodo = (conta: ContaBancaria) => calcularTotalLancamentos(obterMovimentosDoMes(conta));
 
   const renderCampoBloqueado = (label: string, valor: string) => (
     <View style={{ marginBottom: 12 }}>
