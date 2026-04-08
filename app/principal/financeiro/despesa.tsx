@@ -39,6 +39,8 @@ import {
   atualizarDespesaApi,
   cancelarDespesaApi,
   criarDespesaApi,
+  efetivarDespesaApi,
+  estornarDespesaApi,
   listarCartoesApi,
   listarContasBancariasApi,
   listarAmigosRateioApi,
@@ -376,6 +378,14 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
   const documentos = normalizarDocumentosApi(item.documentos);
   const contaBancariaIdNormalizada = Number(item.contaBancariaId ?? NaN);
   const cartaoIdNormalizado = Number(item.cartaoId ?? NaN);
+  const contaBancariaBruta = String(item.contaBancaria ?? '').trim();
+  const cartaoBruto = String(item.cartao ?? '').trim();
+  const contaBancariaNome = contaBancariaBruta && contaBancariaBruta !== String(contaBancariaIdNormalizada)
+    ? contaBancariaBruta
+    : undefined;
+  const cartaoNome = cartaoBruto && cartaoBruto !== String(cartaoIdNormalizado)
+    ? cartaoBruto
+    : undefined;
 
   return {
     id: Number(item.id),
@@ -413,17 +423,11 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
       return { area, subarea, valor: Number(rateioAreasValores[chave] ?? 0) };
     }),
     tiposRateio: areasRateio.map((chave) => separarAreaSubarea(chave).area),
-    contaBancaria: item.contaBancaria
-      ? String(item.contaBancaria)
-      : undefined,
+    contaBancaria: contaBancariaNome,
     contaBancariaId: Number.isFinite(contaBancariaIdNormalizada) && contaBancariaIdNormalizada > 0
       ? contaBancariaIdNormalizada
       : undefined,
-    cartao: item.cartao
-      ? String(item.cartao)
-      : Number.isFinite(cartaoIdNormalizado) && cartaoIdNormalizado > 0
-        ? String(cartaoIdNormalizado)
-        : undefined,
+    cartao: cartaoNome,
     cartaoId: Number.isFinite(cartaoIdNormalizado) && cartaoIdNormalizado > 0
       ? cartaoIdNormalizado
       : undefined,
@@ -1145,37 +1149,68 @@ export default function TelaDespesa() {
     await salvarCadastroOuEdicao(escopo);
   };
 
-  const efetivarDespesa = async () => {
-    if (!despesaSelecionada) return;
-    const base = validarFormularioBase();
+  const validarEfetivacaoDespesa = () => {
+    if (!despesaSelecionada) return null;
+
+    const invalidos: Record<string, boolean> = {};
     const dataEfetivacao = formulario.dataEfetivacao;
-    if (!base || !dataEfetivacao || !formulario.tipoPagamento) {
-      setCamposInvalidos((atual) => ({ ...atual, dataEfetivacao: !dataEfetivacao, tipoPagamento: !formulario.tipoPagamento }));
-      notificarErro( t('financeiro.despesa.mensagens.obrigatorioEfetivacao'));
-      return;
+    const valorTotal = converterTextoParaNumero(formulario.valorTotal, locale);
+
+    if (!dataEfetivacao) invalidos.dataEfetivacao = true;
+    if (!formulario.tipoPagamento) invalidos.tipoPagamento = true;
+    if (valorTotal <= 0) invalidos.valorTotal = true;
+    if (tipoPagamentoExigeContaBancaria && !contaBancariaIdSelecionada) invalidos.contaBancaria = true;
+    if (tipoPagamentoExigeCartao && !cartaoIdSelecionado) invalidos.cartao = true;
+    if (formulario.contaBancaria && formulario.cartao) {
+      invalidos.contaBancaria = true;
+      invalidos.cartao = true;
     }
 
-    if (dataIsoMaiorQue(base.dataLancamento, dataEfetivacao)) {
+    if (Object.keys(invalidos).length > 0) {
+      setCamposInvalidos((atual) => ({ ...atual, ...invalidos }));
+      notificarErro(t('financeiro.despesa.mensagens.obrigatorioEfetivacao'));
+      return null;
+    }
+
+    const dataLancamento = despesaSelecionada.dataLancamento || formulario.dataLancamento;
+    if (dataIsoMaiorQue(dataLancamento, dataEfetivacao)) {
       setCamposInvalidos((atual) => ({ ...atual, dataEfetivacao: true }));
       notificarErro(t('financeiro.despesa.mensagens.dataEfetivacaoMaiorQueLancamento'));
+      return null;
+    }
+
+    return {
+      dataEfetivacao,
+      valorTotal,
+      desconto: converterTextoParaNumero(formulario.desconto, locale),
+      acrescimo: converterTextoParaNumero(formulario.acrescimo, locale),
+      imposto: converterTextoParaNumero(formulario.imposto, locale),
+      juros: converterTextoParaNumero(formulario.juros, locale),
+    };
+  };
+
+  const efetivarDespesa = async () => {
+    if (!despesaSelecionada) return;
+    if (despesaSelecionada.status !== 'pendente') {
+      notificarErro(t('financeiro.despesa.mensagens.efetivacaoSomentePendente'));
       return;
     }
 
+    const base = validarEfetivacaoDespesa();
+    if (!base) return;
+
     try {
-      await atualizarDespesaApi(despesaSelecionada.id, {
-        dataEfetivacao,
+      await efetivarDespesaApi(despesaSelecionada.id, {
+        dataEfetivacao: base.dataEfetivacao,
         tipoPagamento: formulario.tipoPagamento,
         valorTotal: base.valorTotal,
-        valorLiquido: base.valorLiquido,
         desconto: base.desconto,
         acrescimo: base.acrescimo,
         imposto: base.imposto,
         juros: base.juros,
-        valorEfetivacao: base.valorLiquido,
         contaBancariaId: contaBancariaIdSelecionada ?? null,
         cartaoId: cartaoIdSelecionado ?? null,
         documentos: montarDocumentosPayload(formulario.documentos),
-        status: 'efetivada',
       });
       await carregarDespesasApi();
       notificarSucesso(t('financeiro.despesa.mensagens.efetivada'));
@@ -1222,11 +1257,7 @@ export default function TelaDespesa() {
     }
 
     try {
-      await atualizarDespesaApi(despesa.id, {
-        status: 'pendente',
-        dataEfetivacao: null,
-        valorEfetivacao: null,
-      });
+      await estornarDespesaApi(despesa.id);
       await carregarDespesasApi();
       return;
     } catch {

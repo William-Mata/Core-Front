@@ -349,6 +349,14 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
   const documentos = normalizarDocumentosApi(item.documentos);
   const contaBancariaIdNormalizado = Number(item.contaBancariaId ?? NaN);
   const cartaoIdNormalizado = Number(item.cartaoId ?? NaN);
+  const contaBancariaBruta = String(item.contaBancaria ?? '').trim();
+  const cartaoBruto = String(item.cartao ?? '').trim();
+  const contaBancariaNome = contaBancariaBruta && contaBancariaBruta !== String(contaBancariaIdNormalizado)
+    ? contaBancariaBruta
+    : undefined;
+  const cartaoNome = cartaoBruto && cartaoBruto !== String(cartaoIdNormalizado)
+    ? cartaoBruto
+    : undefined;
 
   return {
     id: Number(item.id),
@@ -385,15 +393,11 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
       const { area, subarea } = separarAreaSubarea(chave);
       return { area, subarea, valor: Number(rateioAreasValores[chave] ?? 0) };
     }),
-    contaBancaria: Number.isFinite(contaBancariaIdNormalizado) && contaBancariaIdNormalizado > 0
-      ? String(contaBancariaIdNormalizado)
-      : undefined,
+    contaBancaria: contaBancariaNome,
     contaBancariaId: Number.isFinite(contaBancariaIdNormalizado) && contaBancariaIdNormalizado > 0
       ? contaBancariaIdNormalizado
       : undefined,
-    cartao: Number.isFinite(cartaoIdNormalizado) && cartaoIdNormalizado > 0
-      ? String(cartaoIdNormalizado)
-      : undefined,
+    cartao: cartaoNome,
     cartaoId: Number.isFinite(cartaoIdNormalizado) && cartaoIdNormalizado > 0
       ? cartaoIdNormalizado
       : undefined,
