@@ -14,7 +14,7 @@ import {
   listarReceitasApi,
   listarReembolsosApi,
   type HistoricoTransacaoApi,
-  type ResumoHistoricoTransacoesApi,
+  type ResumoHistoricoTransacoesPorAnoApi,
   type RegistroFinanceiroApi,
 } from '../../src/servicos/financeiro';
 import i18n from '../../src/i18n/configuracao';
@@ -68,6 +68,14 @@ interface ItemAreaSubarea {
   despesas: number;
 }
 
+interface ResumoMensalGraficoAnual {
+  mes: string;
+  receitas: number;
+  despesas: number;
+  reembolsos: number;
+  estornos: number;
+}
+
 interface PieAreaItem {
   value: number;
   color: string;
@@ -80,6 +88,40 @@ interface PieAreaItem {
 
 const CORES_RECEITA = [COLORS.success, COLORS.info, '#23c4a8', '#5dd39e', '#2dd4bf', '#14b8a6'];
 const CORES_DESPESA = [COLORS.error, COLORS.warning, '#fb7185', '#f97316', '#ef4444', '#f59e0b'];
+const INDICE_MES_POR_NOME: Record<string, number> = {
+  janeiro: 0,
+  january: 0,
+  enero: 0,
+  fevereiro: 1,
+  february: 1,
+  febrero: 1,
+  marco: 2,
+  march: 2,
+  marzo: 2,
+  abril: 3,
+  april: 3,
+  mayo: 4,
+  may: 4,
+  junho: 5,
+  june: 5,
+  junio: 5,
+  julho: 6,
+  july: 6,
+  julio: 6,
+  agosto: 7,
+  august: 7,
+  setembro: 8,
+  september: 8,
+  setiembre: 8,
+  octubre: 9,
+  october: 9,
+  outubro: 9,
+  novembro: 10,
+  november: 10,
+  diciembre: 11,
+  december: 11,
+  dezembro: 11,
+};
 
 function obterEstiloTipoTransacao(tipo: TipoTransacao) {
   if (tipo === 'despesa') {
@@ -122,6 +164,58 @@ function erroCancelado(erro: unknown): boolean {
   if (!erro || typeof erro !== 'object') return false;
   const erroTipado = erro as { code?: string; name?: string };
   return erroTipado.code === 'ERR_CANCELED' || erroTipado.name === 'CanceledError';
+}
+
+function normalizarNomeMes(valor: string): string {
+  return valor
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function obterIndiceMesResumo(mes: string, indicePadrao: number): number {
+  const indicePorNome = INDICE_MES_POR_NOME[normalizarNomeMes(mes)];
+  if (typeof indicePorNome === 'number') return indicePorNome;
+  return indicePadrao;
+}
+
+function montarResumoMensalVazio(ano: number): ResumoMensalGraficoAnual[] {
+  return Array.from({ length: 12 }, (_, indice) => ({
+    mes: formatarMesPorIdioma(new Date(ano, indice, 1)),
+    receitas: 0,
+    despesas: 0,
+    reembolsos: 0,
+    estornos: 0,
+  }));
+}
+
+function normalizarNumeroMonetario(valor: unknown): number {
+  if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
+  if (typeof valor !== 'string') return 0;
+  const textoOriginal = valor.trim();
+  if (!textoOriginal) return 0;
+  const textoLimpo = textoOriginal.replace(/[^\d,.-]/g, '');
+  if (!textoLimpo) return 0;
+
+  let textoNormalizado = textoLimpo;
+  const possuiVirgula = textoLimpo.includes(',');
+  const possuiPonto = textoLimpo.includes('.');
+
+  if (possuiVirgula && possuiPonto) {
+    textoNormalizado = textoLimpo.lastIndexOf(',') > textoLimpo.lastIndexOf('.')
+      ? textoLimpo.replace(/\./g, '').replace(',', '.')
+      : textoLimpo.replace(/,/g, '');
+  } else if (possuiVirgula) {
+    textoNormalizado = textoLimpo.replace(',', '.');
+  }
+
+  const numero = Number(textoNormalizado);
+  return Number.isFinite(numero) ? numero : 0;
+}
+
+function normalizarValorSerieAnual(valor: unknown): number {
+  return Number(Math.abs(normalizarNumeroMonetario(valor)).toFixed(2));
 }
 
 function normalizarCodigoPagamento(valor: unknown): string {
@@ -272,7 +366,7 @@ export default function Dashboard() {
   const [larguraTabelaUltimasTransacoes, setLarguraTabelaUltimasTransacoes] = useState(0);
   const [transacoesApi, setTransacoesApi] = useState<Transacao[]>([]);
   const [ultimasTransacoesApi, setUltimasTransacoesApi] = useState<Transacao[]>([]);
-  const [resumoApi, setResumoApi] = useState<ResumoHistoricoTransacoesApi | null>(null);
+  const [resumoAnualApi, setResumoAnualApi] = useState<ResumoHistoricoTransacoesPorAnoApi[]>([]);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
@@ -317,23 +411,17 @@ export default function Dashboard() {
   useEffect(() => {
     let ativo = true;
     const controller = new AbortController();
+    const anoAtual = new Date().getFullYear();
 
     const carregarResumoHistorico = async () => {
       try {
-        const resumoHistorico = await listarResumoHistoricoTransacoesApi({ signal: controller.signal });
+        const resumoHistorico = await listarResumoHistoricoTransacoesApi({ signal: controller.signal, ano: anoAtual });
         if (!ativo) return;
-        setResumoApi(resumoHistorico);
+        setResumoAnualApi(Array.isArray(resumoHistorico) ? resumoHistorico : []);
       } catch (erro) {
         if (erroCancelado(erro)) return;
         if (!ativo) return;
-        setResumoApi({
-          ano: null,
-          totalReceitas: 0,
-          totalDespesas: 0,
-          totalReembolsos: 0,
-          totalEstornos: 0,
-          totalGeral: 0,
-        });
+        setResumoAnualApi([]);
       }
     };
 
@@ -476,16 +564,6 @@ export default function Dashboard() {
   }, [transacoes, t]);
 
   const transacoesFiltradas = transacoes;
-
-  const resumo = useMemo<ResumoFinanceiroWidget>(() => {
-    return {
-      totalReceitas: Number(resumoApi?.totalReceitas ?? 0),
-      totalDespesas: Number(resumoApi?.totalDespesas ?? 0),
-      totalReembolsos: Number(resumoApi?.totalReembolsos ?? 0),
-      totalEstornos: Number(resumoApi?.totalEstornos ?? 0),
-      saldo: Number(resumoApi?.totalGeral ?? 0),
-    };
-  }, [resumoApi]);
 
   const larguraContainerGraficoAnual = useMemo(() => {
     if (larguraGraficoAnualDisponivel > 0) {
@@ -633,21 +711,43 @@ export default function Dashboard() {
 
   const dadosAnuais = useMemo(() => {
     const anoAtual = new Date().getFullYear();
+    const meses = montarResumoMensalVazio(anoAtual);
+    const usados = new Set<number>();
 
-    return Array.from({ length: 12 }, (_, indice) => {
-      const dataMes = new Date(anoAtual, indice, 1);
-      const chave = `${anoAtual}-${String(indice + 1).padStart(2, '0')}`;
-      const baseMes = transacoesFiltradas.filter((item) => item.dataEfetivacao.startsWith(chave));
-
-      return {
-        mes: formatarMesPorIdioma(dataMes),
-        despesas: baseMes.filter((item) => item.tipo === 'despesa').reduce((acc, item) => acc + item.valor, 0),
-        receitas: baseMes.filter((item) => item.tipo === 'receita').reduce((acc, item) => acc + item.valor, 0),
-        reembolsos: baseMes.filter((item) => item.tipo === 'reembolso').reduce((acc, item) => acc + item.valor, 0),
-        estornos: baseMes.filter((item) => item.tipo === 'estorno').reduce((acc, item) => acc + item.valor, 0),
+    for (const [indiceResposta, item] of resumoAnualApi.entries()) {
+      if (!item) continue;
+      const registroResumo = item as Record<string, unknown>;
+      const indiceMes = obterIndiceMesResumo(
+        String(registroResumo.mes ?? registroResumo.Mes ?? ''),
+        indiceResposta,
+      );
+      if (indiceMes < 0 || indiceMes > 11 || usados.has(indiceMes)) continue;
+      usados.add(indiceMes);
+      meses[indiceMes] = {
+        mes: formatarMesPorIdioma(new Date(anoAtual, indiceMes, 1)),
+        receitas: normalizarNumeroMonetario(registroResumo.totalReceitas ?? registroResumo.TotalReceitas),
+        despesas: normalizarNumeroMonetario(registroResumo.totalDespesas ?? registroResumo.TotalDespesas),
+        reembolsos: normalizarNumeroMonetario(registroResumo.totalReembolsos ?? registroResumo.TotalReembolsos),
+        estornos: normalizarNumeroMonetario(registroResumo.totalEstornos ?? registroResumo.TotalEstornos),
       };
-    });
-  }, [transacoesFiltradas]);
+    }
+
+    return meses;
+  }, [resumoAnualApi, idiomaAtual]);
+
+  const resumo = useMemo<ResumoFinanceiroWidget>(() => {
+    const totalReceitas = dadosAnuais.reduce((acumulado, item) => acumulado + item.receitas, 0);
+    const totalDespesas = dadosAnuais.reduce((acumulado, item) => acumulado + item.despesas, 0);
+    const totalReembolsos = dadosAnuais.reduce((acumulado, item) => acumulado + item.reembolsos, 0);
+    const totalEstornos = dadosAnuais.reduce((acumulado, item) => acumulado + item.estornos, 0);
+    return {
+      totalReceitas,
+      totalDespesas,
+      totalReembolsos,
+      totalEstornos,
+      saldo: totalReceitas + totalDespesas + totalReembolsos + totalEstornos,
+    };
+  }, [dadosAnuais]);
 
   const reordenarWidget = (origem: WidgetId, destino: WidgetId) => {
     if (origem === destino) return;
@@ -864,10 +964,20 @@ export default function Dashboard() {
     }
 
     if (id === 'graficoAnual') {
-      const dadosReceitas = dadosAnuais.map((item) => ({ value: Number(item.receitas.toFixed(2)), label: item.mes }));
-      const dadosDespesas = dadosAnuais.map((item) => ({ value: Number(item.despesas.toFixed(2)), label: item.mes }));
-      const dadosReembolsos = dadosAnuais.map((item) => ({ value: Number(item.reembolsos.toFixed(2)), label: item.mes }));
-      const dadosEstornos = dadosAnuais.map((item) => ({ value: Number(item.estornos.toFixed(2)), label: item.mes }));
+      const dadosReceitas = dadosAnuais.map((item) => ({ value: normalizarValorSerieAnual(item.receitas), label: item.mes }));
+      const dadosDespesas = dadosAnuais.map((item) => ({ value: normalizarValorSerieAnual(item.despesas), label: item.mes }));
+      const dadosReembolsos = dadosAnuais.map((item) => ({ value: normalizarValorSerieAnual(item.reembolsos), label: item.mes }));
+      const dadosEstornos = dadosAnuais.map((item) => ({ value: normalizarValorSerieAnual(item.estornos), label: item.mes }));
+      const maiorValorSeries = Math.max(
+        0,
+        ...dadosReceitas.map((item) => item.value),
+        ...dadosDespesas.map((item) => item.value),
+        ...dadosReembolsos.map((item) => item.value),
+        ...dadosEstornos.map((item) => item.value),
+      );
+      const maximoEscalaAnual = maiorValorSeries > 0
+        ? Number((Math.ceil((maiorValorSeries * 1.15) / 10) * 10).toFixed(2))
+        : 10;
       const legendaSeries = [
         { chave: 'receitas' as const, cor: COLORS.success, titulo: t('dashboard.cards.receitas') },
         { chave: 'despesas' as const, cor: COLORS.error, titulo: t('dashboard.cards.despesas') },
@@ -934,6 +1044,7 @@ export default function Dashboard() {
                 isAnimated
                 animationDuration={700}
                 noOfSections={4}
+                maxValue={maximoEscalaAnual}
                 disableScroll
                 yAxisThickness={0}
                 xAxisThickness={1}

@@ -182,14 +182,20 @@ describe('Tela de dashboard', () => {
       },
     ]);
 
-    mockListarResumoHistoricoTransacoesApi.mockResolvedValue({
-      ano: null,
-      totalReceitas: 12500,
-      totalDespesas: 8600,
-      totalReembolsos: 900,
-      totalEstornos: 240,
-      totalGeral: 22240,
-    });
+    mockListarResumoHistoricoTransacoesApi.mockResolvedValue([
+      { mes: 'Janeiro', totalReceitas: 1000, totalDespesas: -300, totalReembolsos: 0, totalEstornos: 0 },
+      { mes: 'Fevereiro', totalReceitas: 800, totalDespesas: -250, totalReembolsos: 100, totalEstornos: 50 },
+      { mes: 'Marco', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
+      { mes: 'Abril', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
+      { mes: 'Maio', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
+      { mes: 'Junho', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
+      { mes: 'Julho', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
+      { mes: 'Agosto', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
+      { mes: 'Setembro', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
+      { mes: 'Outubro', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
+      { mes: 'Novembro', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
+      { mes: 'Dezembro', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
+    ]);
   });
 
   it('deve renderizar os widgets principais e a coluna de cartao nas ultimas transacoes', async () => {
@@ -216,6 +222,7 @@ describe('Tela de dashboard', () => {
     });
     expect(mockListarResumoHistoricoTransacoesApi).toHaveBeenCalledWith({
       signal: expect.any(Object),
+      ano: expect.any(Number),
     });
   });
 
