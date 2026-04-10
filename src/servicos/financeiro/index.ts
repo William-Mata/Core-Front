@@ -61,7 +61,7 @@ export interface OpcoesHistoricoTransacoesApi {
 
 export interface OpcoesResumoHistoricoTransacoesApi {
   signal?: AbortSignal;
-  ano?: number;
+  ano: number;
 }
 
 export interface HistoricoTransacaoApi {
@@ -79,13 +79,12 @@ export interface HistoricoTransacaoApi {
   tipoReceita?: string | null;
 }
 
-export interface ResumoHistoricoTransacoesApi {
-  ano: number | null;
+export interface ResumoHistoricoTransacoesPorAnoApi {
+  mes: string;
   totalReceitas: number;
   totalDespesas: number;
   totalReembolsos: number;
   totalEstornos: number;
-  totalGeral: number;
 }
 
 interface EfetivarDespesaPayloadApi {
@@ -157,8 +156,7 @@ function normalizarQuantidadeHistorico(quantidade: number | undefined): number {
   return quantidade;
 }
 
-function normalizarAnoResumo(ano: number | undefined): number | undefined {
-  if (ano === undefined) return undefined;
+function normalizarAnoResumo(ano: number): number {
   if (!Number.isInteger(ano) || ano <= 0) {
     throw new Error('Parametro ano invalido. O valor deve ser inteiro e maior que zero.');
   }
@@ -432,20 +430,20 @@ export async function listarHistoricoTransacoesApi(opcoes?: OpcoesHistoricoTrans
 }
 
 export async function listarResumoHistoricoTransacoesApi(
-  opcoes?: OpcoesResumoHistoricoTransacoesApi,
-): Promise<ResumoHistoricoTransacoesApi> {
-  const ano = normalizarAnoResumo(opcoes?.ano);
+  opcoes: OpcoesResumoHistoricoTransacoesApi,
+): Promise<ResumoHistoricoTransacoesPorAnoApi[]> {
+  const ano = normalizarAnoResumo(opcoes.ano);
   const config = {
     signal: opcoes?.signal,
-    ...(ano !== undefined ? { params: { ano } } : {}),
+    params: { ano },
   };
 
-  const { data } = await api.get<EnvelopeApi<ResumoHistoricoTransacoesApi> | ResumoHistoricoTransacoesApi>(
-    '/financeiro/historico-transacoes/resumo',
+  const { data } = await api.get<EnvelopeApi<ResumoHistoricoTransacoesPorAnoApi[]> | ResumoHistoricoTransacoesPorAnoApi[]>(
+    '/financeiro/historico-transacoes/resumo-por-ano',
     config,
   );
 
-  return extrairDados(data);
+  return extrairLista<ResumoHistoricoTransacoesPorAnoApi>(extrairDados(data));
 }
 
 export async function aprovarReceitaPendenteApi(id: number): Promise<void> {

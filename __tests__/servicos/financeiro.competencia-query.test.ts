@@ -113,13 +113,16 @@ describe('servico financeiro - filtros por competencia', () => {
     ).rejects.toThrow('Parametro ordemRegistros invalido. Valores permitidos: 1, 2, MaisRecentes, MaisAntigos.');
   });
 
-  it('deve listar resumo do historico sem enviar ano quando filtro nao for informado', async () => {
-    mockGet.mockResolvedValueOnce({ data: {} });
+  it('deve listar resumo do historico por ano enviando ano obrigatorio', async () => {
+    mockGet.mockResolvedValueOnce({ data: [] });
 
-    await listarResumoHistoricoTransacoesApi();
+    await listarResumoHistoricoTransacoesApi({ ano: 2026 });
 
-    expect(mockGet).toHaveBeenCalledWith('/financeiro/historico-transacoes/resumo', {
+    expect(mockGet).toHaveBeenCalledWith('/financeiro/historico-transacoes/resumo-por-ano', {
       signal: undefined,
+      params: {
+        ano: 2026,
+      },
     });
   });
 
