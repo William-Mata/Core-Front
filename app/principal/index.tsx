@@ -7,7 +7,16 @@ import { EsqueletoCarregamento } from '../../src/componentes/comuns/EsqueletoCar
 import { usarTraducao } from '../../src/hooks/usarTraducao';
 import { formatarDataPorIdioma, formatarMesPorIdioma, formatarValorPorIdioma } from '../../src/utils/formatacaoLocale';
 import { COLORS } from '../../src/styles/variables';
-import { listarDespesasApi, listarReceitasApi, listarReembolsosApi, type RegistroFinanceiroApi } from '../../src/servicos/financeiro';
+import {
+  listarDespesasApi,
+  listarHistoricoTransacoesApi,
+  listarResumoHistoricoTransacoesApi,
+  listarReceitasApi,
+  listarReembolsosApi,
+  type HistoricoTransacaoApi,
+  type ResumoHistoricoTransacoesApi,
+  type RegistroFinanceiroApi,
+} from '../../src/servicos/financeiro';
 import i18n from '../../src/i18n/configuracao';
 
 type TipoTransacao = 'despesa' | 'receita' | 'reembolso' | 'estorno';
@@ -21,8 +30,9 @@ type WidgetId =
 type TipoContaBalanco = 'conta' | 'cartao';
 
 interface Transacao {
-  id: number;
+  id: string;
   tipo: TipoTransacao;
+  rotuloTipo: string;
   valor: number;
   descricao: string;
   dataEfetivacao: string;
@@ -39,6 +49,14 @@ interface ItemBalanco {
   tipo: TipoContaBalanco;
   nome: string;
   subtitulo: string;
+  saldo: number;
+}
+
+interface ResumoFinanceiroWidget {
+  totalReceitas: number;
+  totalDespesas: number;
+  totalReembolsos: number;
+  totalEstornos: number;
   saldo: number;
 }
 
@@ -63,10 +81,112 @@ interface PieAreaItem {
 const CORES_RECEITA = [COLORS.success, COLORS.info, '#23c4a8', '#5dd39e', '#2dd4bf', '#14b8a6'];
 const CORES_DESPESA = [COLORS.error, COLORS.warning, '#fb7185', '#f97316', '#ef4444', '#f59e0b'];
 
+function obterEstiloTipoTransacao(tipo: TipoTransacao) {
+  if (tipo === 'despesa') {
+    return { corTexto: COLORS.error, corBorda: '#fca5a5', corFundo: '#7f1d1d' };
+  }
+  if (tipo === 'receita') {
+    return { corTexto: COLORS.success, corBorda: '#86efac', corFundo: '#14532d' };
+  }
+  if (tipo === 'reembolso') {
+    return { corTexto: COLORS.info, corBorda: '#93c5fd', corFundo: '#1e3a8a' };
+  }
+  return { corTexto: COLORS.warning, corBorda: '#fde68a', corFundo: '#78350f' };
+}
+
+function mapearRotuloTipoTransacaoHistorico(valor: unknown, t: (chave: string) => string): string {
+  const tipoNormalizado = String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase();
+
+  if (tipoNormalizado.includes('estorno') && tipoNormalizado.includes('reembolso')) {
+    return `${t('dashboard.tipos.estorno')} ${t('dashboard.tipos.reembolso')}`;
+  }
+  if (tipoNormalizado.includes('estorno') && tipoNormalizado.includes('receita')) {
+    return `${t('dashboard.tipos.estorno')} ${t('dashboard.tipos.receita')}`;
+  }
+  if (tipoNormalizado.includes('estorno') && tipoNormalizado.includes('despesa')) {
+    return `${t('dashboard.tipos.estorno')} ${t('dashboard.tipos.despesa')}`;
+  }
+  if (tipoNormalizado.includes('estorno')) return t('dashboard.tipos.estorno');
+  if (tipoNormalizado.includes('reembolso')) return t('dashboard.tipos.reembolso');
+  if (tipoNormalizado.includes('receita')) return t('dashboard.tipos.receita');
+  if (tipoNormalizado.includes('despesa')) return t('dashboard.tipos.despesa');
+
+  return t('dashboard.tipos.despesa');
+}
+
 function erroCancelado(erro: unknown): boolean {
   if (!erro || typeof erro !== 'object') return false;
   const erroTipado = erro as { code?: string; name?: string };
   return erroTipado.code === 'ERR_CANCELED' || erroTipado.name === 'CanceledError';
+}
+
+function normalizarCodigoPagamento(valor: unknown): string {
+  const pagamento = String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\s-]+/g, '_')
+    .toUpperCase();
+  if (
+    pagamento === 'CREDITO' ||
+    pagamento === 'CARTAO_CREDITO' ||
+    pagamento === 'CARTAODE_CREDITO' ||
+    pagamento === 'CARTAOCREDITO'
+  ) return 'CARTAO_CREDITO';
+  if (
+    pagamento === 'DEBITO' ||
+    pagamento === 'CARTAO_DEBITO' ||
+    pagamento === 'CARTAODE_DEBITO' ||
+    pagamento === 'CARTAODEBITO'
+  ) return 'CARTAO_DEBITO';
+  if (pagamento === 'PIX') return 'PIX';
+  if (pagamento === 'TRANSFERENCIA' || pagamento === 'TED' || pagamento === 'DOC' || pagamento === 'TED_DOC' || pagamento === 'TRANSFERENCIA_BANCARIA') return 'TRANSFERENCIA';
+  if (pagamento === 'BOLETO') return 'BOLETO';
+  if (pagamento === 'DINHEIRO') return 'DINHEIRO';
+  return '';
+}
+
+function formatarTipoPagamentoNaoMapeado(valor: unknown): string {
+  const texto = String(valor ?? '').trim();
+  if (!texto) return '-';
+  const textoNormalizado = texto.replace(/[_-]+/g, ' ').toLowerCase();
+  return textoNormalizado.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function traduzirTipoPagamento(valor: unknown, t: (chave: string) => string): string {
+  const codigoPagamento = normalizarCodigoPagamento(valor);
+  if (codigoPagamento) return t(`dashboard.pagamento.${codigoPagamento}`);
+  return formatarTipoPagamentoNaoMapeado(valor);
+}
+
+function mapearTipoTransacaoHistorico(valor: unknown): TipoTransacao {
+  const tipo = String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase();
+  if (tipo.includes('estorno')) return 'estorno';
+  if (tipo === 'despesa') return 'despesa';
+  if (tipo === 'receita') return 'receita';
+  if (tipo === 'reembolso') return 'reembolso';
+  if (tipo.includes('despesa')) return 'despesa';
+  if (tipo.includes('receita')) return 'receita';
+  if (tipo.includes('reembolso')) return 'reembolso';
+  return 'despesa';
+}
+
+function extrairTextoNome(valor: unknown): string | undefined {
+  if (typeof valor === 'string') {
+    const texto = valor.trim();
+    return texto ? texto : undefined;
+  }
+  if (!valor || typeof valor !== 'object') return undefined;
+  const registro = valor as Record<string, unknown>;
+  const nome = String(registro.nome ?? registro.descricao ?? registro.titulo ?? '').trim();
+  return nome ? nome : undefined;
 }
 
 function mapearTransacoesApiParaDashboard(
@@ -75,37 +195,52 @@ function mapearTransacoesApiParaDashboard(
   t: (chave: string) => string,
 ): Transacao[] {
   return itens.map((item, indice) => {
-    const pagamento = String(item.tipoPagamento ?? item.tipoRecebimento ?? 'DINHEIRO')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toUpperCase();
-    const codigoPagamento =
-      pagamento === 'CREDITO' || pagamento === 'CARTAO_CREDITO'
-        ? 'CARTAO_CREDITO'
-        : pagamento === 'PIX'
-          ? 'PIX'
-          : pagamento === 'TRANSFERENCIA'
-            ? 'TRANSFERENCIA'
-            : pagamento === 'BOLETO'
-              ? 'BOLETO'
-              : 'DINHEIRO';
+    const codigoPagamento = normalizarCodigoPagamento(item.tipoPagamento ?? item.tipoRecebimento) || 'DINHEIRO';
 
     const data = String(item.dataEfetivacao ?? item.dataLancamento ?? item.data ?? new Date().toISOString().split('T')[0]).slice(0, 10);
     const area = String(item.area ?? item.categoria ?? t('dashboard.areas.OPERACOES'));
     const subarea = String(item.subarea ?? item.descricao ?? item.titulo ?? t('dashboard.subareas.SUPRIMENTOS'));
 
     return {
-      id: Number(item.id ?? indice + 1),
+      id: String(item.id ?? indice + 1),
       tipo,
+      rotuloTipo: t(`dashboard.tipos.${tipo}`),
       valor: Number(item.valor ?? item.valorLiquido ?? item.valorTotal ?? 0),
       descricao: String(item.descricao ?? item.titulo ?? `${t('dashboard.tipos.' + tipo)} #${item.id ?? indice + 1}`),
       dataEfetivacao: data,
       codigoPagamento,
-      tipoPagamento: t(`dashboard.pagamento.${codigoPagamento}`),
+      tipoPagamento: traduzirTipoPagamento(item.tipoPagamento ?? item.tipoRecebimento, t),
       contaBancaria: item.contaBancaria ? String(item.contaBancaria) : undefined,
       cartao: item.cartao ? String(item.cartao) : undefined,
       area,
       subarea,
+    };
+  });
+}
+
+function mapearHistoricoTransacoesApiParaDashboard(
+  itens: HistoricoTransacaoApi[],
+  t: (chave: string) => string,
+): Transacao[] {
+  return itens.map((item, indice) => {
+    const idTransacao = String(item.idTransacao ?? item.IdTransacao ?? item.idOrigem ?? indice + 1);
+    const tipo = mapearTipoTransacaoHistorico(item.tipoTransacao);
+    const codigoPagamento = normalizarCodigoPagamento(item.tipoPagamento);
+    const descricaoTipo = extrairTextoNome(item.tipoDespesa) ?? extrairTextoNome(item.tipoReceita) ?? '-';
+
+    return {
+      id: idTransacao,
+      tipo,
+      rotuloTipo: mapearRotuloTipoTransacaoHistorico(item.tipoTransacao, t),
+      valor: Number(item.valor ?? 0),
+      descricao: String(item.descricao ?? `${t('dashboard.tipos.' + tipo)} #${idTransacao}`),
+      dataEfetivacao: String(item.dataEfetivacao ?? new Date().toISOString().split('T')[0]).slice(0, 10),
+      codigoPagamento,
+      tipoPagamento: traduzirTipoPagamento(item.tipoPagamento, t),
+      contaBancaria: extrairTextoNome(item.contaBancaria),
+      cartao: extrairTextoNome(item.cartao),
+      area: t(`dashboard.tipos.${tipo}`),
+      subarea: descricaoTipo,
     };
   });
 }
@@ -134,7 +269,10 @@ export default function Dashboard() {
     estornos: true,
   });
   const [larguraGraficoAnualDisponivel, setLarguraGraficoAnualDisponivel] = useState(0);
+  const [larguraTabelaUltimasTransacoes, setLarguraTabelaUltimasTransacoes] = useState(0);
   const [transacoesApi, setTransacoesApi] = useState<Transacao[]>([]);
+  const [ultimasTransacoesApi, setUltimasTransacoesApi] = useState<Transacao[]>([]);
+  const [resumoApi, setResumoApi] = useState<ResumoHistoricoTransacoesApi | null>(null);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
@@ -176,7 +314,129 @@ export default function Dashboard() {
     };
   }, [idiomaAtual]);
 
+  useEffect(() => {
+    let ativo = true;
+    const controller = new AbortController();
+
+    const carregarResumoHistorico = async () => {
+      try {
+        const resumoHistorico = await listarResumoHistoricoTransacoesApi({ signal: controller.signal });
+        if (!ativo) return;
+        setResumoApi(resumoHistorico);
+      } catch (erro) {
+        if (erroCancelado(erro)) return;
+        if (!ativo) return;
+        setResumoApi({
+          ano: null,
+          totalReceitas: 0,
+          totalDespesas: 0,
+          totalReembolsos: 0,
+          totalEstornos: 0,
+          totalGeral: 0,
+        });
+      }
+    };
+
+    void carregarResumoHistorico();
+    return () => {
+      ativo = false;
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (typeof document === 'undefined') return;
+
+    const idEstilo = 'scroll-historico-transacoes-tema';
+    if (document.getElementById(idEstilo)) return;
+
+    const estilo = document.createElement('style');
+    estilo.id = idEstilo;
+    estilo.textContent = `
+      @keyframes badgeTipoTransacaoShine {
+        0% {
+          left: -65%;
+        }
+        100% {
+          left: 130%;
+        }
+      }
+      [data-testid="badge-tipo-transacao"] {
+        position: relative;
+        overflow: hidden;
+      }
+      [data-testid="badge-tipo-transacao"]::after {
+        content: '';
+        position: absolute;
+        top: -6px;
+        bottom: -6px;
+        left: -65%;
+        width: 55%;
+        background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.38), rgba(255,255,255,0));
+        transform: skewX(-18deg);
+        animation: badgeTipoTransacaoShine 1.5s linear infinite;
+        pointer-events: none;
+      }
+      [data-testid="dashboard-ultimas-transacoes-scroll"]::-webkit-scrollbar,
+      [data-testid="dashboard-ultimas-transacoes-scroll"] *::-webkit-scrollbar {
+        height: 10px;
+      }
+      [data-testid="dashboard-ultimas-transacoes-scroll"]::-webkit-scrollbar-track,
+      [data-testid="dashboard-ultimas-transacoes-scroll"] *::-webkit-scrollbar-track {
+        background: ${COLORS.bgSecondary};
+        border: 1px solid ${COLORS.borderColor};
+        border-radius: 999px;
+      }
+      [data-testid="dashboard-ultimas-transacoes-scroll"]::-webkit-scrollbar-thumb,
+      [data-testid="dashboard-ultimas-transacoes-scroll"] *::-webkit-scrollbar-thumb {
+        background: ${COLORS.accent};
+        border: 2px solid ${COLORS.bgSecondary};
+        border-radius: 999px;
+      }
+      [data-testid="dashboard-ultimas-transacoes-scroll"]::-webkit-scrollbar-thumb:hover,
+      [data-testid="dashboard-ultimas-transacoes-scroll"] *::-webkit-scrollbar-thumb:hover {
+        background: ${COLORS.accentSoft};
+      }
+      [data-testid="dashboard-ultimas-transacoes-scroll"] {
+        scrollbar-width: thin;
+        scrollbar-color: ${COLORS.accent} ${COLORS.bgSecondary};
+      }
+    `;
+
+    document.head.appendChild(estilo);
+  }, []);
+
   const transacoes = transacoesApi;
+  const transacoesUltimas = ultimasTransacoesApi;
+
+  useEffect(() => {
+    let ativo = true;
+    const controller = new AbortController();
+
+    const carregarHistoricoTransacoes = async () => {
+      try {
+        const historicoApi = await listarHistoricoTransacoesApi({
+          signal: controller.signal,
+          quantidadeRegistros: 50,
+          ordemRegistros: 'MaisRecentes',
+        });
+
+        if (!ativo) return;
+        setUltimasTransacoesApi(mapearHistoricoTransacoesApiParaDashboard(historicoApi, t));
+      } catch (erro) {
+        if (erroCancelado(erro)) return;
+        if (!ativo) return;
+        setUltimasTransacoesApi([]);
+      }
+    };
+
+    void carregarHistoricoTransacoes();
+    return () => {
+      ativo = false;
+      controller.abort();
+    };
+  }, [idiomaAtual]);
 
   const contasCartoes = useMemo<ItemBalanco[]>(() => {
     const mapaContas = new Map<string, number>();
@@ -217,20 +477,15 @@ export default function Dashboard() {
 
   const transacoesFiltradas = transacoes;
 
-  const resumo = useMemo(() => {
-    const totalDespesas = transacoesFiltradas.filter((x) => x.tipo === 'despesa').reduce((acc, item) => acc + item.valor, 0);
-    const totalReceitas = transacoesFiltradas.filter((x) => x.tipo === 'receita').reduce((acc, item) => acc + item.valor, 0);
-    const totalReembolsos = transacoesFiltradas.filter((x) => x.tipo === 'reembolso').reduce((acc, item) => acc + item.valor, 0);
-    const totalEstornos = transacoesFiltradas.filter((x) => x.tipo === 'estorno').reduce((acc, item) => acc + item.valor, 0);
-
+  const resumo = useMemo<ResumoFinanceiroWidget>(() => {
     return {
-      totalDespesas,
-      totalReceitas,
-      totalReembolsos,
-      totalEstornos,
-      saldo: totalReceitas + totalReembolsos + totalEstornos - totalDespesas,
+      totalReceitas: Number(resumoApi?.totalReceitas ?? 0),
+      totalDespesas: Number(resumoApi?.totalDespesas ?? 0),
+      totalReembolsos: Number(resumoApi?.totalReembolsos ?? 0),
+      totalEstornos: Number(resumoApi?.totalEstornos ?? 0),
+      saldo: Number(resumoApi?.totalGeral ?? 0),
     };
-  }, [transacoesFiltradas]);
+  }, [resumoApi]);
 
   const larguraContainerGraficoAnual = useMemo(() => {
     if (larguraGraficoAnualDisponivel > 0) {
@@ -245,6 +500,60 @@ export default function Dashboard() {
     () => Math.max(larguraContainerGraficoAnual - (width > 900 ? 56 : 48), 220),
     [larguraContainerGraficoAnual, width],
   );
+  const propsContainerScrollHistoricoWeb: any = Platform.OS === 'web' ? { className: 'scroll-historico-transacoes' } : {};
+  const propsScrollHistoricoWeb: any = Platform.OS === 'web' ? { className: 'scroll-historico-transacoes' } : {};
+  const largurasColunasUltimasTransacoes = useMemo(() => {
+    const larguraBase = {
+      id: 90,
+      tipo: 130,
+      valor: 120,
+      descricao: 210,
+      dataEfetivacao: 130,
+      tipoPagamento: 160,
+      contaBancaria: 180,
+      cartao: 170,
+      tipoDespesaReceita: 170,
+    };
+    const larguraBaseTotal =
+      larguraBase.id +
+      larguraBase.tipo +
+      larguraBase.valor +
+      larguraBase.descricao +
+      larguraBase.dataEfetivacao +
+      larguraBase.tipoPagamento +
+      larguraBase.contaBancaria +
+      larguraBase.cartao +
+      larguraBase.tipoDespesaReceita;
+
+    const larguraDisponivel = larguraTabelaUltimasTransacoes > 0 ? larguraTabelaUltimasTransacoes : Math.max(width - 120, larguraBaseTotal);
+    const fatorExpansao = Math.max(1, larguraDisponivel / larguraBaseTotal);
+
+    const larguras = {
+      id: Math.round(larguraBase.id * fatorExpansao),
+      tipo: Math.round(larguraBase.tipo * fatorExpansao),
+      valor: Math.round(larguraBase.valor * fatorExpansao),
+      descricao: Math.round(larguraBase.descricao * fatorExpansao),
+      dataEfetivacao: Math.round(larguraBase.dataEfetivacao * fatorExpansao),
+      tipoPagamento: Math.round(larguraBase.tipoPagamento * fatorExpansao),
+      contaBancaria: Math.round(larguraBase.contaBancaria * fatorExpansao),
+      cartao: Math.round(larguraBase.cartao * fatorExpansao),
+      tipoDespesaReceita: Math.round(larguraBase.tipoDespesaReceita * fatorExpansao),
+    };
+
+    return {
+      ...larguras,
+      larguraTotal:
+        larguras.id +
+        larguras.tipo +
+        larguras.valor +
+        larguras.descricao +
+        larguras.dataEfetivacao +
+        larguras.tipoPagamento +
+        larguras.contaBancaria +
+        larguras.cartao +
+        larguras.tipoDespesaReceita,
+    };
+  }, [larguraTabelaUltimasTransacoes, width]);
 
   const itensAreaSubarea = useMemo<ItemAreaSubarea[]>(() => {
     const mapa = new Map<string, ItemAreaSubarea>();
@@ -732,37 +1041,73 @@ export default function Dashboard() {
     return (
       <View>
         <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700', marginBottom: 10 }}>{t('dashboard.ultimasTransacoes')}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator>
-          <View style={{ minWidth: 1260 }}>
+        <View
+          style={{ width: '100%' }}
+          {...propsContainerScrollHistoricoWeb}
+          onLayout={(evento) => {
+            const larguraMedida = evento.nativeEvent.layout.width;
+            if (Math.abs(larguraMedida - larguraTabelaUltimasTransacoes) > 2) {
+              setLarguraTabelaUltimasTransacoes(larguraMedida);
+            }
+          }}
+        >
+          <ScrollView
+            horizontal
+            testID="dashboard-ultimas-transacoes-scroll"
+            showsHorizontalScrollIndicator
+            nestedScrollEnabled
+            style={{ width: '100%' }}
+            contentContainerStyle={{ minWidth: '100%' }}
+            {...propsScrollHistoricoWeb}
+          >
+            <View style={{ minWidth: largurasColunasUltimasTransacoes.larguraTotal, flex: 1 }}>
             <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.borderColor, paddingBottom: 8, marginBottom: 8 }}>
-              <Text style={{ width: 90, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.id')}</Text>
-              <Text style={{ width: 130, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.tipo')}</Text>
-              <Text style={{ width: 120, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.valor')}</Text>
-              <Text style={{ width: 210, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.descricao')}</Text>
-              <Text style={{ width: 130, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.dataEfetivacao')}</Text>
-              <Text style={{ width: 160, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.tipoPagamento')}</Text>
-              <Text style={{ width: 180, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.contaBancaria')}</Text>
-              <Text style={{ width: 170, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.cartao')}</Text>
-              <Text style={{ width: 170, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.areaSubarea')}</Text>
+              <Text style={{ width: largurasColunasUltimasTransacoes.id, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.id')}</Text>
+              <Text style={{ width: largurasColunasUltimasTransacoes.tipo, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.tipo')}</Text>
+              <Text style={{ width: largurasColunasUltimasTransacoes.valor, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.valor')}</Text>
+              <Text style={{ width: largurasColunasUltimasTransacoes.descricao, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.descricao')}</Text>
+              <Text style={{ width: largurasColunasUltimasTransacoes.dataEfetivacao, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.dataEfetivacao')}</Text>
+              <Text style={{ width: largurasColunasUltimasTransacoes.tipoPagamento, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.tipoPagamento')}</Text>
+              <Text style={{ width: largurasColunasUltimasTransacoes.contaBancaria, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.contaBancaria')}</Text>
+              <Text style={{ width: largurasColunasUltimasTransacoes.cartao, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.cartao')}</Text>
+              <Text style={{ width: largurasColunasUltimasTransacoes.tipoDespesaReceita, color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.colunas.areaSubarea')}</Text>
             </View>
 
             <ScrollView style={{ maxHeight: 360 }}>
-              {transacoesFiltradas.slice(0, 100).map((item) => (
-                <View key={item.id} style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.borderColor, paddingVertical: 8 }}>
-                  <Text style={{ width: 90, color: COLORS.textPrimary, fontSize: 12 }}>#{item.id}</Text>
-                  <Text style={{ width: 130, color: COLORS.textPrimary, fontSize: 12 }}>{t(`dashboard.tipos.${item.tipo}`)}</Text>
-                  <Text style={{ width: 120, color: item.tipo === 'despesa' ? COLORS.error : COLORS.success, fontSize: 12, fontWeight: '600' }}>{formatarValorPorIdioma(item.valor)}</Text>
-                  <Text style={{ width: 210, color: COLORS.textPrimary, fontSize: 12 }}>{item.descricao}</Text>
-                  <Text style={{ width: 130, color: COLORS.textPrimary, fontSize: 12 }}>{formatarDataPorIdioma(item.dataEfetivacao)}</Text>
-                  <Text style={{ width: 160, color: COLORS.textPrimary, fontSize: 12 }}>{item.tipoPagamento}</Text>
-                  <Text style={{ width: 180, color: COLORS.textPrimary, fontSize: 12 }}>{item.contaBancaria ?? '-'}</Text>
-                  <Text style={{ width: 170, color: COLORS.textPrimary, fontSize: 12 }}>{item.codigoPagamento === 'CARTAO_CREDITO' ? item.cartao ?? '-' : '-'}</Text>
-                  <Text style={{ width: 170, color: COLORS.textPrimary, fontSize: 12 }}>{item.area} / {item.subarea}</Text>
+              {transacoesUltimas.slice(0, 100).map((item, indice) => (
+                <View key={`${item.tipo}-${item.id}-${item.dataEfetivacao}-${indice}`} style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.borderColor, paddingVertical: 8 }}>
+                  <Text style={{ width: largurasColunasUltimasTransacoes.id, color: COLORS.textPrimary, fontSize: 12 }}>#{item.id}</Text>
+                  <View style={{ width: largurasColunasUltimasTransacoes.tipo, justifyContent: 'center' }}>
+                    <View
+                      testID="badge-tipo-transacao"
+                      style={{
+                        alignSelf: 'flex-start',
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: obterEstiloTipoTransacao(item.tipo).corBorda,
+                        backgroundColor: obterEstiloTipoTransacao(item.tipo).corFundo,
+                      }}
+                    >
+                      <Text style={{ color: obterEstiloTipoTransacao(item.tipo).corTexto, fontSize: 11, fontWeight: '700' }}>
+                        {item.rotuloTipo}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={{ width: largurasColunasUltimasTransacoes.valor, color: item.tipo === 'despesa' ? COLORS.error : COLORS.success, fontSize: 12, fontWeight: '600' }}>{formatarValorPorIdioma(item.valor)}</Text>
+                  <Text style={{ width: largurasColunasUltimasTransacoes.descricao, color: COLORS.textPrimary, fontSize: 12 }}>{item.descricao}</Text>
+                  <Text style={{ width: largurasColunasUltimasTransacoes.dataEfetivacao, color: COLORS.textPrimary, fontSize: 12 }}>{formatarDataPorIdioma(item.dataEfetivacao)}</Text>
+                  <Text style={{ width: largurasColunasUltimasTransacoes.tipoPagamento, color: COLORS.textPrimary, fontSize: 12 }}>{item.tipoPagamento}</Text>
+                  <Text style={{ width: largurasColunasUltimasTransacoes.contaBancaria, color: COLORS.textPrimary, fontSize: 12 }}>{item.contaBancaria ?? '-'}</Text>
+                  <Text style={{ width: largurasColunasUltimasTransacoes.cartao, color: COLORS.textPrimary, fontSize: 12 }}>{item.cartao ?? '-'}</Text>
+                  <Text style={{ width: largurasColunasUltimasTransacoes.tipoDespesaReceita, color: COLORS.textPrimary, fontSize: 12 }}>{item.subarea}</Text>
                 </View>
               ))}
             </ScrollView>
-          </View>
-        </ScrollView>
+            </View>
+          </ScrollView>
+        </View>
       </View>
     );
   };

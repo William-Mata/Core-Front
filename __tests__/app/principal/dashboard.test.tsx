@@ -5,6 +5,8 @@ import Dashboard from '../../../app/principal/index';
 
 const mockPush = jest.fn();
 const mockListarDespesasApi = jest.fn();
+const mockListarHistoricoTransacoesApi = jest.fn();
+const mockListarResumoHistoricoTransacoesApi = jest.fn();
 const mockListarReceitasApi = jest.fn();
 const mockListarReembolsosApi = jest.fn();
 let ultimoLineChartProps: Record<string, any> | null = null;
@@ -19,6 +21,8 @@ jest.mock('expo-router', () => ({
 
 jest.mock('../../../src/servicos/financeiro', () => ({
   listarDespesasApi: (...args: unknown[]) => mockListarDespesasApi(...args),
+  listarHistoricoTransacoesApi: (...args: unknown[]) => mockListarHistoricoTransacoesApi(...args),
+  listarResumoHistoricoTransacoesApi: (...args: unknown[]) => mockListarResumoHistoricoTransacoesApi(...args),
   listarReceitasApi: (...args: unknown[]) => mockListarReceitasApi(...args),
   listarReembolsosApi: (...args: unknown[]) => mockListarReembolsosApi(...args),
 }));
@@ -81,10 +85,10 @@ jest.mock('../../../src/hooks/usarTraducao', () => ({
         'dashboard.colunas.valor': 'Valor',
         'dashboard.colunas.descricao': 'Descricao',
         'dashboard.colunas.dataEfetivacao': 'Data',
-        'dashboard.colunas.tipoPagamento': 'Pagamento / Recebimento',
+        'dashboard.colunas.tipoPagamento': 'Tipo Pagamento/Recebimento',
         'dashboard.colunas.contaBancaria': 'Conta Bancaria',
         'dashboard.colunas.cartao': 'Cartao',
-        'dashboard.colunas.areaSubarea': 'Area / Subarea',
+        'dashboard.colunas.areaSubarea': 'Tipo Despesa/Receita',
         'dashboard.tipos.despesa': 'Despesa',
         'dashboard.tipos.receita': 'Receita',
         'dashboard.tipos.reembolso': 'Reembolso',
@@ -99,6 +103,7 @@ jest.mock('../../../src/hooks/usarTraducao', () => ({
         'dashboard.pagamento.PIX': 'Pix',
         'dashboard.pagamento.TRANSFERENCIA': 'Transferencia',
         'dashboard.pagamento.CARTAO_CREDITO': 'Cartao de credito',
+        'dashboard.pagamento.CARTAO_DEBITO': 'Cartao de debito',
         'dashboard.pagamento.BOLETO': 'Boleto',
         'dashboard.pagamento.DINHEIRO': 'Dinheiro',
       };
@@ -153,6 +158,38 @@ describe('Tela de dashboard', () => {
         subarea: 'LOGISTICA',
       },
     ]);
+
+    mockListarHistoricoTransacoesApi.mockResolvedValue([
+      {
+        idTransacao: 7,
+        tipoTransacao: 'Despesa',
+        valor: 145,
+        descricao: 'Almoco com cliente',
+        dataEfetivacao: '2026-03-15',
+        tipoPagamento: 'CARTAO_CREDITO',
+        cartao: 'Visa Platinum',
+        tipoDespesa: 'SUPRIMENTOS',
+      },
+      {
+        idTransacao: 8,
+        tipoTransacao: 'Receita',
+        valor: 700,
+        descricao: 'Receita recorrente',
+        dataEfetivacao: '2026-03-16',
+        tipoPagamento: 'PIX',
+        contaBancaria: 'Conta Principal',
+        tipoReceita: 'SERVICOS',
+      },
+    ]);
+
+    mockListarResumoHistoricoTransacoesApi.mockResolvedValue({
+      ano: null,
+      totalReceitas: 12500,
+      totalDespesas: 8600,
+      totalReembolsos: 900,
+      totalEstornos: 240,
+      totalGeral: 22240,
+    });
   });
 
   it('deve renderizar os widgets principais e a coluna de cartao nas ultimas transacoes', async () => {
@@ -170,6 +207,15 @@ describe('Tela de dashboard', () => {
     await waitFor(() => {
       expect(getAllByText('Cartao').length).toBeGreaterThan(0);
       expect(getAllByText('Visa Platinum').length).toBeGreaterThan(0);
+    });
+
+    expect(mockListarHistoricoTransacoesApi).toHaveBeenCalledWith({
+      signal: expect.any(Object),
+      quantidadeRegistros: 50,
+      ordemRegistros: 'MaisRecentes',
+    });
+    expect(mockListarResumoHistoricoTransacoesApi).toHaveBeenCalledWith({
+      signal: expect.any(Object),
     });
   });
 
