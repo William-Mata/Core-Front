@@ -84,9 +84,9 @@
       "valor": "Valor",
       "descricao": "Descripción",
       "dataEfetivacao": "Fecha de liquidación",
-      "tipoPagamento": "Tipo de pago",
+      "tipoPagamento": "Tipo de pago/cobro",
       "contaBancaria": "Cuenta bancaria",
-      "areaSubarea": "Área / Subárea"
+      "areaSubarea": "Tipo Gasto/Ingreso"
     },
     "tipos": {
       "despesa": "Gasto",
@@ -95,7 +95,7 @@
       "estorno": "Reversión"
     },
     "widgets": {
-      "resumo": "Resumen",
+      "resumo": "Resumen Financiero",
       "graficoTipos": "Gráfico por Tipo",
       "graficoMensal": "Gráfico Mensual",
       "ultimasTransacoes": "Últimas Transacciones"
@@ -104,6 +104,7 @@
       "PIX": "PIX",
       "TRANSFERENCIA": "Transferencia",
       "CARTAO_CREDITO": "Tarjeta de Crédito",
+      "CARTAO_DEBITO": "Tarjeta de Débito",
       "BOLETO": "Boleta",
       "DINHEIRO": "Efectivo"
     },

@@ -84,9 +84,9 @@
       "valor": "Amount",
       "descricao": "Description",
       "dataEfetivacao": "Settlement Date",
-      "tipoPagamento": "Payment Type",
+      "tipoPagamento": "Payment/Receipt Type",
       "contaBancaria": "Bank Account",
-      "areaSubarea": "Area / Subarea"
+      "areaSubarea": "Expense/Income Type"
     },
     "tipos": {
       "despesa": "Expense",
@@ -95,7 +95,7 @@
       "estorno": "Reversal"
     },
     "widgets": {
-      "resumo": "Summary",
+      "resumo": "Financial Summary",
       "graficoTipos": "By Type Chart",
       "graficoMensal": "Monthly Chart",
       "ultimasTransacoes": "Latest Transactions"
@@ -104,6 +104,7 @@
       "PIX": "PIX",
       "TRANSFERENCIA": "Transfer",
       "CARTAO_CREDITO": "Credit Card",
+      "CARTAO_DEBITO": "Debit Card",
       "BOLETO": "Bank Slip",
       "DINHEIRO": "Cash"
     },
