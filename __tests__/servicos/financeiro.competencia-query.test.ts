@@ -1,5 +1,7 @@
 import {
   listarDespesasApi,
+  listarHistoricoTransacoesApi,
+  listarResumoHistoricoTransacoesApi,
   listarReceitasApi,
   listarReembolsosApi,
 } from '../../src/servicos/financeiro';
@@ -62,5 +64,70 @@ describe('servico financeiro - filtros por competencia', () => {
     await listarReembolsosApi();
 
     expect(mockGet).toHaveBeenCalledWith('/financeiro/reembolsos', { signal: undefined });
+  });
+
+  it('deve enviar parametros padrao ao listar historico de transacoes', async () => {
+    mockGet.mockResolvedValueOnce({ data: [] });
+
+    await listarHistoricoTransacoesApi();
+
+    expect(mockGet).toHaveBeenCalledWith('/financeiro/historico-transacoes', {
+      signal: undefined,
+      params: {
+        quantidadeRegistros: 50,
+        ordemRegistros: 'MaisRecentes',
+      },
+    });
+  });
+
+  it('deve aceitar ordem por valor numerico no historico de transacoes', async () => {
+    mockGet.mockResolvedValueOnce({ data: [] });
+
+    await listarHistoricoTransacoesApi({
+      quantidadeRegistros: 10,
+      ordemRegistros: 2,
+    });
+
+    expect(mockGet).toHaveBeenCalledWith('/financeiro/historico-transacoes', {
+      signal: undefined,
+      params: {
+        quantidadeRegistros: 10,
+        ordemRegistros: 'MaisAntigos',
+      },
+    });
+  });
+
+  it('deve falhar quando quantidadeRegistros for invalido no historico', async () => {
+    await expect(
+      listarHistoricoTransacoesApi({
+        quantidadeRegistros: 0,
+      }),
+    ).rejects.toThrow('Parametro quantidadeRegistros invalido. O valor deve ser inteiro e maior que zero.');
+  });
+
+  it('deve falhar quando ordemRegistros for invalida no historico', async () => {
+    await expect(
+      listarHistoricoTransacoesApi({
+        ordemRegistros: 'Invalida' as never,
+      }),
+    ).rejects.toThrow('Parametro ordemRegistros invalido. Valores permitidos: 1, 2, MaisRecentes, MaisAntigos.');
+  });
+
+  it('deve listar resumo do historico sem enviar ano quando filtro nao for informado', async () => {
+    mockGet.mockResolvedValueOnce({ data: {} });
+
+    await listarResumoHistoricoTransacoesApi();
+
+    expect(mockGet).toHaveBeenCalledWith('/financeiro/historico-transacoes/resumo', {
+      signal: undefined,
+    });
+  });
+
+  it('deve validar ano no resumo do historico', async () => {
+    await expect(
+      listarResumoHistoricoTransacoesApi({
+        ano: 0,
+      }),
+    ).rejects.toThrow('Parametro ano invalido. O valor deve ser inteiro e maior que zero.');
   });
 });

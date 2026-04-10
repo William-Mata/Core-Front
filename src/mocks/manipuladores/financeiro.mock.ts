@@ -187,6 +187,76 @@ export const manipuladorFinanceiro = [
     });
   }),
 
+  // Historico de transacoes
+  http.get('/api/financeiro/historico-transacoes', ({ request }) => {
+    const url = new URL(request.url);
+    const quantidadeRegistros = Number(url.searchParams.get('quantidadeRegistros') ?? 50);
+    const ordemRegistrosEntrada = url.searchParams.get('ordemRegistros') ?? 'MaisRecentes';
+    const ordemRegistros = ordemRegistrosEntrada === '2' || ordemRegistrosEntrada === 'MaisAntigos' ? 'MaisAntigos' : 'MaisRecentes';
+
+    const historico = [
+      {
+        idTransacao: 11,
+        tipoTransacao: 'Despesa',
+        valor: 145.5,
+        descricao: 'Almoco com cliente',
+        dataEfetivacao: '2026-03-15',
+        tipoPagamento: 'CARTAO_CREDITO',
+        cartao: 'Visa Platinum',
+        tipoDespesa: 'SUPRIMENTOS',
+      },
+      {
+        idTransacao: 12,
+        tipoTransacao: 'Receita',
+        valor: 980.0,
+        descricao: 'Recebimento de servico',
+        dataEfetivacao: '2026-03-16',
+        tipoPagamento: 'PIX',
+        contaBancaria: 'Conta Principal',
+        tipoReceita: 'SERVICOS',
+      },
+      {
+        idTransacao: 13,
+        tipoTransacao: 'Reembolso',
+        valor: 120.0,
+        descricao: 'Reembolso de viagem',
+        dataEfetivacao: '2026-03-14',
+        tipoPagamento: 'TRANSFERENCIA',
+        contaBancaria: 'Conta Principal',
+      },
+    ];
+
+    const historicoOrdenado = [...historico].sort((a, b) => {
+      if (a.dataEfetivacao !== b.dataEfetivacao) {
+        return ordemRegistros === 'MaisAntigos'
+          ? a.dataEfetivacao.localeCompare(b.dataEfetivacao)
+          : b.dataEfetivacao.localeCompare(a.dataEfetivacao);
+      }
+      return ordemRegistros === 'MaisAntigos' ? a.idTransacao - b.idTransacao : b.idTransacao - a.idTransacao;
+    });
+
+    return HttpResponse.json({
+      sucesso: true,
+      dados: historicoOrdenado.slice(0, Math.max(quantidadeRegistros, 0)),
+    });
+  }),
+
+  // Resumo do historico de transacoes
+  http.get('/api/financeiro/historico-transacoes/resumo', ({ request }) => {
+    const url = new URL(request.url);
+    const anoInformado = url.searchParams.get('ano');
+    const ano = anoInformado ? Number(anoInformado) : null;
+
+    return HttpResponse.json({
+      ano,
+      totalReceitas: 12500.0,
+      totalDespesas: 8600.0,
+      totalReembolsos: 900.0,
+      totalEstornos: 240.0,
+      totalGeral: 22240.0,
+    });
+  }),
+
   // Criar reembolso
   http.post('/api/financeiro/reembolsos', async ({ request }) => {
     const data = (await request.json()) as Record<string, any>;

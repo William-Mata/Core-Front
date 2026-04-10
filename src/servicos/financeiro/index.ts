@@ -51,6 +51,43 @@ interface OpcoesEscopoRecorrencia {
   escopoRecorrencia?: 1 | 2 | 3;
 }
 
+export type OrdemRegistrosHistoricoApi = 1 | 2 | 'MaisRecentes' | 'MaisAntigos';
+
+export interface OpcoesHistoricoTransacoesApi {
+  signal?: AbortSignal;
+  quantidadeRegistros?: number;
+  ordemRegistros?: OrdemRegistrosHistoricoApi;
+}
+
+export interface OpcoesResumoHistoricoTransacoesApi {
+  signal?: AbortSignal;
+  ano?: number;
+}
+
+export interface HistoricoTransacaoApi {
+  idTransacao?: string | number;
+  IdTransacao?: string | number;
+  idOrigem?: string | number;
+  tipoTransacao: string;
+  valor: number;
+  descricao: string;
+  dataEfetivacao: string;
+  tipoPagamento?: string | null;
+  contaBancaria?: string | null;
+  cartao?: string | null;
+  tipoDespesa?: string | null;
+  tipoReceita?: string | null;
+}
+
+export interface ResumoHistoricoTransacoesApi {
+  ano: number | null;
+  totalReceitas: number;
+  totalDespesas: number;
+  totalReembolsos: number;
+  totalEstornos: number;
+  totalGeral: number;
+}
+
 interface EfetivarDespesaPayloadApi {
   dataEfetivacao: string;
   tipoPagamento: string;
@@ -103,6 +140,29 @@ function montarConfigEscopoRecorrencia(opcoes?: OpcoesEscopoRecorrencia): { para
 
 function normalizarTexto(valor: unknown) {
   return String(valor ?? '').trim();
+}
+
+function normalizarOrdemHistorico(ordem: OrdemRegistrosHistoricoApi | undefined): 'MaisRecentes' | 'MaisAntigos' {
+  if (ordem === undefined) return 'MaisRecentes';
+  if (ordem === 1 || ordem === 'MaisRecentes') return 'MaisRecentes';
+  if (ordem === 2 || ordem === 'MaisAntigos') return 'MaisAntigos';
+  throw new Error('Parametro ordemRegistros invalido. Valores permitidos: 1, 2, MaisRecentes, MaisAntigos.');
+}
+
+function normalizarQuantidadeHistorico(quantidade: number | undefined): number {
+  if (quantidade === undefined) return 50;
+  if (!Number.isInteger(quantidade) || quantidade <= 0) {
+    throw new Error('Parametro quantidadeRegistros invalido. O valor deve ser inteiro e maior que zero.');
+  }
+  return quantidade;
+}
+
+function normalizarAnoResumo(ano: number | undefined): number | undefined {
+  if (ano === undefined) return undefined;
+  if (!Number.isInteger(ano) || ano <= 0) {
+    throw new Error('Parametro ano invalido. O valor deve ser inteiro e maior que zero.');
+  }
+  return ano;
 }
 
 function extrairLista<T>(entrada: unknown): T[] {
@@ -351,6 +411,41 @@ export async function rejeitarDespesaPendenteApi(id: number): Promise<void> {
 export async function listarAprovacoesReceitasApi(opcoes?: OpcoesRequisicao): Promise<AprovacaoFinanceiraApi[]> {
   const { data } = await api.get<EnvelopeApi<AprovacaoFinanceiraApi[]> | AprovacaoFinanceiraApi[]>('/financeiro/aprovacoes/receitas', montarConfigConsulta(opcoes));
   return extrairLista<AprovacaoFinanceiraApi>(extrairDados(data));
+}
+
+export async function listarHistoricoTransacoesApi(opcoes?: OpcoesHistoricoTransacoesApi): Promise<HistoricoTransacaoApi[]> {
+  const quantidadeRegistros = normalizarQuantidadeHistorico(opcoes?.quantidadeRegistros);
+  const ordemRegistros = normalizarOrdemHistorico(opcoes?.ordemRegistros);
+
+  const { data } = await api.get<EnvelopeApi<HistoricoTransacaoApi[]> | HistoricoTransacaoApi[]>(
+    '/financeiro/historico-transacoes',
+    {
+      signal: opcoes?.signal,
+      params: {
+        quantidadeRegistros,
+        ordemRegistros,
+      },
+    },
+  );
+
+  return extrairLista<HistoricoTransacaoApi>(extrairDados(data));
+}
+
+export async function listarResumoHistoricoTransacoesApi(
+  opcoes?: OpcoesResumoHistoricoTransacoesApi,
+): Promise<ResumoHistoricoTransacoesApi> {
+  const ano = normalizarAnoResumo(opcoes?.ano);
+  const config = {
+    signal: opcoes?.signal,
+    ...(ano !== undefined ? { params: { ano } } : {}),
+  };
+
+  const { data } = await api.get<EnvelopeApi<ResumoHistoricoTransacoesApi> | ResumoHistoricoTransacoesApi>(
+    '/financeiro/historico-transacoes/resumo',
+    config,
+  );
+
+  return extrairDados(data);
 }
 
 export async function aprovarReceitaPendenteApi(id: number): Promise<void> {
