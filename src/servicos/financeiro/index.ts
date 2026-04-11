@@ -28,6 +28,20 @@ export interface AreaSubareaRateioApi {
   subAreas: SubAreaRateioApi[];
 }
 
+export interface SubAreaSomaRateioApi {
+  id: number;
+  nome: string;
+  valorTotalRateio: number;
+}
+
+export interface AreaSomaRateioApi {
+  id: number;
+  nome: string;
+  tipo: 'despesa' | 'receita';
+  valorTotalRateio: number;
+  subAreas: SubAreaSomaRateioApi[];
+}
+
 function extrairDados<T>(entrada: EnvelopeApi<T> | T): T {
   if (entrada && typeof entrada === 'object' && 'dados' in (entrada as Record<string, unknown>)) {
     return (entrada as EnvelopeApi<T>).dados;
@@ -44,6 +58,7 @@ interface OpcoesRequisicao {
   competencia?: string;
   competenciaMes?: number;
   competenciaAno?: number;
+  verificarUltimaRecorrencia?: boolean;
   VerificarUltimaRecorrencia?: boolean;
 }
 
@@ -61,7 +76,12 @@ export interface OpcoesHistoricoTransacoesApi {
 
 export interface OpcoesResumoHistoricoTransacoesApi {
   signal?: AbortSignal;
-  ano: number;
+  ano?: number;
+}
+
+export interface OpcoesAreasSubareasSomaRateioApi {
+  signal?: AbortSignal;
+  tipo?: 'Despesa' | 'Receita';
 }
 
 export interface HistoricoTransacaoApi {
@@ -79,16 +99,18 @@ export interface HistoricoTransacaoApi {
   tipoReceita?: string | null;
 }
 
-export interface ResumoHistoricoTransacoesPorAnoApi {
-  mes: string;
+export interface ResumoHistoricoTransacoesApi {
+  ano: number | null;
   totalReceitas: number;
   totalDespesas: number;
   totalReembolsos: number;
   totalEstornos: number;
+  totalGeral: number;
 }
 
 interface EfetivarDespesaPayloadApi {
   dataEfetivacao: string;
+  observacaoHistorico?: string;
   tipoPagamento: string;
   valorTotal: number;
   desconto: number;
@@ -98,6 +120,39 @@ interface EfetivarDespesaPayloadApi {
   documentos: unknown[];
   contaBancariaId: number | null;
   cartaoId: number | null;
+}
+
+interface EfetivarReceitaPayloadApi {
+  dataEfetivacao: string;
+  observacaoHistorico?: string;
+  tipoRecebimento: string;
+  valorTotal: number;
+  desconto: number;
+  acrescimo: number;
+  imposto: number;
+  juros: number;
+  documentos: unknown[];
+  contaBancariaId: number | null;
+  cartaoId: number | null;
+}
+
+interface EstornarRegistroPayloadApi {
+  dataEstorno: string;
+  observacaoHistorico?: string;
+  ocultarDoHistorico?: boolean;
+}
+
+interface EfetivarReembolsoPayloadApi {
+  dataEfetivacao: string;
+  valorEfetivacao: number;
+  observacaoHistorico?: string;
+  documentos: unknown[];
+}
+
+interface EstornarReembolsoPayloadApi {
+  dataEstorno: string;
+  observacaoHistorico?: string;
+  ocultarDoHistorico?: boolean;
 }
 
 function montarCompetencia(opcoes?: OpcoesRequisicao): string | undefined {
@@ -118,8 +173,9 @@ function montarConfigConsulta(opcoes?: OpcoesRequisicao): { signal?: AbortSignal
   if (opcoes?.id) params.id = opcoes.id;
   if (opcoes?.descricao) params.descricao = opcoes.descricao;
   if (competencia) params.competencia = competencia;
-  if (opcoes?.VerificarUltimaRecorrencia !== undefined) {
-    params.VerificarUltimaRecorrencia = opcoes.VerificarUltimaRecorrencia;
+  const verificarUltimaRecorrencia = opcoes?.verificarUltimaRecorrencia ?? opcoes?.VerificarUltimaRecorrencia;
+  if (verificarUltimaRecorrencia !== undefined) {
+    params.verificarUltimaRecorrencia = verificarUltimaRecorrencia;
   }
 
   return {
@@ -156,11 +212,20 @@ function normalizarQuantidadeHistorico(quantidade: number | undefined): number {
   return quantidade;
 }
 
-function normalizarAnoResumo(ano: number): number {
+function normalizarAnoResumo(ano: number | undefined): number | undefined {
+  if (ano === undefined) return undefined;
   if (!Number.isInteger(ano) || ano <= 0) {
     throw new Error('Parametro ano invalido. O valor deve ser inteiro e maior que zero.');
   }
   return ano;
+}
+
+function normalizarTipoConsultaSomaRateio(tipo: OpcoesAreasSubareasSomaRateioApi['tipo'] | undefined): 'Despesa' | 'Receita' | undefined {
+  if (tipo === undefined) return undefined;
+  const tipoNormalizado = normalizarTexto(tipo).toLowerCase();
+  if (tipoNormalizado === 'despesa') return 'Despesa';
+  if (tipoNormalizado === 'receita') return 'Receita';
+  throw new Error('Parametro tipo invalido. Valores permitidos: Despesa ou Receita.');
 }
 
 function extrairLista<T>(entrada: unknown): T[] {
@@ -229,6 +294,40 @@ export async function listarAreasSubareasRateioApi(opcoes?: OpcoesRequisicao): P
     .filter((item) => item.id > 0 && Boolean(item.nome));
 }
 
+export async function listarAreasSubareasSomaRateioApi(
+  opcoes?: OpcoesAreasSubareasSomaRateioApi,
+): Promise<AreaSomaRateioApi[]> {
+  const tipo = normalizarTipoConsultaSomaRateio(opcoes?.tipo);
+  const config = {
+    signal: opcoes?.signal,
+    ...(tipo ? { params: { tipo } } : {}),
+  };
+
+  const { data } = await api.get<EnvelopeApi<AreaSomaRateioApi[]> | AreaSomaRateioApi[]>(
+    '/financeiro/areas-subareas/soma-rateio',
+    config,
+  );
+
+  return extrairLista<Record<string, unknown>>(extrairDados(data))
+    .map((item, indice) => {
+      const subAreasEntrada = Array.isArray(item.subAreas) ? item.subAreas : [];
+      return {
+        id: Number(item.id ?? item.areaId ?? indice + 1),
+        nome: normalizarTexto(item.nome ?? item.area),
+        tipo: normalizarTipoArea(item.tipo),
+        valorTotalRateio: Number(item.valorTotalRateio ?? item.valorTotal ?? 0),
+        subAreas: (subAreasEntrada as Array<Record<string, unknown>>)
+          .map((subArea, subIndice) => ({
+            id: Number(subArea.id ?? subArea.subAreaId ?? subIndice + 1),
+            nome: normalizarTexto(subArea.nome ?? subArea.subarea),
+            valorTotalRateio: Number(subArea.valorTotalRateio ?? subArea.valorTotal ?? 0),
+          }))
+          .filter((subArea) => subArea.id > 0 && Boolean(subArea.nome)),
+      };
+    })
+    .filter((item) => item.id > 0 && Boolean(item.nome));
+}
+
 export async function listarDespesasApi(opcoes?: OpcoesRequisicao): Promise<RegistroFinanceiroApi[]> {
   const { data } = await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>('/financeiro/despesas', montarConfigConsulta(opcoes));
   return extrairDados(data);
@@ -280,9 +379,13 @@ export async function efetivarDespesaApi(
   return extrairDados(data);
 }
 
-export async function estornarDespesaApi(id: number): Promise<RegistroFinanceiroApi> {
+export async function estornarDespesaApi(
+  id: number,
+  payload: EstornarRegistroPayloadApi,
+): Promise<RegistroFinanceiroApi> {
   const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
     '/financeiro/despesas/' + id + '/estornar',
+    payload,
   );
   return extrairDados(data);
 }
@@ -327,6 +430,36 @@ export async function cancelarReceitaApi(
   return extrairDados(data);
 }
 
+export async function efetivarReceitaApi(
+  id: number,
+  payload: EfetivarReceitaPayloadApi,
+): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
+    '/financeiro/receitas/' + id + '/efetivar',
+    payload,
+  );
+  return extrairDados(data);
+}
+
+export async function estornarReceitaApi(
+  id: number,
+  payload: EstornarRegistroPayloadApi,
+): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
+    '/financeiro/receitas/' + id + '/estornar',
+    payload,
+  );
+  return extrairDados(data);
+}
+
+export async function listarReceitasPendentesAprovacaoApi(opcoes?: OpcoesRequisicao): Promise<RegistroFinanceiroApi[]> {
+  const { data } = await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>(
+    '/financeiro/receitas/pendentes-aprovacao',
+    montarConfigConsulta(opcoes),
+  );
+  return extrairLista<RegistroFinanceiroApi>(extrairDados(data));
+}
+
 export async function listarReembolsosApi(opcoes?: OpcoesRequisicao): Promise<RegistroFinanceiroApi[]> {
   const { data } = await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>('/financeiro/reembolsos', montarConfigConsulta(opcoes));
   return extrairDados(data);
@@ -344,6 +477,28 @@ export async function criarReembolsoApi(payload: Record<string, unknown>): Promi
 
 export async function atualizarReembolsoApi(id: number, payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
   const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/reembolsos/' + id, payload);
+  return extrairDados(data);
+}
+
+export async function efetivarReembolsoApi(
+  id: number,
+  payload: EfetivarReembolsoPayloadApi,
+): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
+    '/financeiro/reembolsos/' + id + '/efetivar',
+    payload,
+  );
+  return extrairDados(data);
+}
+
+export async function estornarReembolsoApi(
+  id: number,
+  payload: EstornarReembolsoPayloadApi,
+): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
+    '/financeiro/reembolsos/' + id + '/estornar',
+    payload,
+  );
   return extrairDados(data);
 }
 
@@ -430,20 +585,20 @@ export async function listarHistoricoTransacoesApi(opcoes?: OpcoesHistoricoTrans
 }
 
 export async function listarResumoHistoricoTransacoesApi(
-  opcoes: OpcoesResumoHistoricoTransacoesApi,
-): Promise<ResumoHistoricoTransacoesPorAnoApi[]> {
-  const ano = normalizarAnoResumo(opcoes.ano);
+  opcoes?: OpcoesResumoHistoricoTransacoesApi,
+): Promise<ResumoHistoricoTransacoesApi> {
+  const ano = normalizarAnoResumo(opcoes?.ano);
   const config = {
     signal: opcoes?.signal,
-    params: { ano },
+    ...(ano !== undefined ? { params: { ano } } : {}),
   };
 
-  const { data } = await api.get<EnvelopeApi<ResumoHistoricoTransacoesPorAnoApi[]> | ResumoHistoricoTransacoesPorAnoApi[]>(
-    '/financeiro/historico-transacoes/resumo-por-ano',
+  const { data } = await api.get<EnvelopeApi<ResumoHistoricoTransacoesApi> | ResumoHistoricoTransacoesApi>(
+    '/financeiro/historico-transacoes/resumo',
     config,
   );
 
-  return extrairLista<ResumoHistoricoTransacoesPorAnoApi>(extrairDados(data));
+  return extrairDados(data);
 }
 
 export async function aprovarReceitaPendenteApi(id: number): Promise<void> {

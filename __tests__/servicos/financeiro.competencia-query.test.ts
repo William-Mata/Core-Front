@@ -58,6 +58,23 @@ describe('servico financeiro - filtros por competencia', () => {
     });
   });
 
+  it('deve enviar verificarUltimaRecorrencia em lowercase na listagem de receitas', async () => {
+    mockGet.mockResolvedValueOnce({ data: [] });
+
+    await listarReceitasApi({
+      competencia: '2026-04',
+      verificarUltimaRecorrencia: true,
+    });
+
+    expect(mockGet).toHaveBeenCalledWith('/financeiro/receitas', {
+      signal: undefined,
+      params: {
+        competencia: '2026-04',
+        verificarUltimaRecorrencia: true,
+      },
+    });
+  });
+
   it('deve manter chamada sem params quando periodo nao for informado', async () => {
     mockGet.mockResolvedValueOnce({ data: [] });
 
@@ -118,7 +135,7 @@ describe('servico financeiro - filtros por competencia', () => {
 
     await listarResumoHistoricoTransacoesApi({ ano: 2026 });
 
-    expect(mockGet).toHaveBeenCalledWith('/financeiro/historico-transacoes/resumo-por-ano', {
+    expect(mockGet).toHaveBeenCalledWith('/financeiro/historico-transacoes/resumo', {
       signal: undefined,
       params: {
         ano: 2026,

@@ -1,4 +1,11 @@
-import { cancelarDespesaApi, cancelarReceitaApi, efetivarDespesaApi, estornarDespesaApi } from '../../src/servicos/financeiro';
+import {
+  cancelarDespesaApi,
+  cancelarReceitaApi,
+  efetivarDespesaApi,
+  efetivarReceitaApi,
+  estornarDespesaApi,
+  estornarReceitaApi,
+} from '../../src/servicos/financeiro';
 
 const mockPost = jest.fn();
 
@@ -40,6 +47,7 @@ describe('servico financeiro - cancelamentos', () => {
   it('deve efetivar despesa usando endpoint dedicado', async () => {
     const payload = {
       dataEfetivacao: '2026-03-15',
+      observacaoHistorico: 'teste',
       tipoPagamento: 'pix',
       valorTotal: 150,
       desconto: 5,
@@ -58,10 +66,49 @@ describe('servico financeiro - cancelamentos', () => {
   });
 
   it('deve estornar despesa usando endpoint dedicado', async () => {
+    const payload = {
+      dataEstorno: '2026-03-16',
+      observacaoHistorico: 'ajuste',
+      ocultarDoHistorico: true,
+    };
     mockPost.mockResolvedValueOnce({ data: { id: 8 } });
 
-    await estornarDespesaApi(8);
+    await estornarDespesaApi(8, payload);
 
-    expect(mockPost).toHaveBeenCalledWith('/financeiro/despesas/8/estornar');
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/despesas/8/estornar', payload);
+  });
+
+  it('deve efetivar receita usando endpoint dedicado', async () => {
+    const payload = {
+      dataEfetivacao: '2026-03-15',
+      observacaoHistorico: 'teste',
+      tipoRecebimento: 'pix',
+      valorTotal: 250,
+      desconto: 0,
+      acrescimo: 10,
+      imposto: 5,
+      juros: 0,
+      documentos: [],
+      contaBancariaId: 3,
+      cartaoId: null,
+    };
+    mockPost.mockResolvedValueOnce({ data: { id: 6 } });
+
+    await efetivarReceitaApi(6, payload);
+
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/receitas/6/efetivar', payload);
+  });
+
+  it('deve estornar receita usando endpoint dedicado', async () => {
+    const payload = {
+      dataEstorno: '2026-03-16',
+      observacaoHistorico: 'ajuste',
+      ocultarDoHistorico: true,
+    };
+    mockPost.mockResolvedValueOnce({ data: { id: 9 } });
+
+    await estornarReceitaApi(9, payload);
+
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/receitas/9/estornar', payload);
   });
 });

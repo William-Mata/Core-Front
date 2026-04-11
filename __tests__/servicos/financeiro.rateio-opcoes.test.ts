@@ -1,4 +1,4 @@
-﻿import { listarAmigosRateioApi, listarAreasSubareasRateioApi } from '../../src/servicos/financeiro';
+﻿import { listarAmigosRateioApi, listarAreasSubareasRateioApi, listarAreasSubareasSomaRateioApi } from '../../src/servicos/financeiro';
 
 const mockGet = jest.fn();
 
@@ -103,4 +103,44 @@ describe('servico financeiro - opcoes de rateio', () => {
       },
     ]);
   });
+  it('deve listar soma de rateio por area/subarea filtrando por tipo', async () => {
+    mockGet.mockResolvedValueOnce({
+      data: {
+        dados: [
+          {
+            id: 1,
+            nome: 'Operacoes',
+            tipo: 'Despesa',
+            valorTotalRateio: 450,
+            subAreas: [
+              { id: 11, nome: 'Suprimentos', valorTotalRateio: 300 },
+            ],
+          },
+        ],
+      },
+    });
+
+    const resultado = await listarAreasSubareasSomaRateioApi({ tipo: 'Despesa' });
+
+    expect(mockGet).toHaveBeenCalledWith('/financeiro/areas-subareas/soma-rateio', {
+      signal: undefined,
+      params: { tipo: 'Despesa' },
+    });
+    expect(resultado).toEqual([
+      {
+        id: 1,
+        nome: 'Operacoes',
+        tipo: 'despesa',
+        valorTotalRateio: 450,
+        subAreas: [{ id: 11, nome: 'Suprimentos', valorTotalRateio: 300 }],
+      },
+    ]);
+  });
+
+  it('deve validar tipo invalido na soma de rateio', async () => {
+    await expect(
+      listarAreasSubareasSomaRateioApi({ tipo: 'Invalido' as never }),
+    ).rejects.toThrow('Parametro tipo invalido. Valores permitidos: Despesa ou Receita.');
+  });
 });
+

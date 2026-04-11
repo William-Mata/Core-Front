@@ -241,32 +241,55 @@ export const manipuladorFinanceiro = [
     });
   }),
 
-  // Resumo do historico de transacoes por ano
-  http.get('/api/financeiro/historico-transacoes/resumo-por-ano', ({ request }) => {
+  // Resumo do historico de transacoes
+  http.get('/api/financeiro/historico-transacoes/resumo', ({ request }) => {
     const url = new URL(request.url);
-    const ano = Number(url.searchParams.get('ano') ?? 0);
-
-    if (!Number.isInteger(ano) || ano <= 0) {
-      return HttpResponse.json({ codigo: 'ano_invalido' }, { status: 400 });
-    }
+    const anoInformado = url.searchParams.get('ano');
+    const ano = anoInformado ? Number(anoInformado) : null;
 
     return HttpResponse.json({
-      sucesso: true,
-      dados: [
-        { mes: 'Janeiro', totalReceitas: 1200.0, totalDespesas: -350.0, totalReembolsos: 0.0, totalEstornos: 0.0 },
-        { mes: 'Fevereiro', totalReceitas: 1400.0, totalDespesas: -390.0, totalReembolsos: 100.0, totalEstornos: 30.0 },
-        { mes: 'Marco', totalReceitas: 1100.0, totalDespesas: -310.0, totalReembolsos: 0.0, totalEstornos: 0.0 },
-        { mes: 'Abril', totalReceitas: 1300.0, totalDespesas: -420.0, totalReembolsos: 0.0, totalEstornos: 20.0 },
-        { mes: 'Maio', totalReceitas: 1250.0, totalDespesas: -380.0, totalReembolsos: 0.0, totalEstornos: 0.0 },
-        { mes: 'Junho', totalReceitas: 1500.0, totalDespesas: -440.0, totalReembolsos: 80.0, totalEstornos: 0.0 },
-        { mes: 'Julho', totalReceitas: 1600.0, totalDespesas: -470.0, totalReembolsos: 0.0, totalEstornos: 10.0 },
-        { mes: 'Agosto', totalReceitas: 1550.0, totalDespesas: -460.0, totalReembolsos: 40.0, totalEstornos: 0.0 },
-        { mes: 'Setembro', totalReceitas: 1480.0, totalDespesas: -430.0, totalReembolsos: 0.0, totalEstornos: 15.0 },
-        { mes: 'Outubro', totalReceitas: 1700.0, totalDespesas: -520.0, totalReembolsos: 0.0, totalEstornos: 0.0 },
-        { mes: 'Novembro', totalReceitas: 1750.0, totalDespesas: -540.0, totalReembolsos: 0.0, totalEstornos: 0.0 },
-        { mes: 'Dezembro', totalReceitas: 1900.0, totalDespesas: -610.0, totalReembolsos: 120.0, totalEstornos: 50.0 },
-      ],
+      ano,
+      totalReceitas: 12500.0,
+      totalDespesas: 8600.0,
+      totalReembolsos: 900.0,
+      totalEstornos: 240.0,
+      totalGeral: 22240.0,
     });
+  }),
+
+  // Soma de rateio por area/subarea
+  http.get('/api/financeiro/areas-subareas/soma-rateio', ({ request }) => {
+    const url = new URL(request.url);
+    const tipo = (url.searchParams.get('tipo') ?? '').toLowerCase();
+
+    const dadosDespesa = [
+      {
+        id: 1,
+        nome: 'Operacoes',
+        tipo: 'Despesa',
+        valorTotalRateio: 450,
+        subAreas: [
+          { id: 11, nome: 'Suprimentos', valorTotalRateio: 300 },
+          { id: 12, nome: 'Logistica', valorTotalRateio: 150 },
+        ],
+      },
+    ];
+
+    const dadosReceita = [
+      {
+        id: 2,
+        nome: 'Comercial',
+        tipo: 'Receita',
+        valorTotalRateio: 800,
+        subAreas: [
+          { id: 21, nome: 'Servicos', valorTotalRateio: 800 },
+        ],
+      },
+    ];
+
+    if (tipo === 'despesa') return HttpResponse.json({ dados: dadosDespesa });
+    if (tipo === 'receita') return HttpResponse.json({ dados: dadosReceita });
+    return HttpResponse.json({ dados: [...dadosDespesa, ...dadosReceita] });
   }),
 
   // Criar reembolso
@@ -347,6 +370,22 @@ export const manipuladorFinanceiro = [
         id: parseInt(id as string),
         status: 'PAGO',
         dataPagamento: new Date().toISOString(),
+        ...data,
+      },
+    });
+  }),
+
+  // Estornar reembolso
+  http.post('/api/financeiro/reembolsos/:id/estornar', async ({ request, params }) => {
+    const { id } = params;
+    const data = (await request.json()) as Record<string, any>;
+    return HttpResponse.json({
+      sucesso: true,
+      mensagem: 'Reembolso estornado com sucesso',
+      dados: {
+        id: parseInt(id as string),
+        status: 'PENDENTE',
+        dataAtualizacao: new Date().toISOString(),
         ...data,
       },
     });

@@ -6,6 +6,7 @@
   listarConvitesAmizadeApi,
   listarAprovacoesDespesasApi,
   listarAprovacoesReceitasApi,
+  listarReceitasPendentesAprovacaoApi,
   rejeitarConviteAmizadeApi,
   rejeitarDespesaPendenteApi,
   rejeitarReceitaPendenteApi,
@@ -91,5 +92,19 @@ describe('servico financeiro - amizade e aprovacoes', () => {
     expect(mockPost).toHaveBeenCalledWith('/financeiro/despesas/1/rejeitar');
     expect(mockPost).toHaveBeenCalledWith('/financeiro/receitas/2/aprovar');
     expect(mockPost).toHaveBeenCalledWith('/financeiro/receitas/2/rejeitar');
+  });
+
+  it('deve listar receitas pendentes de aprovacao pelo endpoint dedicado', async () => {
+    mockGet.mockResolvedValueOnce({ data: { dados: [{ id: 5, status: 'PendenteAprovacao' }] } });
+
+    const receitas = await listarReceitasPendentesAprovacaoApi({ competencia: '2026-04' });
+
+    expect(receitas).toEqual([{ id: 5, status: 'PendenteAprovacao' }]);
+    expect(mockGet).toHaveBeenCalledWith('/financeiro/receitas/pendentes-aprovacao', {
+      signal: undefined,
+      params: {
+        competencia: '2026-04',
+      },
+    });
   });
 });
