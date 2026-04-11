@@ -246,7 +246,7 @@ describe('Tela de dashboard', () => {
 
     await waitFor(() => {
       expect(getAllByText('Cartao').length).toBeGreaterThan(0);
-      expect(getAllByText('Visa Platinum').length).toBeGreaterThan(0);
+      expect(getAllByText(/Visa Platinum/).length).toBeGreaterThan(0);
     });
 
     expect(mockListarHistoricoTransacoesApi).toHaveBeenCalledWith({

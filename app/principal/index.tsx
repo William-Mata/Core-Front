@@ -1,11 +1,12 @@
 import { type ReactElement, useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
+import { Image, View, Text, ScrollView, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LineChart, PieChart } from 'react-native-gifted-charts';
 import { Cabecalho } from '../../src/componentes/comuns/Cabecalho';
 import { EsqueletoCarregamento } from '../../src/componentes/comuns/EsqueletoCarregamento';
 import { usarTraducao } from '../../src/hooks/usarTraducao';
 import { formatarDataPorIdioma, formatarMesPorIdioma, formatarValorPorIdioma } from '../../src/utils/formatacaoLocale';
+import { obterIconeBanco, obterIconeBandeiraCartao, obterImagemBanco, obterImagemBandeiraCartao } from '../../src/utils/icones';
 import { COLORS } from '../../src/styles/variables';
 import {
   listarAreasSubareasSomaRateioApi,
@@ -52,8 +53,23 @@ interface ItemBalanco {
   id: string;
   tipo: TipoContaBalanco;
   nome: string;
+  referenciaIcone?: string;
   subtitulo: string;
   saldo: number;
+}
+
+function renderTextoComIconeContaCartao(tipo: TipoContaBalanco, valor?: string, tamanhoFonte = 12, pesoFonte?: '400' | '500' | '600' | '700', referenciaIcone?: string): ReactElement {
+  const texto = String(valor ?? '').trim();
+  if (!texto) return <Text style={{ color: COLORS.textPrimary, fontSize: tamanhoFonte, fontWeight: pesoFonte }}>-</Text>;
+  const baseIcone = String(referenciaIcone ?? texto).trim() || texto;
+  const imagem = tipo === 'conta' ? obterImagemBanco(baseIcone) : obterImagemBandeiraCartao(baseIcone);
+  const icone = tipo === 'conta' ? obterIconeBanco(baseIcone) : obterIconeBandeiraCartao(baseIcone);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+      {imagem ? <Image source={imagem} style={{ width: 16, height: 16, borderRadius: 3, marginRight: 6 }} resizeMode="contain" /> : <Text style={{ marginRight: 6, fontSize: 13 }}>{icone}</Text>}
+      <Text style={{ color: COLORS.textPrimary, fontSize: tamanhoFonte, fontWeight: pesoFonte, flex: 1 }}>{texto}</Text>
+    </View>
+  );
 }
 
 interface ResumoFinanceiroWidget {
@@ -429,11 +445,13 @@ export default function Dashboard() {
         const contas: ItemBalanco[] = contasApi
           .map((item, indice) => {
             const nome = String(item.descricao ?? item.nome ?? item.conta ?? '').trim();
+            const referenciaIcone = String(item.banco ?? item.nomeBanco ?? '').trim();
             const saldo = Number(item.saldoAtual ?? item.saldoInicial ?? 0);
             return {
               id: `conta-${item.id ?? indice}-${nome || indice}`,
               tipo: 'conta' as const,
               nome: nome || `${t('dashboard.tiposBalanco.conta')} #${indice + 1}`,
+              referenciaIcone: referenciaIcone || nome,
               subtitulo: t('dashboard.saldoAtualConta'),
               saldo: Number.isFinite(saldo) ? saldo : 0,
             };
@@ -443,11 +461,13 @@ export default function Dashboard() {
         const cartoes: ItemBalanco[] = cartoesApi
           .map((item, indice) => {
             const nome = String(item.descricao ?? item.nome ?? item.cartao ?? '').trim();
+            const referenciaIcone = String(item.bandeira ?? item.nomeBandeira ?? '').trim();
             const saldoDisponivel = Number(item.saldoDisponivel ?? item.limiteDisponivel ?? item.limite ?? 0);
             return {
               id: `cartao-${item.id ?? indice}-${nome || indice}`,
               tipo: 'cartao' as const,
               nome: nome || `${t('dashboard.tiposBalanco.cartao')} #${indice + 1}`,
+              referenciaIcone: referenciaIcone || nome,
               subtitulo: t('dashboard.saldoDisponivelCartao'),
               saldo: Number.isFinite(saldoDisponivel) ? saldoDisponivel : 0,
             };
@@ -574,30 +594,6 @@ export default function Dashboard() {
         transform: skewX(-18deg);
         animation: badgeTipoTransacaoShine 1.5s linear infinite;
         pointer-events: none;
-      }
-      [data-testid="dashboard-ultimas-transacoes-scroll"]::-webkit-scrollbar,
-      [data-testid="dashboard-ultimas-transacoes-scroll"] *::-webkit-scrollbar {
-        height: 10px;
-      }
-      [data-testid="dashboard-ultimas-transacoes-scroll"]::-webkit-scrollbar-track,
-      [data-testid="dashboard-ultimas-transacoes-scroll"] *::-webkit-scrollbar-track {
-        background: ${COLORS.bgSecondary};
-        border: 1px solid ${COLORS.borderColor};
-        border-radius: 999px;
-      }
-      [data-testid="dashboard-ultimas-transacoes-scroll"]::-webkit-scrollbar-thumb,
-      [data-testid="dashboard-ultimas-transacoes-scroll"] *::-webkit-scrollbar-thumb {
-        background: ${COLORS.accent};
-        border: 2px solid ${COLORS.bgSecondary};
-        border-radius: 999px;
-      }
-      [data-testid="dashboard-ultimas-transacoes-scroll"]::-webkit-scrollbar-thumb:hover,
-      [data-testid="dashboard-ultimas-transacoes-scroll"] *::-webkit-scrollbar-thumb:hover {
-        background: ${COLORS.accentSoft};
-      }
-      [data-testid="dashboard-ultimas-transacoes-scroll"] {
-        scrollbar-width: thin;
-        scrollbar-color: ${COLORS.accent} ${COLORS.bgSecondary};
       }
     `;
 
@@ -1208,7 +1204,9 @@ export default function Dashboard() {
                     padding: 14,
                   }}
                 >
-                  <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' }}>{item.nome}</Text>
+                  <View style={{ minHeight: 18, justifyContent: 'center' }}>
+                    {renderTextoComIconeContaCartao(item.tipo, item.nome, 13, '700', item.referenciaIcone)}
+                  </View>
                   <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 4 }}>{item.tipo === 'conta' ? t('dashboard.tiposBalanco.conta') : t('dashboard.tiposBalanco.cartao')}</Text>
                   <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 10 }}>{item.subtitulo}</Text>
                   <Text style={{ color: item.saldo >= 0 ? COLORS.success : COLORS.error, fontSize: 20, fontWeight: '700', marginTop: 6 }}>{formatarValorPorIdioma(item.saldo)}</Text>
@@ -1285,8 +1283,12 @@ export default function Dashboard() {
                   <Text style={{ width: largurasColunasUltimasTransacoes.descricao, color: COLORS.textPrimary, fontSize: 12 }}>{item.descricao}</Text>
                   <Text style={{ width: largurasColunasUltimasTransacoes.dataEfetivacao, color: COLORS.textPrimary, fontSize: 12 }}>{formatarDataPorIdioma(item.dataEfetivacao)}</Text>
                   <Text style={{ width: largurasColunasUltimasTransacoes.tipoPagamento, color: COLORS.textPrimary, fontSize: 12 }}>{item.tipoPagamento}</Text>
-                  <Text style={{ width: largurasColunasUltimasTransacoes.contaBancaria, color: COLORS.textPrimary, fontSize: 12 }}>{item.contaBancaria ?? '-'}</Text>
-                  <Text style={{ width: largurasColunasUltimasTransacoes.cartao, color: COLORS.textPrimary, fontSize: 12 }}>{item.cartao ?? '-'}</Text>
+                  <View style={{ width: largurasColunasUltimasTransacoes.contaBancaria }}>
+                    {renderTextoComIconeContaCartao('conta', item.contaBancaria, 12)}
+                  </View>
+                  <View style={{ width: largurasColunasUltimasTransacoes.cartao }}>
+                    {renderTextoComIconeContaCartao('cartao', item.cartao, 12)}
+                  </View>
                   <Text style={{ width: largurasColunasUltimasTransacoes.tipoDespesaReceita, color: COLORS.textPrimary, fontSize: 12 }}>{item.subarea}</Text>
                 </View>
               ))}

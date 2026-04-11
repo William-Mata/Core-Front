@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoData } from '../../../src/componentes/comuns/CampoData';
@@ -21,7 +21,7 @@ import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
-import { BANDEIRAS_CARTAO_POPULARES, obterIconeBandeiraCartao } from '../../../src/utils/icones';
+import { obterIconeBandeiraCartao, obterImagemBandeiraCartao, obterOpcoesBandeirasCartao } from '../../../src/utils/icones';
 import { calcularTotalLancamentos } from '../../../src/utils/calcularTotalLancamentos';
 
 type TipoCartao = 'credito' | 'debito';
@@ -52,6 +52,7 @@ interface Cartao {
   id: number;
   descricao: string;
   bandeira: string;
+  referenciaBandeira: string;
   tipo: TipoCartao;
   limite: number;
   saldoDisponivel: number;
@@ -137,7 +138,8 @@ function mapearCartaoApi(item: RegistroFinanceiroApi, atual?: Cartao): Cartao {
   return {
     id: Number(item.id ?? atual?.id ?? 0),
     descricao: String(item.descricao ?? atual?.descricao ?? ''),
-    bandeira: String(item.bandeira ?? atual?.bandeira ?? ''),
+    bandeira: String(item.nomeBandeira ?? item.bandeira ?? atual?.bandeira ?? ''),
+    referenciaBandeira: String(item.bandeira ?? item.nomeBandeira ?? atual?.referenciaBandeira ?? ''),
     tipo,
     limite: Number(item.limite ?? atual?.limite ?? 0),
     saldoDisponivel: Number(item.saldoDisponivel ?? item.limiteDisponivel ?? atual?.saldoDisponivel ?? 0),
@@ -189,6 +191,7 @@ export default function TelaCartao() {
   const [formulario, setFormulario] = useState<CartaoForm>(() => criarFormularioVazio(locale));
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [carregando, setCarregando] = useState(false);
+  const opcoesBandeiras = useMemo(() => obterOpcoesBandeirasCartao(), []);
 
   const cartaoSelecionado = cartoes.find((item) => item.id === cartaoSelecionadoId) ?? null;
 
@@ -474,6 +477,37 @@ export default function TelaCartao() {
 
   const totalPeriodo = (cartao: Cartao) => calcularTotalLancamentos(obterLancamentosDoMes(cartao));
 
+  const renderIconeBandeira = (bandeira: string) => {
+    const imagemBandeira = obterImagemBandeiraCartao(bandeira);
+    if (imagemBandeira) {
+      return <Image source={imagemBandeira} style={{ width: 18, height: 18, borderRadius: 4, marginRight: 6 }} resizeMode="contain" />;
+    }
+    return (
+      <Text style={{ color: COLORS.textSecondary, marginRight: 6, fontSize: 14 }}>
+        {obterIconeBandeiraCartao(bandeira) || '\uD83D\uDCB3'}
+      </Text>
+    );
+  };
+
+  const renderCampoBloqueadoBandeira = (label: string, bandeira: string, referenciaBandeira?: string) => {
+    const referencia = (referenciaBandeira || bandeira || '').trim();
+    const imagemBandeira = obterImagemBandeiraCartao(referencia);
+    const valor = (bandeira || '').trim();
+    return (
+      <View style={{ marginBottom: 12 }}>
+        <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
+        <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
+          {valor ? (
+            imagemBandeira
+              ? <Image source={imagemBandeira} style={{ width: 16, height: 16, borderRadius: 3, marginRight: 6 }} resizeMode="contain" />
+              : <Text style={{ color: COLORS.textSecondary, marginRight: 6, fontSize: 13 }}>{obterIconeBandeiraCartao(referencia) || '\uD83D\uDCB3'}</Text>
+          ) : null}
+          <Text style={{ color: COLORS.textPrimary, fontSize: 14, flex: 1 }}>{valor || '-'}</Text>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bgPrimary }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: COLORS.bgSecondary, borderBottomWidth: 1, borderBottomColor: COLORS.borderColor, paddingHorizontal: 16, paddingVertical: 12 }}>
@@ -497,12 +531,17 @@ export default function TelaCartao() {
                 cartoesFiltrados.map((cartao) => (
                   <View key={cartao.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginBottom: 10 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{cartao.id} {obterIconeBandeiraCartao(cartao.bandeira)} {cartao.descricao}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                        {renderIconeBandeira(cartao.referenciaBandeira || cartao.bandeira)}
+                        <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{cartao.id} {cartao.descricao}</Text>
+                      </View>
                       <Text style={{ color: cartao.status === 'ativo' ? COLORS.success : COLORS.warning, fontSize: 12, fontWeight: '700' }}>{t(`financeiro.cartao.status.${cartao.status}`)}</Text>
                     </View>
-                    <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>
-                      {obterIconeBandeiraCartao(cartao.bandeira)} {cartao.bandeira} | {t(`financeiro.cartao.tipos.${cartao.tipo}`)}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                      <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>
+                        {cartao.bandeira} | {t(`financeiro.cartao.tipos.${cartao.tipo}`)}
+                      </Text>
+                    </View>
                     {cartao.tipo === 'credito' ? (
                       <>
                         <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>
@@ -574,7 +613,7 @@ export default function TelaCartao() {
         {(modoTela === 'novo' || modoTela === 'edicao') ? (
           <>
             <CampoTexto label={t('financeiro.cartao.campos.descricao')} placeholder={t('financeiro.cartao.placeholders.descricao')} value={formulario.descricao} onChangeText={(descricao) => { setCamposInvalidos((atual) => ({ ...atual, descricao: false })); setFormulario((atual) => ({ ...atual, descricao })); }} error={camposInvalidos.descricao} estilo={{ marginBottom: 12 }} />
-            <CampoSelect label={t('financeiro.cartao.campos.bandeira')} placeholder={t('comum.acoes.selecionar')} options={BANDEIRAS_CARTAO_POPULARES.map((bandeira) => ({ value: bandeira, label: `${obterIconeBandeiraCartao(bandeira)} ${bandeira}` }))} value={formulario.bandeira} onChange={(bandeira) => { setCamposInvalidos((atual) => ({ ...atual, bandeira: false })); setFormulario((atual) => ({ ...atual, bandeira })); }} error={camposInvalidos.bandeira} />
+            <CampoSelect label={t('financeiro.cartao.campos.bandeira')} placeholder={t('comum.acoes.selecionar')} options={opcoesBandeiras.map((bandeira) => ({ value: bandeira, label: bandeira, icone: obterIconeBandeiraCartao(bandeira), imagem: obterImagemBandeiraCartao(bandeira) }))} value={formulario.bandeira} onChange={(bandeira) => { setCamposInvalidos((atual) => ({ ...atual, bandeira: false })); setFormulario((atual) => ({ ...atual, bandeira })); }} error={camposInvalidos.bandeira} />
             <CampoSelect label={t('financeiro.cartao.campos.tipo')} placeholder={t('comum.acoes.selecionar')} options={tiposCartao.map((tipo) => ({ value: tipo, label: t(`financeiro.cartao.tipos.${tipo}`) }))} value={formulario.tipo} onChange={(tipo) => atualizarTipoFormulario(tipo as TipoCartao)} error={camposInvalidos.tipo} />
             {tipoExigeVencimento(formulario.tipo) ? <CampoTexto label={t('financeiro.cartao.campos.limite')} placeholder={t('financeiro.cartao.placeholders.valor')} value={formulario.limite} onChangeText={(limite) => { setCamposInvalidos((atual) => ({ ...atual, limite: false })); setFormulario((atual) => ({ ...atual, limite: aplicarMascaraMoeda(limite, locale) })); }} error={camposInvalidos.limite} keyboardType="numeric" estilo={{ marginBottom: 12 }} /> : null}
             {modoTela === 'novo'
@@ -592,7 +631,7 @@ export default function TelaCartao() {
         {modoTela === 'visualizacao' && cartaoSelecionado ? (
           <>
             {renderCampoBloqueado(t('financeiro.cartao.campos.descricao'), cartaoSelecionado.descricao)}
-            {renderCampoBloqueado(t('financeiro.cartao.campos.bandeira'), `${obterIconeBandeiraCartao(cartaoSelecionado.bandeira)} ${cartaoSelecionado.bandeira}`)}
+            {renderCampoBloqueadoBandeira(t('financeiro.cartao.campos.bandeira'), cartaoSelecionado.bandeira, cartaoSelecionado.referenciaBandeira)}
             {renderCampoBloqueado(t('financeiro.cartao.campos.tipo'), t(`financeiro.cartao.tipos.${cartaoSelecionado.tipo}`))}
             {cartaoSelecionado.tipo === 'credito' ? renderCampoBloqueado(t('financeiro.cartao.campos.limite'), formatarValorPorIdioma(cartaoSelecionado.limite)) : null}
             {renderCampoBloqueado(t('financeiro.cartao.campos.saldoDisponivel'), formatarValorPorIdioma(cartaoSelecionado.saldoDisponivel))}

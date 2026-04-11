@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoData } from '../../../src/componentes/comuns/CampoData';
@@ -21,7 +21,7 @@ import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
-import { BANCOS_POPULARES, obterIconeBanco } from '../../../src/utils/icones';
+import { obterIconeBanco, obterImagemBanco, obterOpcoesBancos } from '../../../src/utils/icones';
 import { calcularTotalLancamentos } from '../../../src/utils/calcularTotalLancamentos';
 
 type StatusConta = 'ativa' | 'inativa';
@@ -52,6 +52,7 @@ interface ContaBancaria {
   id: number;
   descricao: string;
   banco: string;
+  referenciaBanco: string;
   agencia: string;
   numero: string;
   saldoInicial: number;
@@ -123,7 +124,8 @@ function mapearContaApi(item: RegistroFinanceiroApi, atual?: ContaBancaria): Con
   return {
     id: Number(item.id ?? atual?.id ?? 0),
     descricao: String(item.descricao ?? atual?.descricao ?? ''),
-    banco: String(item.banco ?? atual?.banco ?? ''),
+    banco: String(item.nomeBanco ?? item.banco ?? atual?.banco ?? ''),
+    referenciaBanco: String(item.banco ?? item.nomeBanco ?? atual?.referenciaBanco ?? ''),
     agencia: String(item.agencia ?? atual?.agencia ?? ''),
     numero: String(item.numero ?? atual?.numero ?? ''),
     saldoInicial: Number(item.saldoInicial ?? atual?.saldoInicial ?? 0),
@@ -176,6 +178,7 @@ export default function TelaContaBancaria() {
   const [formulario, setFormulario] = useState<ContaForm>(() => criarFormularioVazio(locale));
   const [camposInvalidos, setCamposInvalidos] = useState<Record<string, boolean>>({});
   const [carregando, setCarregando] = useState(false);
+  const opcoesBanco = useMemo(() => obterOpcoesBancos(), []);
 
   const contaSelecionada = contas.find((conta) => conta.id === contaSelecionadaId) ?? null;
 
@@ -431,6 +434,18 @@ export default function TelaContaBancaria() {
 
   const totalPeriodo = (conta: ContaBancaria) => calcularTotalLancamentos(obterMovimentosDoMes(conta));
 
+  const renderIconeBanco = (banco: string) => {
+    const imagemBanco = obterImagemBanco(banco);
+    if (imagemBanco) {
+      return <Image source={imagemBanco} style={{ width: 18, height: 18, borderRadius: 4, marginRight: 6 }} resizeMode="contain" />;
+    }
+    return (
+      <Text style={{ color: COLORS.textSecondary, marginRight: 6, fontSize: 14 }}>
+        {obterIconeBanco(banco) || '\uD83C\uDFE6'}
+      </Text>
+    );
+  };
+
   const renderCampoBloqueado = (label: string, valor: string) => (
     <View style={{ marginBottom: 12 }}>
       <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
@@ -439,6 +454,25 @@ export default function TelaContaBancaria() {
       </View>
     </View>
   );
+
+  const renderCampoBloqueadoBanco = (label: string, banco: string, referenciaBanco?: string) => {
+    const referencia = (referenciaBanco || banco || '').trim();
+    const imagemBanco = obterImagemBanco(referencia);
+    const valor = (banco || '').trim();
+    return (
+      <View style={{ marginBottom: 12 }}>
+        <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
+        <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
+          {valor ? (
+            imagemBanco
+              ? <Image source={imagemBanco} style={{ width: 16, height: 16, borderRadius: 3, marginRight: 6 }} resizeMode="contain" />
+              : <Text style={{ color: COLORS.textSecondary, marginRight: 6, fontSize: 13 }}>{obterIconeBanco(referencia) || '\uD83C\uDFE6'}</Text>
+          ) : null}
+          <Text style={{ color: COLORS.textPrimary, fontSize: 14, flex: 1 }}>{valor || '-'}</Text>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bgPrimary }}>
@@ -463,10 +497,15 @@ export default function TelaContaBancaria() {
                 contasFiltradas.map((conta) => (
                   <View key={conta.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginBottom: 10 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{conta.id} {obterIconeBanco(conta.banco)} {conta.descricao}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                        {renderIconeBanco(conta.referenciaBanco || conta.banco)}
+                        <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{conta.id} {conta.descricao}</Text>
+                      </View>
                       <Text style={{ color: conta.status === 'ativa' ? COLORS.success : COLORS.warning, fontSize: 12, fontWeight: '700' }}>{t(`financeiro.contaBancaria.status.${conta.status}`)}</Text>
                     </View>
-                    <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>{obterIconeBanco(conta.banco)} {conta.banco} | {t('financeiro.contaBancaria.campos.agencia')}: {conta.agencia} | {t('financeiro.contaBancaria.campos.numero')}: {conta.numero}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                      <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>{conta.banco} | {t('financeiro.contaBancaria.campos.agencia')}: {conta.agencia} | {t('financeiro.contaBancaria.campos.numero')}: {conta.numero}</Text>
+                    </View>
                     <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>{t('financeiro.contaBancaria.campos.saldoAtual')}: {formatarValorPorIdioma(conta.saldoAtual)}</Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
                       <TouchableOpacity onPress={() => abrirVisualizacao(conta)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.visualizar')}</Text></TouchableOpacity>
@@ -519,7 +558,7 @@ export default function TelaContaBancaria() {
         {(modoTela === 'novo' || modoTela === 'edicao') ? (
           <>
             <CampoTexto label={t('financeiro.contaBancaria.campos.descricao')} placeholder={t('financeiro.contaBancaria.placeholders.descricao')} value={formulario.descricao} onChangeText={(descricao) => { setCamposInvalidos((atual) => ({ ...atual, descricao: false })); setFormulario((atual) => ({ ...atual, descricao })); }} error={camposInvalidos.descricao} estilo={{ marginBottom: 12 }} />
-            <CampoSelect label={t('financeiro.contaBancaria.campos.banco')} placeholder={t('comum.acoes.selecionar')} options={BANCOS_POPULARES.map((banco) => ({ value: banco, label: `${obterIconeBanco(banco)} ${banco}` }))} value={formulario.banco} onChange={(banco) => { setCamposInvalidos((atual) => ({ ...atual, banco: false })); setFormulario((atual) => ({ ...atual, banco })); }} error={camposInvalidos.banco} />
+            <CampoSelect label={t('financeiro.contaBancaria.campos.banco')} placeholder={t('comum.acoes.selecionar')} options={opcoesBanco.map((banco) => ({ value: banco, label: banco, icone: obterIconeBanco(banco), imagem: obterImagemBanco(banco) }))} value={formulario.banco} onChange={(banco) => { setCamposInvalidos((atual) => ({ ...atual, banco: false })); setFormulario((atual) => ({ ...atual, banco })); }} error={camposInvalidos.banco} />
             <CampoTexto label={t('financeiro.contaBancaria.campos.agencia')} placeholder={t('financeiro.contaBancaria.placeholders.agencia')} value={formulario.agencia} onChangeText={(agencia) => { setCamposInvalidos((atual) => ({ ...atual, agencia: false })); setFormulario((atual) => ({ ...atual, agencia })); }} error={camposInvalidos.agencia} estilo={{ marginBottom: 12 }} />
             <CampoTexto label={t('financeiro.contaBancaria.campos.numero')} placeholder={t('financeiro.contaBancaria.placeholders.numero')} value={formulario.numero} onChangeText={(numero) => { setCamposInvalidos((atual) => ({ ...atual, numero: false })); setFormulario((atual) => ({ ...atual, numero })); }} error={camposInvalidos.numero} estilo={{ marginBottom: 12 }} />
             {modoTela === 'novo' ? <CampoTexto label={t('financeiro.contaBancaria.campos.saldoInicial')} placeholder={t('financeiro.contaBancaria.placeholders.saldoInicial')} value={formulario.saldoInicial} onChangeText={atualizarSaldoInicial} error={camposInvalidos.saldoInicial} keyboardType="numeric" estilo={{ marginBottom: 12 }} /> : renderCampoBloqueado(t('financeiro.contaBancaria.campos.saldoInicial'), formulario.saldoInicial)}
@@ -535,7 +574,7 @@ export default function TelaContaBancaria() {
         {modoTela === 'visualizacao' && contaSelecionada ? (
           <>
             {renderCampoBloqueado(t('financeiro.contaBancaria.campos.descricao'), contaSelecionada.descricao)}
-            {renderCampoBloqueado(t('financeiro.contaBancaria.campos.banco'), `${obterIconeBanco(contaSelecionada.banco)} ${contaSelecionada.banco}`)}
+            {renderCampoBloqueadoBanco(t('financeiro.contaBancaria.campos.banco'), contaSelecionada.banco, contaSelecionada.referenciaBanco)}
             {renderCampoBloqueado(t('financeiro.contaBancaria.campos.agencia'), contaSelecionada.agencia)}
             {renderCampoBloqueado(t('financeiro.contaBancaria.campos.numero'), contaSelecionada.numero)}
             {renderCampoBloqueado(t('financeiro.contaBancaria.campos.saldoInicial'), formatarValorPorIdioma(contaSelecionada.saldoInicial))}
