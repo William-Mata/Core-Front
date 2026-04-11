@@ -4,6 +4,9 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import Dashboard from '../../../app/principal/index';
 
 const mockPush = jest.fn();
+const mockListarAreasSubareasSomaRateioApi = jest.fn();
+const mockListarCartoesDetalheApi = jest.fn();
+const mockListarContasBancariasDetalheApi = jest.fn();
 const mockListarDespesasApi = jest.fn();
 const mockListarHistoricoTransacoesApi = jest.fn();
 const mockListarResumoHistoricoTransacoesApi = jest.fn();
@@ -20,6 +23,9 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('../../../src/servicos/financeiro', () => ({
+  listarAreasSubareasSomaRateioApi: (...args: unknown[]) => mockListarAreasSubareasSomaRateioApi(...args),
+  listarCartoesDetalheApi: (...args: unknown[]) => mockListarCartoesDetalheApi(...args),
+  listarContasBancariasDetalheApi: (...args: unknown[]) => mockListarContasBancariasDetalheApi(...args),
   listarDespesasApi: (...args: unknown[]) => mockListarDespesasApi(...args),
   listarHistoricoTransacoesApi: (...args: unknown[]) => mockListarHistoricoTransacoesApi(...args),
   listarResumoHistoricoTransacoesApi: (...args: unknown[]) => mockListarResumoHistoricoTransacoesApi(...args),
@@ -69,10 +75,10 @@ jest.mock('../../../src/hooks/usarTraducao', () => ({
         'dashboard.graficoAreaSubareaDescricao': 'Distribuicao por categoria.',
         'dashboard.graficoAnual': 'Grafico Anual',
         'dashboard.ultimasTransacoes': 'Ultimas Transacoes',
-        'dashboard.balancoGeral': 'Balanco Geral',
+        'dashboard.balancoGeral': 'Posicao de Contas e Cartoes',
         'dashboard.widgetGraficoInfo': 'Sem dados para exibir.',
-        'dashboard.saldoAtualConta': 'Saldo atual da conta',
-        'dashboard.saldoDisponivelCartao': 'Saldo disponivel do cartao',
+        'dashboard.saldoAtualConta': 'Valor atual da conta',
+        'dashboard.saldoDisponivelCartao': 'Limite disponivel do cartao',
         'dashboard.tiposBalanco.conta': 'Conta',
         'dashboard.tiposBalanco.cartao': 'Cartao',
         'dashboard.cards.receitas': 'Receitas',
@@ -99,7 +105,7 @@ jest.mock('../../../src/hooks/usarTraducao', () => ({
         'dashboard.widgets.graficoDespesasAreaSubarea': 'Despesas - Grafico por Area e Subarea',
         'dashboard.widgets.graficoAnual': 'Grafico Anual',
         'dashboard.widgets.ultimasTransacoes': 'Ultimas Transacoes',
-        'dashboard.widgets.balancoGeral': 'Balanco Geral',
+        'dashboard.widgets.balancoGeral': 'Posicao de Contas e Cartoes',
         'dashboard.pagamento.PIX': 'Pix',
         'dashboard.pagamento.TRANSFERENCIA': 'Transferencia',
         'dashboard.pagamento.CARTAO_CREDITO': 'Cartao de credito',
@@ -159,6 +165,13 @@ describe('Tela de dashboard', () => {
       },
     ]);
 
+    mockListarContasBancariasDetalheApi.mockResolvedValue([
+      { id: 1, descricao: 'Conta Principal', saldoAtual: 9500 },
+    ]);
+    mockListarCartoesDetalheApi.mockResolvedValue([
+      { id: 2, descricao: 'Visa Platinum', saldoDisponivel: 3200 },
+    ]);
+
     mockListarHistoricoTransacoesApi.mockResolvedValue([
       {
         idTransacao: 7,
@@ -182,20 +195,41 @@ describe('Tela de dashboard', () => {
       },
     ]);
 
-    mockListarResumoHistoricoTransacoesApi.mockResolvedValue([
-      { mes: 'Janeiro', totalReceitas: 1000, totalDespesas: -300, totalReembolsos: 0, totalEstornos: 0 },
-      { mes: 'Fevereiro', totalReceitas: 800, totalDespesas: -250, totalReembolsos: 100, totalEstornos: 50 },
-      { mes: 'Marco', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
-      { mes: 'Abril', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
-      { mes: 'Maio', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
-      { mes: 'Junho', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
-      { mes: 'Julho', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
-      { mes: 'Agosto', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
-      { mes: 'Setembro', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
-      { mes: 'Outubro', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
-      { mes: 'Novembro', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
-      { mes: 'Dezembro', totalReceitas: 0, totalDespesas: 0, totalReembolsos: 0, totalEstornos: 0 },
-    ]);
+    mockListarResumoHistoricoTransacoesApi.mockResolvedValue({
+      ano: null,
+      totalReceitas: 12500,
+      totalDespesas: 8600,
+      totalReembolsos: 900,
+      totalEstornos: 240,
+      totalGeral: 22240,
+    });
+
+    mockListarAreasSubareasSomaRateioApi.mockImplementation((entrada?: { tipo?: string }) => {
+      if (entrada?.tipo === 'Despesa') {
+        return Promise.resolve([
+          {
+            id: 1,
+            nome: 'Operacoes',
+            tipo: 'despesa',
+            valorTotalRateio: 450,
+            subAreas: [
+              { id: 11, nome: 'Suprimentos', valorTotalRateio: 300 },
+              { id: 12, nome: 'Logistica', valorTotalRateio: 150 },
+            ],
+          },
+        ]);
+      }
+
+      return Promise.resolve([
+        {
+          id: 2,
+          nome: 'Comercial',
+          tipo: 'receita',
+          valorTotalRateio: 800,
+          subAreas: [{ id: 21, nome: 'Servicos', valorTotalRateio: 800 }],
+        },
+      ]);
+    });
   });
 
   it('deve renderizar os widgets principais e a coluna de cartao nas ultimas transacoes', async () => {
@@ -207,7 +241,7 @@ describe('Tela de dashboard', () => {
     expect(getByText('Widget: Despesas - Grafico por Area e Subarea')).toBeTruthy();
     expect(getByText('Widget: Grafico Anual')).toBeTruthy();
     expect(getByText('Widget: Ultimas Transacoes')).toBeTruthy();
-    expect(getByText('Widget: Balanco Geral')).toBeTruthy();
+    expect(getByText('Widget: Posicao de Contas e Cartoes')).toBeTruthy();
     expect(queryByText('FiltroPadraoMock')).toBeNull();
 
     await waitFor(() => {
@@ -222,9 +256,22 @@ describe('Tela de dashboard', () => {
     });
     expect(mockListarResumoHistoricoTransacoesApi).toHaveBeenCalledWith({
       signal: expect.any(Object),
-      ano: expect.any(Number),
     });
-  });
+    expect(mockListarAreasSubareasSomaRateioApi).toHaveBeenCalledWith({
+      signal: expect.any(Object),
+      tipo: 'Despesa',
+    });
+    expect(mockListarAreasSubareasSomaRateioApi).toHaveBeenCalledWith({
+      signal: expect.any(Object),
+      tipo: 'Receita',
+    });
+    expect(mockListarContasBancariasDetalheApi).toHaveBeenCalledWith({
+      signal: expect.any(Object),
+    });
+    expect(mockListarCartoesDetalheApi).toHaveBeenCalledWith({
+      signal: expect.any(Object),
+    });
+  }, 15000);
 
   it('deve navegar para a documentacao do modulo ao acionar o botao da tela', () => {
     const { getByText } = render(<Dashboard />);

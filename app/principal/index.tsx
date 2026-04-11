@@ -8,13 +8,17 @@ import { usarTraducao } from '../../src/hooks/usarTraducao';
 import { formatarDataPorIdioma, formatarMesPorIdioma, formatarValorPorIdioma } from '../../src/utils/formatacaoLocale';
 import { COLORS } from '../../src/styles/variables';
 import {
+  listarAreasSubareasSomaRateioApi,
   listarDespesasApi,
+  listarCartoesDetalheApi,
+  listarContasBancariasDetalheApi,
   listarHistoricoTransacoesApi,
   listarResumoHistoricoTransacoesApi,
   listarReceitasApi,
   listarReembolsosApi,
+  type AreaSomaRateioApi,
   type HistoricoTransacaoApi,
-  type ResumoHistoricoTransacoesPorAnoApi,
+  type ResumoHistoricoTransacoesApi,
   type RegistroFinanceiroApi,
 } from '../../src/servicos/financeiro';
 import i18n from '../../src/i18n/configuracao';
@@ -366,7 +370,9 @@ export default function Dashboard() {
   const [larguraTabelaUltimasTransacoes, setLarguraTabelaUltimasTransacoes] = useState(0);
   const [transacoesApi, setTransacoesApi] = useState<Transacao[]>([]);
   const [ultimasTransacoesApi, setUltimasTransacoesApi] = useState<Transacao[]>([]);
-  const [resumoAnualApi, setResumoAnualApi] = useState<ResumoHistoricoTransacoesPorAnoApi[]>([]);
+  const [itensBalancoApi, setItensBalancoApi] = useState<ItemBalanco[]>([]);
+  const [resumoApi, setResumoApi] = useState<ResumoHistoricoTransacoesApi | null>(null);
+  const [itensAreaSubareaApi, setItensAreaSubareaApi] = useState<ItemAreaSubarea[]>([]);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
@@ -411,21 +417,124 @@ export default function Dashboard() {
   useEffect(() => {
     let ativo = true;
     const controller = new AbortController();
-    const anoAtual = new Date().getFullYear();
 
-    const carregarResumoHistorico = async () => {
+    const carregarBalancoGeral = async () => {
       try {
-        const resumoHistorico = await listarResumoHistoricoTransacoesApi({ signal: controller.signal, ano: anoAtual });
+        const [contasApi, cartoesApi] = await Promise.all([
+          listarContasBancariasDetalheApi({ signal: controller.signal }),
+          listarCartoesDetalheApi({ signal: controller.signal }),
+        ]);
         if (!ativo) return;
-        setResumoAnualApi(Array.isArray(resumoHistorico) ? resumoHistorico : []);
+
+        const contas: ItemBalanco[] = contasApi
+          .map((item, indice) => {
+            const nome = String(item.descricao ?? item.nome ?? item.conta ?? '').trim();
+            const saldo = Number(item.saldoAtual ?? item.saldoInicial ?? 0);
+            return {
+              id: `conta-${item.id ?? indice}-${nome || indice}`,
+              tipo: 'conta' as const,
+              nome: nome || `${t('dashboard.tiposBalanco.conta')} #${indice + 1}`,
+              subtitulo: t('dashboard.saldoAtualConta'),
+              saldo: Number.isFinite(saldo) ? saldo : 0,
+            };
+          })
+          .filter((item) => item.nome.length > 0);
+
+        const cartoes: ItemBalanco[] = cartoesApi
+          .map((item, indice) => {
+            const nome = String(item.descricao ?? item.nome ?? item.cartao ?? '').trim();
+            const saldoDisponivel = Number(item.saldoDisponivel ?? item.limiteDisponivel ?? item.limite ?? 0);
+            return {
+              id: `cartao-${item.id ?? indice}-${nome || indice}`,
+              tipo: 'cartao' as const,
+              nome: nome || `${t('dashboard.tiposBalanco.cartao')} #${indice + 1}`,
+              subtitulo: t('dashboard.saldoDisponivelCartao'),
+              saldo: Number.isFinite(saldoDisponivel) ? saldoDisponivel : 0,
+            };
+          })
+          .filter((item) => item.nome.length > 0);
+
+        setItensBalancoApi([...contas, ...cartoes]);
       } catch (erro) {
         if (erroCancelado(erro)) return;
         if (!ativo) return;
-        setResumoAnualApi([]);
+        setItensBalancoApi([]);
+      }
+    };
+
+    void carregarBalancoGeral();
+    return () => {
+      ativo = false;
+      controller.abort();
+    };
+  }, [idiomaAtual]);
+
+  useEffect(() => {
+    let ativo = true;
+    const controller = new AbortController();
+
+    const carregarResumoHistorico = async () => {
+      try {
+        const resumoHistorico = await listarResumoHistoricoTransacoesApi({ signal: controller.signal });
+        if (!ativo) return;
+        setResumoApi(resumoHistorico);
+      } catch (erro) {
+        if (erroCancelado(erro)) return;
+        if (!ativo) return;
+        setResumoApi(null);
       }
     };
 
     void carregarResumoHistorico();
+    return () => {
+      ativo = false;
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    let ativo = true;
+    const controller = new AbortController();
+
+    const mapearItensAreaSubarea = (
+      lista: AreaSomaRateioApi[],
+      tipo: 'despesa' | 'receita',
+    ): ItemAreaSubarea[] => {
+      const itens: ItemAreaSubarea[] = [];
+      for (const area of lista) {
+        for (const subArea of area.subAreas ?? []) {
+          const valorSubArea = Number(subArea.valorTotalRateio ?? 0);
+          itens.push({
+            id: `${tipo}-${area.id}-${subArea.id}`,
+            area: area.nome,
+            subarea: subArea.nome,
+            receitas: tipo === 'receita' ? valorSubArea : 0,
+            despesas: tipo === 'despesa' ? valorSubArea : 0,
+          });
+        }
+      }
+      return itens;
+    };
+
+    const carregarAreasSubareasSomaRateio = async () => {
+      try {
+        const [areasDespesas, areasReceitas] = await Promise.all([
+          listarAreasSubareasSomaRateioApi({ signal: controller.signal, tipo: 'Despesa' }),
+          listarAreasSubareasSomaRateioApi({ signal: controller.signal, tipo: 'Receita' }),
+        ]);
+        if (!ativo) return;
+        setItensAreaSubareaApi([
+          ...mapearItensAreaSubarea(areasDespesas, 'despesa'),
+          ...mapearItensAreaSubarea(areasReceitas, 'receita'),
+        ]);
+      } catch (erro) {
+        if (erroCancelado(erro)) return;
+        if (!ativo) return;
+        setItensAreaSubareaApi([]);
+      }
+    };
+
+    void carregarAreasSubareasSomaRateio();
     return () => {
       ativo = false;
       controller.abort();
@@ -526,42 +635,7 @@ export default function Dashboard() {
     };
   }, [idiomaAtual]);
 
-  const contasCartoes = useMemo<ItemBalanco[]>(() => {
-    const mapaContas = new Map<string, number>();
-    const mapaCartoes = new Map<string, number>();
-
-    for (const item of transacoes) {
-      const valorAssinado = item.tipo === 'despesa' ? -item.valor : item.valor;
-
-      if (item.contaBancaria && item.contaBancaria.trim()) {
-        const nomeConta = item.contaBancaria.trim();
-        mapaContas.set(nomeConta, Number((mapaContas.get(nomeConta) ?? 0) + valorAssinado));
-      }
-
-      if (item.cartao && item.cartao.trim()) {
-        const nomeCartao = item.cartao.trim();
-        mapaCartoes.set(nomeCartao, Number((mapaCartoes.get(nomeCartao) ?? 0) + valorAssinado));
-      }
-    }
-
-    const itensContas: ItemBalanco[] = Array.from(mapaContas.entries()).map(([nome, saldo], indice) => ({
-      id: `conta-${indice}-${nome}`,
-      tipo: 'conta',
-      nome,
-      subtitulo: t('dashboard.saldoAtualConta'),
-      saldo,
-    }));
-
-    const itensCartoes: ItemBalanco[] = Array.from(mapaCartoes.entries()).map(([nome, saldo], indice) => ({
-      id: `cartao-${indice}-${nome}`,
-      tipo: 'cartao',
-      nome,
-      subtitulo: t('dashboard.saldoDisponivelCartao'),
-      saldo,
-    }));
-
-    return [...itensContas, ...itensCartoes];
-  }, [transacoes, t]);
+  const contasCartoes = itensBalancoApi;
 
   const transacoesFiltradas = transacoes;
 
@@ -633,21 +707,13 @@ export default function Dashboard() {
     };
   }, [larguraTabelaUltimasTransacoes, width]);
 
-  const itensAreaSubarea = useMemo<ItemAreaSubarea[]>(() => {
-    const mapa = new Map<string, ItemAreaSubarea>();
-
-    for (const item of transacoesFiltradas) {
-      const chave = `${item.area}|${item.subarea}`;
-      const atual = mapa.get(chave) ?? { id: chave, area: item.area, subarea: item.subarea, receitas: 0, despesas: 0 };
-      if (item.tipo === 'receita') atual.receitas += item.valor;
-      if (item.tipo === 'despesa') atual.despesas += item.valor;
-      mapa.set(chave, atual);
-    }
-
-    return Array.from(mapa.values())
-      .sort((a, b) => b.receitas + b.despesas - (a.receitas + a.despesas))
-      .slice(0, 30);
-  }, [transacoesFiltradas]);
+  const itensAreaSubarea = useMemo<ItemAreaSubarea[]>(
+    () =>
+      [...itensAreaSubareaApi]
+        .sort((a, b) => b.receitas + b.despesas - (a.receitas + a.despesas))
+        .slice(0, 30),
+    [itensAreaSubareaApi],
+  );
 
   const dadosPieAreaSubareaReceitas = useMemo<PieAreaItem[]>(
     () =>
@@ -656,7 +722,7 @@ export default function Dashboard() {
         .map((item, indice) => ({
           value: Number(item.receitas.toFixed(2)),
           color: CORES_RECEITA[indice % CORES_RECEITA.length],
-          text: item.subarea,
+          text: `${item.area} / ${item.subarea}`,
           area: item.area,
           subarea: item.subarea,
           tooltipText: `${item.area} / ${item.subarea}\n${formatarValorPorIdioma(item.receitas)}`,
@@ -680,7 +746,7 @@ export default function Dashboard() {
         .map((item, indice) => ({
           value: Number(item.despesas.toFixed(2)),
           color: CORES_DESPESA[indice % CORES_DESPESA.length],
-          text: item.subarea,
+          text: `${item.area} / ${item.subarea}`,
           area: item.area,
           subarea: item.subarea,
           tooltipText: `${item.area} / ${item.subarea}\n${formatarValorPorIdioma(item.despesas)}`,
@@ -711,43 +777,31 @@ export default function Dashboard() {
 
   const dadosAnuais = useMemo(() => {
     const anoAtual = new Date().getFullYear();
-    const meses = montarResumoMensalVazio(anoAtual);
-    const usados = new Set<number>();
 
-    for (const [indiceResposta, item] of resumoAnualApi.entries()) {
-      if (!item) continue;
-      const registroResumo = item as Record<string, unknown>;
-      const indiceMes = obterIndiceMesResumo(
-        String(registroResumo.mes ?? registroResumo.Mes ?? ''),
-        indiceResposta,
-      );
-      if (indiceMes < 0 || indiceMes > 11 || usados.has(indiceMes)) continue;
-      usados.add(indiceMes);
-      meses[indiceMes] = {
-        mes: formatarMesPorIdioma(new Date(anoAtual, indiceMes, 1)),
-        receitas: normalizarNumeroMonetario(registroResumo.totalReceitas ?? registroResumo.TotalReceitas),
-        despesas: normalizarNumeroMonetario(registroResumo.totalDespesas ?? registroResumo.TotalDespesas),
-        reembolsos: normalizarNumeroMonetario(registroResumo.totalReembolsos ?? registroResumo.TotalReembolsos),
-        estornos: normalizarNumeroMonetario(registroResumo.totalEstornos ?? registroResumo.TotalEstornos),
+    return Array.from({ length: 12 }, (_, indice) => {
+      const dataMes = new Date(anoAtual, indice, 1);
+      const chave = `${anoAtual}-${String(indice + 1).padStart(2, '0')}`;
+      const baseMes = transacoesFiltradas.filter((item) => item.dataEfetivacao.startsWith(chave));
+
+      return {
+        mes: formatarMesPorIdioma(dataMes),
+        despesas: baseMes.filter((item) => item.tipo === 'despesa').reduce((acc, item) => acc + item.valor, 0),
+        receitas: baseMes.filter((item) => item.tipo === 'receita').reduce((acc, item) => acc + item.valor, 0),
+        reembolsos: baseMes.filter((item) => item.tipo === 'reembolso').reduce((acc, item) => acc + item.valor, 0),
+        estornos: baseMes.filter((item) => item.tipo === 'estorno').reduce((acc, item) => acc + item.valor, 0),
       };
-    }
-
-    return meses;
-  }, [resumoAnualApi, idiomaAtual]);
+    });
+  }, [transacoesFiltradas]);
 
   const resumo = useMemo<ResumoFinanceiroWidget>(() => {
-    const totalReceitas = dadosAnuais.reduce((acumulado, item) => acumulado + item.receitas, 0);
-    const totalDespesas = dadosAnuais.reduce((acumulado, item) => acumulado + item.despesas, 0);
-    const totalReembolsos = dadosAnuais.reduce((acumulado, item) => acumulado + item.reembolsos, 0);
-    const totalEstornos = dadosAnuais.reduce((acumulado, item) => acumulado + item.estornos, 0);
     return {
-      totalReceitas,
-      totalDespesas,
-      totalReembolsos,
-      totalEstornos,
-      saldo: totalReceitas + totalDespesas + totalReembolsos + totalEstornos,
+      totalReceitas: Number(resumoApi?.totalReceitas ?? 0),
+      totalDespesas: Number(resumoApi?.totalDespesas ?? 0),
+      totalReembolsos: Number(resumoApi?.totalReembolsos ?? 0),
+      totalEstornos: Number(resumoApi?.totalEstornos ?? 0),
+      saldo: Number(resumoApi?.totalGeral ?? 0),
     };
-  }, [dadosAnuais]);
+  }, [resumoApi]);
 
   const reordenarWidget = (origem: WidgetId, destino: WidgetId) => {
     if (origem === destino) return;
@@ -1135,16 +1189,37 @@ export default function Dashboard() {
       return (
         <View>
           <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700', marginBottom: 10 }}>{t('dashboard.balancoGeral')}</Text>
-          <View style={{ flexDirection: width > 1100 ? 'row' : 'column', gap: 12 }}>
-            {contasCartoes.map((item) => (
-              <View key={item.id} style={{ flex: width > 1100 ? 1 : undefined, backgroundColor: COLORS.bgSecondary, borderRadius: 12, borderWidth: 1, borderColor: COLORS.borderColor, padding: 14 }}>
-                <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' }}>{item.nome}</Text>
-                <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 4 }}>{item.tipo === 'conta' ? t('dashboard.tiposBalanco.conta') : t('dashboard.tiposBalanco.cartao')}</Text>
-                <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 10 }}>{item.subtitulo}</Text>
-                <Text style={{ color: item.saldo >= 0 ? COLORS.success : COLORS.error, fontSize: 20, fontWeight: '700', marginTop: 6 }}>{formatarValorPorIdioma(item.saldo)}</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator
+            contentContainerStyle={{ gap: 12, paddingRight: 6 }}
+            testID="dashboard-balanco-geral-scroll"
+          >
+            {contasCartoes.length > 0 ? (
+              contasCartoes.map((item) => (
+                <View
+                  key={item.id}
+                  style={{
+                    width: width > 1100 ? 300 : 260,
+                    backgroundColor: COLORS.bgSecondary,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: COLORS.borderColor,
+                    padding: 14,
+                  }}
+                >
+                  <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' }}>{item.nome}</Text>
+                  <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 4 }}>{item.tipo === 'conta' ? t('dashboard.tiposBalanco.conta') : t('dashboard.tiposBalanco.cartao')}</Text>
+                  <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 10 }}>{item.subtitulo}</Text>
+                  <Text style={{ color: item.saldo >= 0 ? COLORS.success : COLORS.error, fontSize: 20, fontWeight: '700', marginTop: 6 }}>{formatarValorPorIdioma(item.saldo)}</Text>
+                </View>
+              ))
+            ) : (
+              <View style={{ width: Math.max(width - 72, 260), backgroundColor: COLORS.bgSecondary, borderRadius: 12, borderWidth: 1, borderColor: COLORS.borderColor, padding: 14 }}>
+                <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('dashboard.widgetGraficoInfo')}</Text>
               </View>
-            ))}
-          </View>
+            )}
+          </ScrollView>
         </View>
       );
     }
