@@ -119,6 +119,7 @@ interface EfetivarDespesaPayloadApi {
   juros: number;
   documentos: unknown[];
   contaBancariaId: number | null;
+  contaDestinoId?: number | null;
   cartaoId: number | null;
 }
 
@@ -133,6 +134,7 @@ interface EfetivarReceitaPayloadApi {
   juros: number;
   documentos: unknown[];
   contaBancariaId: number | null;
+  contaDestinoId?: number | null;
   cartaoId: number | null;
 }
 
@@ -613,11 +615,13 @@ export async function rejeitarReceitaPendenteApi(id: number): Promise<void> {
 export interface ContaBancariaOpcaoApi {
   id: number;
   nome: string;
+  banco?: string;
 }
 
 export interface CartaoOpcaoApi {
   id: number;
   nome: string;
+  bandeira?: string;
   tipo?: string;
 }
 
@@ -629,7 +633,11 @@ export async function listarContasBancariasDetalheApi(opcoes?: OpcoesRequisicao)
 export async function listarContasBancariasApi(opcoes?: OpcoesRequisicao): Promise<ContaBancariaOpcaoApi[]> {
   const lista = await obterListaComFallback<Record<string, unknown>>(['/financeiro/contas-bancarias'], opcoes);
   return lista
-    .map((item, indice) => ({ id: Number(item.id ?? indice + 1), nome: normalizarTexto(item.nome ?? item.descricao ?? item.conta) }))
+    .map((item, indice) => ({
+      id: Number(item.id ?? indice + 1),
+      nome: normalizarTexto(item.nome ?? item.descricao ?? item.conta),
+      banco: normalizarTexto(item.banco ?? item.nomeBanco) || undefined,
+    }))
     .filter((item) => item.id > 0 && Boolean(item.nome));
 }
 
@@ -679,7 +687,12 @@ export async function listarCartoesDetalheApi(opcoes?: OpcoesRequisicao): Promis
 export async function listarCartoesApi(opcoes?: OpcoesRequisicao): Promise<CartaoOpcaoApi[]> {
   const lista = await obterListaComFallback<Record<string, unknown>>(['/financeiro/cartoes'], opcoes);
   return lista
-    .map((item, indice) => ({ id: Number(item.id ?? indice + 1), nome: normalizarTexto(item.nome ?? item.descricao ?? item.cartao), tipo: normalizarTexto(item.tipo) || undefined }))
+    .map((item, indice) => ({
+      id: Number(item.id ?? indice + 1),
+      nome: normalizarTexto(item.nome ?? item.descricao ?? item.cartao),
+      bandeira: normalizarTexto(item.bandeira ?? item.nomeBandeira) || undefined,
+      tipo: normalizarTexto(item.tipo) || undefined,
+    }))
     .filter((item) => item.id > 0 && Boolean(item.nome));
 }
 
