@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoArquivo } from '../../../src/componentes/comuns/CampoArquivo';
@@ -17,6 +17,7 @@ import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from 
 import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterIntervaloCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
 import { rateioConfereValorTotalExato, rateioNaoUltrapassaValorTotal } from '../../../src/utils/rateioValidacao';
+import { obterIconeBanco, obterIconeBandeiraCartao, obterImagemBanco, obterImagemBandeiraCartao } from '../../../src/utils/icones';
 import {
   RECORRENCIAS_FINANCEIRAS_BASE,
   LIMITE_RECORRENCIA_NORMAL,
@@ -108,6 +109,8 @@ interface DespesaRegistro {
   tiposRateio?: string[];
   contaBancaria?: string;
   contaBancariaId?: number;
+  contaDestino?: string;
+  contaDestinoId?: number;
   cartao?: string;
   cartaoId?: number;
   anexoDocumento: string;
@@ -142,13 +145,14 @@ interface DespesaForm {
   areasRateio: string[];
   rateioAreasValores: Record<string, string>;
   contaBancaria: string;
+  contaDestino: string;
   cartao: string;
   anexoDocumento: string;
   documentos: DocumentoFinanceiro[];
   ocultarEfetivacaoEstornoRegistros: boolean;
 }
 
-const tiposDespesa = ['alimentacao', 'transporte', 'moradia', 'lazer', 'saude', 'educacao', 'servicos'] as const;
+const tiposDespesa = ['alimentacao', 'transporte', 'moradia', 'lazer', 'saude', 'educacao', 'servicos', 'outros'] as const;
 const tiposPagamento = ['pix', 'cartaoCredito', 'cartaoDebito', 'boleto', 'transferencia', 'dinheiro'] as const;
 type TipoRateioAmigos = 'comum' | 'igualitario';
 const TIPO_RATEIO_AMIGOS_API: Record<TipoRateioAmigos, 1 | 2> = {
@@ -206,6 +210,7 @@ function criarFormularioVazio(locale: string): DespesaForm {
     areasRateio: [],
     rateioAreasValores: {},
     contaBancaria: '',
+    contaDestino: '',
     cartao: '',
     anexoDocumento: '',
     documentos: [],
@@ -255,8 +260,19 @@ function normalizarStatusDespesa(status: unknown): StatusDespesa {
 
 function normalizarTipoDespesa(valor: unknown): (typeof tiposDespesa)[number] {
   const texto = String(valor ?? '').trim().toLowerCase();
+  const mapaTipoDespesaApi: Record<string, (typeof tiposDespesa)[number]> = {
+    '1': 'alimentacao',
+    '2': 'transporte',
+    '3': 'moradia',
+    '4': 'lazer',
+    '5': 'saude',
+    '6': 'educacao',
+    '7': 'servicos',
+    '8': 'outros',
+  };
+  if (mapaTipoDespesaApi[texto]) return mapaTipoDespesaApi[texto];
   const tipoEncontrado = tiposDespesa.find((tipo) => tipo.toLowerCase() === texto);
-  return tipoEncontrado ?? 'servicos';
+  return tipoEncontrado ?? 'outros';
 }
 
 function normalizarTipoPagamento(valor: unknown): (typeof tiposPagamento)[number] {
@@ -385,11 +401,16 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
 
   const documentos = normalizarDocumentosApi(item.documentos);
   const contaBancariaIdNormalizada = Number(item.contaBancariaId ?? NaN);
+  const contaDestinoIdNormalizada = Number(item.contaDestinoId ?? NaN);
   const cartaoIdNormalizado = Number(item.cartaoId ?? NaN);
   const contaBancariaBruta = String(item.contaBancaria ?? '').trim();
+  const contaDestinoBruta = String(item.contaDestino ?? '').trim();
   const cartaoBruto = String(item.cartao ?? '').trim();
   const contaBancariaNome = contaBancariaBruta && contaBancariaBruta !== String(contaBancariaIdNormalizada)
     ? contaBancariaBruta
+    : undefined;
+  const contaDestinoNome = contaDestinoBruta && contaDestinoBruta !== String(contaDestinoIdNormalizada)
+    ? contaDestinoBruta
     : undefined;
   const cartaoNome = cartaoBruto && cartaoBruto !== String(cartaoIdNormalizado)
     ? cartaoBruto
@@ -434,6 +455,10 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
     contaBancaria: contaBancariaNome,
     contaBancariaId: Number.isFinite(contaBancariaIdNormalizada) && contaBancariaIdNormalizada > 0
       ? contaBancariaIdNormalizada
+      : undefined,
+    contaDestino: contaDestinoNome,
+    contaDestinoId: Number.isFinite(contaDestinoIdNormalizada) && contaDestinoIdNormalizada > 0
+      ? contaDestinoIdNormalizada
       : undefined,
     cartao: cartaoNome,
     cartaoId: Number.isFinite(cartaoIdNormalizado) && cartaoIdNormalizado > 0
@@ -512,8 +537,16 @@ export default function TelaDespesa() {
     () => new Map(opcoesContasBancariasApi.map((item) => [item.id, item.nome])),
     [opcoesContasBancariasApi],
   );
+  const mapaReferenciaContaPorNome = useMemo(
+    () => new Map(opcoesContasBancariasApi.map((item) => [item.nome, item.banco ?? item.nome])),
+    [opcoesContasBancariasApi],
+  );
   const mapaCartoesPorId = useMemo(
     () => new Map(opcoesCartoesApi.map((item) => [item.id, item.nome])),
+    [opcoesCartoesApi],
+  );
+  const mapaReferenciaCartaoPorNome = useMemo(
+    () => new Map(opcoesCartoesApi.map((item) => [item.nome, item.bandeira ?? item.nome])),
     [opcoesCartoesApi],
   );
   const opcoesContaBancaria = useMemo(
@@ -522,10 +555,11 @@ export default function TelaDespesa() {
         new Set([
           ...opcoesContasBancariasApi.map((item) => item.nome),
           ...despesas.map((despesa) => {
-            const nomeConta = despesa.contaBancaria?.trim();
+            const nomeConta = despesa.contaBancaria?.trim() || despesa.contaDestino?.trim();
             if (nomeConta) return nomeConta;
-            if (!despesa.contaBancariaId) return '';
-            return mapaContasBancariasPorId.get(despesa.contaBancariaId) ?? '';
+            const contaId = despesa.contaBancariaId ?? despesa.contaDestinoId;
+            if (!contaId) return '';
+            return mapaContasBancariasPorId.get(contaId) ?? '';
           }),
         ].filter((conta) => Boolean(conta.trim()))),
       ).sort(),
@@ -546,7 +580,28 @@ export default function TelaDespesa() {
       ).sort(),
     [opcoesCartoesApi, despesas, mapaCartoesPorId],
   );
+  const opcoesContaBancariaSelect = useMemo(
+    () =>
+      opcoesContaBancaria.map((conta) => {
+        const referencia = mapaReferenciaContaPorNome.get(conta) ?? conta;
+        return { value: conta, label: conta, icone: obterIconeBanco(referencia), imagem: obterImagemBanco(referencia) };
+      }),
+    [opcoesContaBancaria, mapaReferenciaContaPorNome],
+  );
+  const opcoesContaDestinoSelect = useMemo(
+    () => opcoesContaBancariaSelect.filter((opcao) => opcao.value !== formulario.contaBancaria),
+    [opcoesContaBancariaSelect, formulario.contaBancaria],
+  );
+  const opcoesCartaoSelect = useMemo(
+    () =>
+      opcoesCartao.map((cartao) => {
+        const referencia = mapaReferenciaCartaoPorNome.get(cartao) ?? cartao;
+        return { value: cartao, label: cartao, icone: obterIconeBandeiraCartao(referencia), imagem: obterImagemBandeiraCartao(referencia) };
+      }),
+    [opcoesCartao, mapaReferenciaCartaoPorNome],
+  );
   const pagamentoComParcelas = ehPagamentoParcelado(formulario.tipoPagamento);
+  const tipoPagamentoPermiteContaDestino = formulario.tipoPagamento === 'transferencia' || formulario.tipoPagamento === 'pix';
   const tipoPagamentoExigeContaBancaria = formulario.tipoPagamento === 'pix' || formulario.tipoPagamento === 'transferencia';
   const tipoPagamentoExigeCartao = formulario.tipoPagamento === 'cartaoCredito' || formulario.tipoPagamento === 'cartaoDebito';
   const contaBancariaIdSelecionada = useMemo(() => {
@@ -565,11 +620,41 @@ export default function TelaDespesa() {
     const cartao = opcoesCartoesApi.find((item) => item.nome === valorSelecionado);
     return cartao?.id;
   }, [formulario.cartao, opcoesCartoesApi]);
+  const contaDestinoIdSelecionada = useMemo(() => {
+    const valorSelecionado = formulario.contaDestino.trim();
+    if (!valorSelecionado) return undefined;
+    const idDireto = Number(valorSelecionado);
+    if (Number.isFinite(idDireto) && idDireto > 0) return idDireto;
+    const conta = opcoesContasBancariasApi.find((item) => item.nome === valorSelecionado);
+    return conta?.id;
+  }, [formulario.contaDestino, opcoesContasBancariasApi]);
+  const referenciaContaBancariaSelecionada = useMemo(() => {
+    if (contaBancariaIdSelecionada) {
+      const conta = opcoesContasBancariasApi.find((item) => item.id === contaBancariaIdSelecionada);
+      if (conta) return conta.banco ?? conta.nome;
+    }
+    return mapaReferenciaContaPorNome.get(formulario.contaBancaria) ?? formulario.contaBancaria;
+  }, [contaBancariaIdSelecionada, formulario.contaBancaria, opcoesContasBancariasApi, mapaReferenciaContaPorNome]);
+  const referenciaContaDestinoSelecionada = useMemo(() => {
+    if (contaDestinoIdSelecionada) {
+      const conta = opcoesContasBancariasApi.find((item) => item.id === contaDestinoIdSelecionada);
+      if (conta) return conta.banco ?? conta.nome;
+    }
+    return mapaReferenciaContaPorNome.get(formulario.contaDestino) ?? formulario.contaDestino;
+  }, [contaDestinoIdSelecionada, formulario.contaDestino, opcoesContasBancariasApi, mapaReferenciaContaPorNome]);
+  const referenciaCartaoSelecionado = useMemo(() => {
+    if (cartaoIdSelecionado) {
+      const cartao = opcoesCartoesApi.find((item) => item.id === cartaoIdSelecionado);
+      if (cartao) return cartao.bandeira ?? cartao.nome;
+    }
+    return mapaReferenciaCartaoPorNome.get(formulario.cartao) ?? formulario.cartao;
+  }, [cartaoIdSelecionado, formulario.cartao, opcoesCartoesApi, mapaReferenciaCartaoPorNome]);
   const tipoPagamentoComContaOuCartaoOpcional = Boolean(formulario.tipoPagamento) && !tipoPagamentoExigeContaBancaria && !tipoPagamentoExigeCartao;
   const ocultarContaBancariaPagamentoOpcional = tipoPagamentoComContaOuCartaoOpcional && Boolean(formulario.cartao);
   const ocultarCartaoPagamentoOpcional = tipoPagamentoComContaOuCartaoOpcional && Boolean(formulario.contaBancaria);
   const exibeContaBancariaPagamento = (tipoPagamentoExigeContaBancaria || tipoPagamentoComContaOuCartaoOpcional) && !ocultarContaBancariaPagamentoOpcional;
   const exibeCartaoPagamento = (tipoPagamentoExigeCartao || tipoPagamentoComContaOuCartaoOpcional) && !ocultarCartaoPagamentoOpcional;
+  const exibeContaDestinoPagamento = tipoPagamentoPermiteContaDestino;
   const quantidadeRecorrenciaObrigatoria = pagamentoComParcelas || (!formulario.recorrenciaFixa && recorrenciaExigeQuantidade(formulario.recorrenciaBase));
   const exibirQuantidadeRecorrencia = pagamentoComParcelas || (!formulario.recorrenciaFixa && recorrenciaAceitaQuantidade(formulario.recorrenciaBase));
   const rotuloQuantidadeRecorrencia = pagamentoComParcelas
@@ -731,6 +816,9 @@ export default function TelaDespesa() {
       contaBancaria: despesa.contaBancaria?.trim()
         ? despesa.contaBancaria
         : (despesa.contaBancariaId ? (mapaContasBancariasPorId.get(despesa.contaBancariaId) ?? '') : ''),
+      contaDestino: despesa.contaDestino?.trim()
+        ? despesa.contaDestino
+        : (despesa.contaDestinoId ? (mapaContasBancariasPorId.get(despesa.contaDestinoId) ?? '') : ''),
       cartao: despesa.cartao?.trim()
         ? despesa.cartao
         : (despesa.cartaoId ? (mapaCartoesPorId.get(despesa.cartaoId) ?? '') : ''),
@@ -1103,6 +1191,7 @@ export default function TelaDespesa() {
       tipoDespesa: formulario.tipoDespesa,
       tipoPagamento: formulario.tipoPagamento,
       contaBancariaId: contaBancariaIdSelecionada ?? null,
+      ...(tipoPagamentoPermiteContaDestino ? { contaDestinoId: contaDestinoIdSelecionada ?? null } : {}),
       cartaoId: cartaoIdSelecionado ?? null,
       recorrencia: obterValorRecorrencia(pagamentoComParcelas ? 'mensal' : formulario.recorrenciaBase),
       recorrenciaFixa: pagamentoComParcelas || formulario.recorrenciaBase === 'unica' ? false : formulario.recorrenciaFixa,
@@ -1231,6 +1320,7 @@ export default function TelaDespesa() {
         imposto: base.imposto,
         juros: base.juros,
         contaBancariaId: contaBancariaIdSelecionada ?? null,
+        ...(tipoPagamentoPermiteContaDestino ? { contaDestinoId: contaDestinoIdSelecionada ?? null } : {}),
         cartaoId: cartaoIdSelecionado ?? null,
         documentos: montarDocumentosPayload(formulario.documentos),
       });
@@ -1339,6 +1429,26 @@ export default function TelaDespesa() {
       </View>
     </View>
   );
+
+  const renderCampoBloqueadoContaCartao = (label: string, valor: string, tipo: 'conta' | 'cartao', referencia?: string) => {
+    const nome = (valor || '').trim();
+    const valorReferencia = (referencia || nome || '').trim();
+    const imagem = tipo === 'conta' ? obterImagemBanco(valorReferencia) : obterImagemBandeiraCartao(valorReferencia);
+    const icone = tipo === 'conta' ? obterIconeBanco(valorReferencia) : obterIconeBandeiraCartao(valorReferencia);
+    return (
+      <View style={{ marginBottom: 12 }}>
+        <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
+        <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
+          {nome ? (
+            imagem
+              ? <Image source={imagem} style={{ width: 16, height: 16, borderRadius: 3, marginRight: 6 }} resizeMode="contain" />
+              : <Text style={{ color: COLORS.textSecondary, marginRight: 6, fontSize: 13 }}>{icone}</Text>
+          ) : null}
+          <Text style={{ color: COLORS.textPrimary, fontSize: 14, flex: 1 }}>{nome || '-'}</Text>
+        </View>
+      </View>
+    );
+  };
 
   const renderTabelaRateioAmigos = (somenteLeitura: boolean) => {
     const linhas = formulario.amigosRateio.map((amigo) => ({
@@ -1483,9 +1593,10 @@ export default function TelaDespesa() {
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.dataLancamento'), formulario.dataLancamento ? formatarDataPorIdioma(formulario.dataLancamento) : '') : <CampoData label={t('financeiro.despesa.campos.dataLancamento')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataLancamento} onChange={(dataLancamento) => { setCamposInvalidos((atual) => ({ ...atual, dataLancamento: false })); setFormulario((atual) => ({ ...atual, dataLancamento })); }} error={camposInvalidos.dataLancamento} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.dataVencimento'), formulario.dataVencimento ? formatarDataPorIdioma(formulario.dataVencimento) : '') : <CampoData label={t('financeiro.despesa.campos.dataVencimento')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataVencimento} onChange={(dataVencimento) => { setCamposInvalidos((atual) => ({ ...atual, dataVencimento: false })); setFormulario((atual) => ({ ...atual, dataVencimento })); }} error={camposInvalidos.dataVencimento} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoDespesa'), formulario.tipoDespesa ? t(`financeiro.despesa.tipoDespesa.${formulario.tipoDespesa}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoDespesa')} placeholder={t('comum.acoes.selecionar')} options={tiposDespesa.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoDespesa.${tipo}`) }))} value={formulario.tipoDespesa} onChange={(tipoDespesa) => { setCamposInvalidos((atual) => ({ ...atual, tipoDespesa: false })); setFormulario((atual) => ({ ...atual, tipoDespesa })); }} error={camposInvalidos.tipoDespesa} />}
-      {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoPagamento'), formulario.tipoPagamento ? t(`financeiro.despesa.tipoPagamento.${formulario.tipoPagamento}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoPagamento')} placeholder={t('comum.acoes.selecionar')} options={tiposPagamento.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoPagamento.${tipo}`) }))} value={formulario.tipoPagamento} onChange={(tipoPagamento) => { setCamposInvalidos((atual) => ({ ...atual, tipoPagamento: false, quantidadeRecorrencia: false, contaBancaria: false, cartao: false })); setFormulario((atual) => { const exigeContaBancaria = tipoPagamento === 'pix' || tipoPagamento === 'transferencia'; const exigeCartao = tipoPagamento === 'cartaoCredito' || tipoPagamento === 'cartaoDebito'; const contaOuCartaoOpcional = !exigeContaBancaria && !exigeCartao; return { ...atual, tipoPagamento, recorrenciaBase: ehPagamentoParcelado(tipoPagamento) ? 'mensal' : atual.recorrenciaBase, contaBancaria: exigeContaBancaria || contaOuCartaoOpcional ? atual.contaBancaria : '', cartao: exigeCartao || contaOuCartaoOpcional ? atual.cartao : '' }; }); }} error={camposInvalidos.tipoPagamento} />}
-      {exibeContaBancariaPagamento ? (somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.contaBancaria'), formulario.contaBancaria) : <CampoSelect label={t('financeiro.despesa.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancaria.map((conta) => ({ value: conta, label: conta }))} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false, cartao: false })); setFormulario((atual) => ({ ...atual, contaBancaria, cartao: contaBancaria ? '' : atual.cartao })); }} error={camposInvalidos.contaBancaria} obrigatorio={tipoPagamentoExigeContaBancaria} />) : null}
-      {exibeCartaoPagamento ? (somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.cartao'), formulario.cartao) : <CampoSelect label={t('financeiro.despesa.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartao.map((cartao) => ({ value: cartao, label: cartao }))} value={formulario.cartao} onChange={(cartao) => { setCamposInvalidos((atual) => ({ ...atual, cartao: false, contaBancaria: false })); setFormulario((atual) => ({ ...atual, cartao, contaBancaria: cartao ? '' : atual.contaBancaria })); }} error={camposInvalidos.cartao} obrigatorio={tipoPagamentoExigeCartao} />) : null}
+      {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoPagamento'), formulario.tipoPagamento ? t(`financeiro.despesa.tipoPagamento.${formulario.tipoPagamento}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoPagamento')} placeholder={t('comum.acoes.selecionar')} options={tiposPagamento.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoPagamento.${tipo}`) }))} value={formulario.tipoPagamento} onChange={(tipoPagamento) => { setCamposInvalidos((atual) => ({ ...atual, tipoPagamento: false, quantidadeRecorrencia: false, contaBancaria: false, contaDestino: false, cartao: false })); setFormulario((atual) => { const exigeContaBancaria = tipoPagamento === 'pix' || tipoPagamento === 'transferencia'; const exigeCartao = tipoPagamento === 'cartaoCredito' || tipoPagamento === 'cartaoDebito'; const contaOuCartaoOpcional = !exigeContaBancaria && !exigeCartao; return { ...atual, tipoPagamento, recorrenciaBase: ehPagamentoParcelado(tipoPagamento) ? 'mensal' : atual.recorrenciaBase, contaBancaria: exigeContaBancaria || contaOuCartaoOpcional ? atual.contaBancaria : '', contaDestino: tipoPagamento === 'transferencia' || tipoPagamento === 'pix' ? atual.contaDestino : '', cartao: exigeCartao || contaOuCartaoOpcional ? atual.cartao : '' }; }); }} error={camposInvalidos.tipoPagamento} />}
+      {exibeContaBancariaPagamento ? (somenteLeitura ? renderCampoBloqueadoContaCartao(t('financeiro.despesa.campos.contaBancaria'), formulario.contaBancaria, 'conta', referenciaContaBancariaSelecionada) : <CampoSelect label={t('financeiro.despesa.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancariaSelect} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false, cartao: false })); setFormulario((atual) => ({ ...atual, contaBancaria, contaDestino: atual.contaDestino === contaBancaria ? '' : atual.contaDestino, cartao: contaBancaria ? '' : atual.cartao })); }} error={camposInvalidos.contaBancaria} obrigatorio={tipoPagamentoExigeContaBancaria} />) : null}
+      {exibeContaDestinoPagamento ? (somenteLeitura ? renderCampoBloqueadoContaCartao(t('financeiro.despesa.campos.contaDestino'), formulario.contaDestino, 'conta', referenciaContaDestinoSelecionada) : <CampoSelect label={t('financeiro.despesa.campos.contaDestino')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaDestinoSelect} value={formulario.contaDestino} onChange={(contaDestino) => { setCamposInvalidos((atual) => ({ ...atual, contaDestino: false })); setFormulario((atual) => ({ ...atual, contaDestino })); }} error={camposInvalidos.contaDestino} obrigatorio={false} />) : null}
+      {exibeCartaoPagamento ? (somenteLeitura ? renderCampoBloqueadoContaCartao(t('financeiro.despesa.campos.cartao'), formulario.cartao, 'cartao', referenciaCartaoSelecionado) : <CampoSelect label={t('financeiro.despesa.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartaoSelect} value={formulario.cartao} onChange={(cartao) => { setCamposInvalidos((atual) => ({ ...atual, cartao: false, contaBancaria: false })); setFormulario((atual) => ({ ...atual, cartao, contaBancaria: cartao ? '' : atual.contaBancaria })); }} error={camposInvalidos.cartao} obrigatorio={tipoPagamentoExigeCartao} />) : null}
       {pagamentoComParcelas ? null : (somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.recorrencia'), obterRotuloRecorrencia(formulario.recorrenciaBase, locale)) : <CampoSelect label={t('financeiro.despesa.campos.recorrencia')} placeholder={t('comum.acoes.selecionar')} options={RECORRENCIAS_FINANCEIRAS_BASE.map((item) => ({ value: item.chave, label: obterRotuloRecorrencia(item.chave, locale) }))} value={formulario.recorrenciaBase} onChange={(recorrenciaBase) => setFormulario((atual) => ({ ...atual, recorrenciaBase: recorrenciaBase as RecorrenciaFinanceiraBaseChave, recorrenciaFixa: recorrenciaBase === 'unica' ? false : atual.recorrenciaFixa, quantidadeRecorrencia: recorrenciaBase === 'unica' ? '' : atual.quantidadeRecorrencia }))} />)}
       {pagamentoComParcelas ? null : (somenteLeitura ? renderCampoBloqueado(t('financeiro.comum.campos.modoRecorrencia'), formulario.recorrenciaFixa ? t('financeiro.comum.opcoesRecorrencia.fixa') : t('financeiro.comum.opcoesRecorrencia.normal')) : <CampoSelect label={t('financeiro.comum.campos.modoRecorrencia')} placeholder={t('comum.acoes.selecionar')} options={formulario.recorrenciaBase === 'unica' ? [{ value: 'normal', label: t('financeiro.comum.opcoesRecorrencia.normal') }] : [{ value: 'normal', label: t('financeiro.comum.opcoesRecorrencia.normal') }, { value: 'fixa', label: t('financeiro.comum.opcoesRecorrencia.fixa') }]} value={formulario.recorrenciaFixa ? 'fixa' : 'normal'} onChange={(modo) => setFormulario((atual) => { const recorrenciaFixa = atual.recorrenciaBase !== 'unica' && modo === 'fixa'; return { ...atual, recorrenciaFixa, quantidadeRecorrencia: recorrenciaFixa ? '' : atual.quantidadeRecorrencia }; })} />)}
       {somenteLeitura ? (exibirQuantidadeRecorrencia ? renderCampoBloqueado(rotuloQuantidadeRecorrencia, formulario.quantidadeRecorrencia || '-') : null) : (exibirQuantidadeRecorrencia ? <CampoTexto label={rotuloQuantidadeRecorrencia} placeholder='1' value={formulario.quantidadeRecorrencia} onChangeText={(quantidadeRecorrencia) => { setCamposInvalidos((atual) => ({ ...atual, quantidadeRecorrencia: false })); setFormulario((atual) => ({ ...atual, quantidadeRecorrencia: quantidadeRecorrencia.replace(/[^\d]/g, '') })); }} error={camposInvalidos.quantidadeRecorrencia} obrigatorio={quantidadeRecorrenciaObrigatoria} keyboardType='numeric' estilo={{ marginBottom: 12 }} /> : null)}
@@ -1599,9 +1710,10 @@ export default function TelaDespesa() {
             {renderCampoBloqueado(t('financeiro.despesa.campos.valorLiquido'), formulario.valorLiquido)}
             {renderCampoBloqueado(t('financeiro.despesa.campos.valorEfetivacao'), formulario.valorEfetivacao)}
             <CampoData label={t('financeiro.despesa.campos.dataEfetivacao')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataEfetivacao} onChange={(dataEfetivacao) => { setCamposInvalidos((atual) => ({ ...atual, dataEfetivacao: false })); setFormulario((atual) => ({ ...atual, dataEfetivacao })); }} error={camposInvalidos.dataEfetivacao} estilo={{ marginBottom: 12 }} />
-            <CampoSelect label={t('financeiro.despesa.campos.tipoPagamento')} placeholder={t('comum.acoes.selecionar')} options={tiposPagamento.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoPagamento.${tipo}`) }))} value={formulario.tipoPagamento} onChange={(tipoPagamento) => { setCamposInvalidos((atual) => ({ ...atual, tipoPagamento: false, contaBancaria: false, cartao: false })); setFormulario((atual) => { const exigeContaBancaria = tipoPagamento === 'pix' || tipoPagamento === 'transferencia'; const exigeCartao = tipoPagamento === 'cartaoCredito' || tipoPagamento === 'cartaoDebito'; const contaOuCartaoOpcional = !exigeContaBancaria && !exigeCartao; return { ...atual, tipoPagamento, contaBancaria: exigeContaBancaria || contaOuCartaoOpcional ? atual.contaBancaria : '', cartao: exigeCartao || contaOuCartaoOpcional ? atual.cartao : '' }; }); }} error={camposInvalidos.tipoPagamento} />
-            {exibeContaBancariaPagamento ? <CampoSelect label={t('financeiro.despesa.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancaria.map((conta) => ({ value: conta, label: conta }))} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false, cartao: false })); setFormulario((atual) => ({ ...atual, contaBancaria, cartao: contaBancaria ? '' : atual.cartao })); }} error={camposInvalidos.contaBancaria} obrigatorio={tipoPagamentoExigeContaBancaria} /> : null}
-            {exibeCartaoPagamento ? <CampoSelect label={t('financeiro.despesa.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartao.map((cartao) => ({ value: cartao, label: cartao }))} value={formulario.cartao} onChange={(cartao) => { setCamposInvalidos((atual) => ({ ...atual, cartao: false, contaBancaria: false })); setFormulario((atual) => ({ ...atual, cartao, contaBancaria: cartao ? '' : atual.contaBancaria })); }} error={camposInvalidos.cartao} obrigatorio={tipoPagamentoExigeCartao} /> : null}
+            <CampoSelect label={t('financeiro.despesa.campos.tipoPagamento')} placeholder={t('comum.acoes.selecionar')} options={tiposPagamento.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoPagamento.${tipo}`) }))} value={formulario.tipoPagamento} onChange={(tipoPagamento) => { setCamposInvalidos((atual) => ({ ...atual, tipoPagamento: false, contaBancaria: false, contaDestino: false, cartao: false })); setFormulario((atual) => { const exigeContaBancaria = tipoPagamento === 'pix' || tipoPagamento === 'transferencia'; const exigeCartao = tipoPagamento === 'cartaoCredito' || tipoPagamento === 'cartaoDebito'; const contaOuCartaoOpcional = !exigeContaBancaria && !exigeCartao; return { ...atual, tipoPagamento, contaBancaria: exigeContaBancaria || contaOuCartaoOpcional ? atual.contaBancaria : '', contaDestino: tipoPagamento === 'transferencia' || tipoPagamento === 'pix' ? atual.contaDestino : '', cartao: exigeCartao || contaOuCartaoOpcional ? atual.cartao : '' }; }); }} error={camposInvalidos.tipoPagamento} />
+            {exibeContaBancariaPagamento ? <CampoSelect label={t('financeiro.despesa.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancariaSelect} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false, cartao: false })); setFormulario((atual) => ({ ...atual, contaBancaria, contaDestino: atual.contaDestino === contaBancaria ? '' : atual.contaDestino, cartao: contaBancaria ? '' : atual.cartao })); }} error={camposInvalidos.contaBancaria} obrigatorio={tipoPagamentoExigeContaBancaria} /> : null}
+            {exibeContaDestinoPagamento ? <CampoSelect label={t('financeiro.despesa.campos.contaDestino')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaDestinoSelect} value={formulario.contaDestino} onChange={(contaDestino) => { setCamposInvalidos((atual) => ({ ...atual, contaDestino: false })); setFormulario((atual) => ({ ...atual, contaDestino })); }} error={camposInvalidos.contaDestino} obrigatorio={false} /> : null}
+            {exibeCartaoPagamento ? <CampoSelect label={t('financeiro.despesa.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartaoSelect} value={formulario.cartao} onChange={(cartao) => { setCamposInvalidos((atual) => ({ ...atual, cartao: false, contaBancaria: false })); setFormulario((atual) => ({ ...atual, cartao, contaBancaria: cartao ? '' : atual.contaBancaria })); }} error={camposInvalidos.cartao} obrigatorio={tipoPagamentoExigeCartao} /> : null}
             <CampoTexto label={t('financeiro.despesa.campos.valorTotal')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.valorTotal} onChangeText={(valor) => atualizarCampoMoeda('valorTotal', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
             <CampoTexto label={t('financeiro.despesa.campos.desconto')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.desconto} onChangeText={(valor) => atualizarCampoMoeda('desconto', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
             <CampoTexto label={t('financeiro.despesa.campos.acrescimo')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.acrescimo} onChangeText={(valor) => atualizarCampoMoeda('acrescimo', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CampoData } from '../../../src/componentes/comuns/CampoData';
 import { CampoArquivo } from '../../../src/componentes/comuns/CampoArquivo';
@@ -12,6 +12,7 @@ import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
 import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterIntervaloCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
+import { obterIconeBanco, obterIconeBandeiraCartao, obterImagemBanco, obterImagemBandeiraCartao } from '../../../src/utils/icones';
 import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { erroApiJaNotificado, extrairMensagemErroApi } from '../../../src/utils/erroApi';
@@ -182,8 +183,22 @@ export default function TelaReembolso() {
   const competenciaConsulta = useMemo(() => `${String(competencia.ano)}-${String(competencia.mes).padStart(2, '0')}`, [competencia.ano, competencia.mes]);
   const exibeContaBancaria = reembolsoAtual.tipoRecebimento === 'pix' || reembolsoAtual.tipoRecebimento === 'transferencia' || reembolsoAtual.tipoRecebimento === 'contaCorrente';
   const exibeCartao = reembolsoAtual.tipoRecebimento === 'cartaoCredito' || reembolsoAtual.tipoRecebimento === 'cartaoDebito';
-  const opcoesContaBancaria = useMemo(() => opcoesContasBancariasApi.map((item) => ({ value: String(item.id), label: item.nome })), [opcoesContasBancariasApi]);
-  const opcoesCartao = useMemo(() => opcoesCartoesApi.map((item) => ({ value: String(item.id), label: item.nome })), [opcoesCartoesApi]);
+  const opcoesContaBancaria = useMemo(
+    () =>
+      opcoesContasBancariasApi.map((item) => {
+        const referencia = item.banco ?? item.nome;
+        return { value: String(item.id), label: item.nome, icone: obterIconeBanco(referencia), imagem: obterImagemBanco(referencia) };
+      }),
+    [opcoesContasBancariasApi],
+  );
+  const opcoesCartao = useMemo(
+    () =>
+      opcoesCartoesApi.map((item) => {
+        const referencia = item.bandeira ?? item.nome;
+        return { value: String(item.id), label: item.nome, icone: obterIconeBandeiraCartao(referencia), imagem: obterImagemBandeiraCartao(referencia) };
+      }),
+    [opcoesCartoesApi],
+  );
   const reembolsoSelecionado = reembolsos.find((item) => item.id === reembolsoSelecionadoId) ?? null;
 
   const carregarDados = async (signal?: AbortSignal) => {
@@ -517,6 +532,26 @@ export default function TelaReembolso() {
     </View>
   );
 
+  const renderCampoBloqueadoContaCartao = (label: string, valor: string, tipo: 'conta' | 'cartao', referencia?: string) => {
+    const nome = (valor || '').trim();
+    const valorReferencia = (referencia || nome || '').trim();
+    const imagem = tipo === 'conta' ? obterImagemBanco(valorReferencia) : obterImagemBandeiraCartao(valorReferencia);
+    const icone = tipo === 'conta' ? obterIconeBanco(valorReferencia) : obterIconeBandeiraCartao(valorReferencia);
+    return (
+      <View style={{ marginBottom: 12 }}>
+        <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
+        <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
+          {nome ? (
+            imagem
+              ? <Image source={imagem} style={{ width: 16, height: 16, borderRadius: 3, marginRight: 6 }} resizeMode="contain" />
+              : <Text style={{ color: COLORS.textSecondary, marginRight: 6, fontSize: 13 }}>{icone}</Text>
+          ) : null}
+          <Text style={{ color: COLORS.textPrimary, fontSize: 14, flex: 1 }}>{nome || '-'}</Text>
+        </View>
+      </View>
+    );
+  };
+
   const corStatus = (status: StatusReembolso) => {
     if (status === 'efetivada') return COLORS.success;
     if (status === 'cancelada') return COLORS.error;
@@ -596,12 +631,22 @@ export default function TelaReembolso() {
         : <CampoSelect label={t('financeiro.receita.campos.tipoRecebimento')} placeholder={t('comum.acoes.selecionar')} options={tiposRecebimento.map((tipo) => ({ value: tipo, label: t(`financeiro.receita.tipoRecebimento.${tipo}`) }))} value={reembolsoAtual.tipoRecebimento} onChange={(tipoRecebimento) => setReembolsoAtual((atual) => ({ ...atual, tipoRecebimento, contaBancariaId: tipoRecebimento === 'pix' || tipoRecebimento === 'transferencia' || tipoRecebimento === 'contaCorrente' ? atual.contaBancariaId : undefined, cartaoId: tipoRecebimento === 'cartaoCredito' || tipoRecebimento === 'cartaoDebito' ? atual.cartaoId : undefined }))} />}
       {exibeContaBancaria
         ? (somenteLeitura
-            ? renderCampoBloqueado(t('financeiro.receita.campos.contaBancaria'), opcoesContasBancariasApi.find((item) => item.id === reembolsoAtual.contaBancariaId)?.nome ?? '')
+            ? renderCampoBloqueadoContaCartao(
+                t('financeiro.receita.campos.contaBancaria'),
+                opcoesContasBancariasApi.find((item) => item.id === reembolsoAtual.contaBancariaId)?.nome ?? '',
+                'conta',
+                opcoesContasBancariasApi.find((item) => item.id === reembolsoAtual.contaBancariaId)?.banco ?? '',
+              )
             : <CampoSelect label={t('financeiro.receita.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancaria} value={reembolsoAtual.contaBancariaId ? String(reembolsoAtual.contaBancariaId) : ''} onChange={(contaBancariaId) => setReembolsoAtual((atual) => ({ ...atual, contaBancariaId: Number(contaBancariaId) || undefined }))} obrigatorio={exibeContaBancaria} />)
         : null}
       {exibeCartao
         ? (somenteLeitura
-            ? renderCampoBloqueado(t('financeiro.receita.campos.cartao'), opcoesCartoesApi.find((item) => item.id === reembolsoAtual.cartaoId)?.nome ?? '')
+            ? renderCampoBloqueadoContaCartao(
+                t('financeiro.receita.campos.cartao'),
+                opcoesCartoesApi.find((item) => item.id === reembolsoAtual.cartaoId)?.nome ?? '',
+                'cartao',
+                opcoesCartoesApi.find((item) => item.id === reembolsoAtual.cartaoId)?.bandeira ?? '',
+              )
             : <CampoSelect label={t('financeiro.receita.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartao} value={reembolsoAtual.cartaoId ? String(reembolsoAtual.cartaoId) : ''} onChange={(cartaoId) => setReembolsoAtual((atual) => ({ ...atual, cartaoId: Number(cartaoId) || undefined }))} obrigatorio={exibeCartao} />)
         : null}
       {renderSecaoRateio(somenteLeitura)}

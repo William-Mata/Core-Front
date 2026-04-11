@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, Text, TextInput, TouchableOpacity, View, type ImageSourcePropType } from 'react-native';
 import { usarTraducao } from '../../../hooks/usarTraducao';
 import { COLORS } from '../../../styles/variables';
 import { Modal } from '../Modal';
@@ -8,6 +8,8 @@ import { Botao } from '../Botao';
 export interface CampoSelectOpcao {
   value: string;
   label: string;
+  icone?: string;
+  imagem?: ImageSourcePropType;
 }
 
 interface CampoSelectProps {
@@ -42,22 +44,44 @@ export function CampoSelect(props: CampoSelectProps) {
     obrigatorio,
   } = props;
   const [aberto, setAberto] = useState(false);
+  const [filtroTexto, setFiltroTexto] = useState('');
   const { t } = usarTraducao();
   const obrigatorioFinal = obrigatorio ?? Object.prototype.hasOwnProperty.call(props, 'error');
   const labelFormatada = formatarLabelObrigatorio(label, obrigatorioFinal);
+  const opcoesUnicas = useMemo(() => {
+    const opcoesSemDuplicidade = new Map<string, CampoSelectOpcao>();
+
+    options.forEach((option) => {
+      const chave = `${option.value.trim().toLocaleLowerCase()}::${option.label.trim().toLocaleLowerCase()}`;
+      if (!opcoesSemDuplicidade.has(chave)) {
+        opcoesSemDuplicidade.set(chave, option);
+      }
+    });
+
+    return Array.from(opcoesSemDuplicidade.values());
+  }, [options]);
 
   const textoSelecionado = useMemo(() => {
     if (multiple) {
       if (values.length === 0) return placeholder;
-      return options
+      return opcoesUnicas
         .filter((option) => values.includes(option.value))
         .map((option) => option.label)
         .join(', ');
     }
 
-    const encontrado = options.find((option) => option.value === value);
+    const encontrado = opcoesUnicas.find((option) => option.value === value);
     return encontrado?.label || placeholder;
-  }, [multiple, options, placeholder, value, values]);
+  }, [multiple, opcoesUnicas, placeholder, value, values]);
+  const opcaoSelecionada = useMemo(
+    () => opcoesUnicas.find((option) => option.value === value),
+    [opcoesUnicas, value],
+  );
+  const opcoesFiltradas = useMemo(() => {
+    const termo = filtroTexto.trim().toLocaleLowerCase();
+    if (!termo) return opcoesUnicas;
+    return opcoesUnicas.filter((option) => option.label.toLocaleLowerCase().includes(termo));
+  }, [filtroTexto, opcoesUnicas]);
 
   const alternarValorMultiplo = (selectedValue: string) => {
     const proximo = values.includes(selectedValue)
@@ -71,7 +95,10 @@ export function CampoSelect(props: CampoSelectProps) {
       <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{labelFormatada}</Text>
 
       <TouchableOpacity
-        onPress={() => setAberto(true)}
+        onPress={() => {
+          setFiltroTexto('');
+          setAberto(true);
+        }}
         style={{
           backgroundColor: COLORS.bgTertiary,
           borderWidth: 1,
@@ -84,15 +111,36 @@ export function CampoSelect(props: CampoSelectProps) {
           justifyContent: 'space-between',
         }}
       >
-        <Text style={{ color: COLORS.textPrimary, fontSize: 14, flex: 1 }}>{textoSelecionado}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          {opcaoSelecionada?.imagem ? <Image source={opcaoSelecionada.imagem} style={{ width: 16, height: 16, borderRadius: 3, marginRight: 6 }} resizeMode="contain" /> : null}
+          {!opcaoSelecionada?.imagem && opcaoSelecionada?.icone ? <Text style={{ fontSize: 14, marginRight: 6 }}>{opcaoSelecionada.icone}</Text> : null}
+          <Text style={{ color: COLORS.textPrimary, fontSize: 14, flex: 1 }}>{textoSelecionado}</Text>
+        </View>
         <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginLeft: 8 }}>{'\u25BE'}</Text>
       </TouchableOpacity>
       {typeof error === 'string' && error ? <Text style={{ color: COLORS.error, fontSize: 12, marginTop: 4 }}>{error}</Text> : null}
 
       {aberto ? (
         <Modal visivel onFechar={() => setAberto(false)} titulo={labelFormatada}>
+          <TextInput
+            value={filtroTexto}
+            onChangeText={setFiltroTexto}
+            placeholder={t('comum.filtros.descricao')}
+            placeholderTextColor={COLORS.textSecondary}
+            style={{
+              backgroundColor: COLORS.bgTertiary,
+              borderWidth: 1,
+              borderColor: COLORS.borderColor,
+              borderRadius: 8,
+              color: COLORS.textPrimary,
+              fontSize: 14,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              marginBottom: 10,
+            }}
+          />
           <ScrollView style={{ maxHeight: 320 }}>
-            {options.map((option) => {
+            {opcoesFiltradas.map((option) => {
               const ativo = multiple ? values.includes(option.value) : value === option.value;
 
               return (
@@ -120,7 +168,11 @@ export function CampoSelect(props: CampoSelectProps) {
                     alignItems: 'center',
                   }}
                 >
-                  <Text style={{ color: ativo ? COLORS.accent : COLORS.textPrimary, fontSize: 14 }}>{option.label}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 8 }}>
+                    {option.imagem ? <Image source={option.imagem} style={{ width: 16, height: 16, borderRadius: 3, marginRight: 6 }} resizeMode="contain" /> : null}
+                    {!option.imagem && option.icone ? <Text style={{ fontSize: 14, marginRight: 6 }}>{option.icone}</Text> : null}
+                    <Text style={{ color: ativo ? COLORS.accent : COLORS.textPrimary, fontSize: 14, flexShrink: 1 }}>{option.label}</Text>
+                  </View>
                   {ativo ? <Text style={{ color: COLORS.accent, fontSize: 14 }}>{'\u2713'}</Text> : null}
                 </TouchableOpacity>
               );
