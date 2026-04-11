@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { CarregamentoGlobal } from '../src/componentes/comuns/CarregamentoGlobal';
 import { ToastViewport } from '../src/componentes/comuns/ToastViewport';
 import { usarCarregamentoStore } from '../src/store/usarCarregamentoStore';
+import { COLORS } from '../src/styles/variables';
 
 export default function RootLayout() {
   const pathname = usePathname();
@@ -26,6 +27,42 @@ export default function RootLayout() {
         console.log('Mocks nao estao disponiveis por enquanto');
       }
     }
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (typeof document === 'undefined') return;
+
+    const idEstilo = 'scroll-global-tema-core';
+    if (document.getElementById(idEstilo)) return;
+
+    const estilo = document.createElement('style');
+    estilo.id = idEstilo;
+    estilo.textContent = `
+      *::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      *::-webkit-scrollbar-track {
+        background: ${COLORS.bgSecondary};
+        border: 1px solid ${COLORS.borderColor};
+        border-radius: 999px;
+      }
+      *::-webkit-scrollbar-thumb {
+        background: ${COLORS.accent};
+        border: 2px solid ${COLORS.bgSecondary};
+        border-radius: 999px;
+      }
+      *::-webkit-scrollbar-thumb:hover {
+        background: ${COLORS.accentSoft};
+      }
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: ${COLORS.accent} ${COLORS.bgSecondary};
+      }
+    `;
+
+    document.head.appendChild(estilo);
   }, []);
 
   useEffect(() => {
