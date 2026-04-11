@@ -60,6 +60,8 @@ Comportamento:
 - campos obrigatorios: descricao, datas, tipo de receita, tipo de recebimento e valor total
 - data de efetivacao nao pode ser menor que a data de lancamento
 - `pix`, `transferencia` e `contaCorrente` exigem `contaBancariaId`
+- `contaDestinoId` e opcional
+- `contaDestinoId` so e exibido e so pode ser enviado quando `tipoRecebimento = transferencia` ou `tipoRecebimento = pix`
 - `cartaoCredito` e `cartaoDebito` exigem `cartaoId`
 - conta e cartao nao podem ser informados ao mesmo tempo
 - recorrencia normal exige quantidade (limite maximo de 100)
@@ -81,6 +83,7 @@ O front usa `POST /receitas/{id}/efetivar` com:
 - `tipoRecebimento`
 - valores monetarios
 - `contaBancariaId` / `cartaoId`
+- `contaDestinoId` (opcional, somente quando `tipoRecebimento = transferencia` ou `tipoRecebimento = pix`)
 - `documentos`
 
 Regras de fluxo:
@@ -97,6 +100,11 @@ Regras de fluxo:
 - apenas receita com status `efetivada`
 - `dataEstorno` nao pode ser menor que `dataLancamento`
 - quando existir `dataEfetivacao`, `dataEstorno` nao pode ser menor que `dataEfetivacao`
+- `contaDestinoId` nao participa do payload de estorno
+
+## Regra de transferencia (cadastro e edicao)
+- no cadastro e na edicao, `contaDestinoId` e opcional
+- no cadastro e na edicao, `contaDestinoId` so e incluido no payload quando `tipoRecebimento = transferencia` ou `tipoRecebimento = pix`
 
 ## Regras de rateio no front
 - rateio por amigos e por area/subarea deve fechar exatamente com os totais informados

@@ -21,6 +21,8 @@ A tela de despesa permite:
 - Data de vencimento
 - Tipo de despesa
 - Tipo de pagamento
+- Conta bancaria, quando aplicavel
+- Conta destino, quando o tipo for transferencia ou pix
 - Modo da recorrencia
 - Recorrencia
 - Quantidade de recorrencias
@@ -40,6 +42,8 @@ A tela de despesa permite:
 - o valor liquido e calculado automaticamente
 - o valor liquido fica bloqueado para digitacao
 - na efetivacao, a data de efetivacao nao pode ser menor que a data de lancamento
+- em transferencia, a tela mostra tambem o campo `Conta destino`
+- `Conta destino` e opcional e so aparece quando o tipo de pagamento e `Transferencia` ou `Pix`
 
 ## Regras da recorrencia
 ### Despesa comum
@@ -73,11 +77,12 @@ Voce deve escolher uma area valida e, depois, uma subarea da propria area.
 1. Clique em `Nova despesa`.
 2. Preencha os campos obrigatorios.
 3. Escolha o tipo de pagamento.
-4. Se nao for cartao, configure a recorrencia.
-5. Se for cartao, informe a quantidade de parcelas.
-6. Preencha os rateios, se necessario.
-7. Anexe documento, se houver.
-8. Clique em `Salvar`.
+4. Se o tipo for `Transferencia` ou `Pix`, voce pode informar `Conta destino` (opcional).
+5. Se nao for cartao, configure a recorrencia.
+6. Se for cartao, informe a quantidade de parcelas.
+7. Preencha os rateios, se necessario.
+8. Anexe documento, se houver.
+9. Clique em `Salvar`.
 
 ## Como editar
 - a opcao de editar so aparece para despesa com status `Pendente`
@@ -86,6 +91,7 @@ Voce deve escolher uma area valida e, depois, uma subarea da propria area.
 - a opcao de efetivar so aparece para despesa com status `Pendente`
 - o valor de efetivacao acompanha o valor liquido
 - a observacao da efetivacao e enviada no historico como `observacaoHistorico`
+- em `Transferencia` ou `Pix`, o campo `Conta destino` tambem fica disponivel e continua opcional
 
 ## Como cancelar
 - a opcao de cancelar so aparece para despesa com status `Pendente`
@@ -98,6 +104,7 @@ Voce deve escolher uma area valida e, depois, uma subarea da propria area.
 - se existir data de efetivacao, a data de estorno nao pode ser menor que ela
 - no estorno, a observacao e enviada no historico como `observacaoHistorico`
 - no estorno, o campo `Ocultar efetivacao/estorno dos registros` vem marcado por padrao
+- no estorno, `Conta destino` nao e enviada
 
 ## Fluxo de aprovacao
 - quando a despesa estiver em `Pendente de aprovacao`, a tela exibe as acoes `Aceitar` e `Rejeitar`
