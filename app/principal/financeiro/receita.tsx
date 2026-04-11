@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoArquivo } from '../../../src/componentes/comuns/CampoArquivo';
@@ -38,6 +38,8 @@ import {
   atualizarReceitaApi,
   cancelarReceitaApi,
   criarReceitaApi,
+  efetivarReceitaApi,
+  estornarReceitaApi,
   listarCartoesApi,
   listarContasBancariasApi,
   listarAmigosRateioApi,
@@ -53,7 +55,7 @@ import {
 } from '../../../src/servicos/financeiro';
 
 type StatusReceita = 'pendente' | 'efetivada' | 'cancelada' | 'pendenteAprovacao' | 'rejeitada';
-type ModoTela = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao';
+type ModoTela = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao' | 'estorno';
 type EscopoAcaoRecorrencia = 'apenasEsta' | 'estaEProximas' | 'todasPendentes';
 type EscopoRecorrenciaApi = 1 | 2 | 3;
 
@@ -114,9 +116,12 @@ interface ReceitaRegistro {
 interface ReceitaForm {
   descricao: string;
   observacao: string;
+  observacaoEfetivacao: string;
+  observacaoEstorno: string;
   dataLancamento: string;
   dataVencimento: string;
   dataEfetivacao: string;
+  dataEstorno: string;
   tipoReceita: string;
   tipoRecebimento: string;
   recorrenciaBase: RecorrenciaFinanceiraBaseChave;
@@ -138,6 +143,7 @@ interface ReceitaForm {
   cartao: string;
   anexoDocumento: string;
   documentos: DocumentoFinanceiro[];
+  ocultarEfetivacaoEstornoRegistros: boolean;
 }
 
 const tiposReceita = ['salario', 'freelance', 'reembolso', 'investimento', 'bonus', 'outros'] as const;
@@ -174,9 +180,12 @@ function criarFormularioVazio(locale: string): ReceitaForm {
   return {
     descricao: '',
     observacao: '',
+    observacaoEfetivacao: '',
+    observacaoEstorno: '',
     dataLancamento: hoje,
     dataVencimento: '',
     dataEfetivacao: hoje,
+    dataEstorno: hoje,
     tipoReceita: '',
     tipoRecebimento: '',
     recorrenciaBase: 'unica',
@@ -198,6 +207,7 @@ function criarFormularioVazio(locale: string): ReceitaForm {
     cartao: '',
     anexoDocumento: '',
     documentos: [],
+    ocultarEfetivacaoEstornoRegistros: true,
   };
 }
 
@@ -239,6 +249,12 @@ function normalizarStatusReceita(status: unknown): StatusReceita {
   if (valor.includes('efetiv')) return 'efetivada';
   if (valor.includes('cancel')) return 'cancelada';
   return 'pendente';
+}
+
+function normalizarTipoReceita(valor: unknown): (typeof tiposReceita)[number] {
+  const texto = String(valor ?? '').trim().toLowerCase();
+  const tipoEncontrado = tiposReceita.find((tipo) => tipo.toLowerCase() === texto);
+  return tipoEncontrado ?? 'outros';
 }
 
 
@@ -365,7 +381,7 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
     dataLancamento: dataBase,
     dataVencimento: String(item.dataVencimento ?? dataBase).slice(0, 10),
     dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : undefined,
-    tipoReceita: String(item.tipoReceita ?? item.categoria ?? 'outros'),
+    tipoReceita: normalizarTipoReceita(item.tipoReceita ?? item.categoria),
     tipoRecebimento: String(item.tipoRecebimento ?? item.tipoPagamento ?? 'dinheiro'),
     recorrencia: normalizarRecorrenciaFinanceira(item.recorrencia),
     recorrenciaBase: normalizarRecorrenciaBaseFinanceira(
@@ -574,15 +590,16 @@ export default function TelaReceita() {
       const periodoCompetencia = obterIntervaloCompetencia(competencia);
       const dataInicio = filtroAplicado.dataInicio || periodoCompetencia.dataInicio;
       const dataFim = filtroAplicado.dataFim || periodoCompetencia.dataFim;
-      const dados = await listarReceitasApi({
+      const opcoesConsulta = {
         signal,
         id: filtroAplicado.id.trim() || undefined,
         descricao: filtroAplicado.descricao.trim() || undefined,
         dataInicio,
         dataFim,
         competencia: competenciaConsulta,
-        VerificarUltimaRecorrencia: true,
-      });
+        verificarUltimaRecorrencia: true,
+      };
+      const dados = await listarReceitasApi(opcoesConsulta);
       setReceitas(dados.map(mapearReceitaApi));
     } catch {
       setReceitas([]);
@@ -668,6 +685,7 @@ export default function TelaReceita() {
       dataLancamento: receita.dataLancamento,
       dataVencimento: receita.dataVencimento,
       dataEfetivacao: receita.dataEfetivacao || new Date().toISOString().split('T')[0],
+      dataEstorno: new Date().toISOString().split('T')[0],
       tipoReceita: receita.tipoReceita,
       tipoRecebimento: receita.tipoRecebimento,
       recorrenciaBase: receita.recorrenciaBase,
@@ -693,6 +711,9 @@ export default function TelaReceita() {
         : (receita.cartaoId ? (mapaCartoesPorId.get(receita.cartaoId) ?? '') : ''),
       anexoDocumento: receita.anexoDocumento,
       documentos: receita.documentos,
+      observacaoEfetivacao: '',
+      observacaoEstorno: '',
+      ocultarEfetivacaoEstornoRegistros: true,
     });
   };
 
@@ -763,6 +784,15 @@ export default function TelaReceita() {
       return;
     }
     setModoTela('efetivacao');
+    void carregarReceitaPorId(receita.id);
+  };
+
+  const abrirEstorno = (receita: ReceitaRegistro) => {
+    if (receita.status !== 'efetivada') {
+      notificarErro( t('financeiro.receita.mensagens.estornoSomenteEfetivada'));
+      return;
+    }
+    setModoTela('estorno');
     void carregarReceitaPorId(receita.id);
   };
 
@@ -980,11 +1010,6 @@ export default function TelaReceita() {
         notificarErro(t('financeiro.receita.mensagens.valorObrigatorio'));
         return null;
       }
-      if (valorTotalRateioAmigos <= valorLiquido) {
-        setCamposInvalidos((atual) => ({ ...atual, valorTotalRateioAmigos: true }));
-        notificarErro(t('financeiro.comum.mensagens.valorTotalRateioAmigosMaiorQueValorLiquido'));
-        return null;
-      }
     }
 
     if (!rateioConfereValorTotalExato(valorTotalRateioAmigos, formulario.amigosRateio, rateioAmigosValores)) {
@@ -1117,6 +1142,10 @@ export default function TelaReceita() {
 
   const efetivarReceita = async () => {
     if (!receitaSelecionada) return;
+    if (receitaSelecionada.status !== 'pendente') {
+      notificarErro(t('financeiro.receita.mensagens.efetivacaoSomentePendente'));
+      return;
+    }
     const base = validarFormularioBase();
     if (!base || !formulario.dataEfetivacao || !formulario.tipoRecebimento) {
       setCamposInvalidos((atual) => ({ ...atual, dataEfetivacao: !formulario.dataEfetivacao, tipoRecebimento: !formulario.tipoRecebimento }));
@@ -1137,20 +1166,18 @@ export default function TelaReceita() {
     }
 
     try {
-      await atualizarReceitaApi(receitaSelecionada.id, {
+      await efetivarReceitaApi(receitaSelecionada.id, {
         dataEfetivacao: formulario.dataEfetivacao,
+        observacaoHistorico: formulario.observacaoEfetivacao.trim(),
         tipoRecebimento: formulario.tipoRecebimento,
         valorTotal: base.valorTotal,
-        valorLiquido: base.valorLiquido,
         desconto: base.desconto,
         acrescimo: base.acrescimo,
         imposto: base.imposto,
         juros: base.juros,
-        valorEfetivacao: base.valorLiquido,
         contaBancariaId: contaBancariaIdSelecionada ?? null,
         cartaoId: cartaoIdSelecionado ?? null,
         documentos: montarDocumentosPayload(formulario.documentos),
-        status: 'efetivada',
       });
       await carregarReceitasApi();
       notificarSucesso(t('financeiro.receita.mensagens.efetivada'));
@@ -1190,19 +1217,37 @@ export default function TelaReceita() {
     }
   };
 
-  const estornarReceita = async (receita: ReceitaRegistro) => {
-    if (receita.status !== 'efetivada') {
+  const estornarReceita = async () => {
+    if (!receitaSelecionada) return;
+    if (receitaSelecionada.status !== 'efetivada') {
       notificarErro( t('financeiro.receita.mensagens.estornoSomenteEfetivada'));
+      return;
+    }
+    if (!formulario.dataEstorno) {
+      setCamposInvalidos((atual) => ({ ...atual, dataEstorno: true }));
+      notificarErro(t('financeiro.receita.mensagens.obrigatorioEstorno'));
+      return;
+    }
+    if (dataIsoMaiorQue(receitaSelecionada.dataLancamento, formulario.dataEstorno)) {
+      setCamposInvalidos((atual) => ({ ...atual, dataEstorno: true }));
+      notificarErro(t('financeiro.receita.mensagens.dataEfetivacaoMaiorQueLancamento'));
+      return;
+    }
+    if (receitaSelecionada.dataEfetivacao && dataIsoMaiorQue(receitaSelecionada.dataEfetivacao, formulario.dataEstorno)) {
+      setCamposInvalidos((atual) => ({ ...atual, dataEstorno: true }));
+      notificarErro(t('financeiro.receita.mensagens.dataEfetivacaoMaiorQueLancamento'));
       return;
     }
 
     try {
-      await atualizarReceitaApi(receita.id, {
-        status: 'pendente',
-        dataEfetivacao: null,
-        valorEfetivacao: null,
+      await estornarReceitaApi(receitaSelecionada.id, {
+        dataEstorno: formulario.dataEstorno,
+        observacaoHistorico: formulario.observacaoEstorno.trim(),
+        ocultarDoHistorico: formulario.ocultarEfetivacaoEstornoRegistros,
       });
       await carregarReceitasApi();
+      notificarSucesso(t('financeiro.receita.mensagens.estornada'));
+      resetarTela();
       return;
     } catch {
       return;
@@ -1459,7 +1504,7 @@ export default function TelaReceita() {
                     {receita.status === 'pendente' ? <TouchableOpacity onPress={() => cancelarReceita(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.receita.acoes.cancelarReceita')}</Text></TouchableOpacity> : null}
                     {receita.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => aceitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
                     {receita.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => rejeitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
-                    {receita.status === 'efetivada' ? <TouchableOpacity onPress={() => estornarReceita(receita)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.receita.acoes.estornar')}</Text></TouchableOpacity> : null}
+                    {receita.status === 'efetivada' ? <TouchableOpacity onPress={() => abrirEstorno(receita)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.receita.acoes.estornar')}</Text></TouchableOpacity> : null}
                   </View>
                 </View>
               ))}
@@ -1506,10 +1551,35 @@ export default function TelaReceita() {
             <CampoTexto label={t('financeiro.receita.campos.acrescimo')} placeholder={t('financeiro.receita.placeholders.valor')} value={formulario.acrescimo} onChangeText={(valor) => atualizarCampoMoeda('acrescimo', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
             <CampoTexto label={t('financeiro.receita.campos.imposto')} placeholder={t('financeiro.receita.placeholders.valor')} value={formulario.imposto} onChangeText={(valor) => atualizarCampoMoeda('imposto', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
             <CampoTexto label={t('financeiro.receita.campos.juros')} placeholder={t('financeiro.receita.placeholders.valor')} value={formulario.juros} onChangeText={(valor) => atualizarCampoMoeda('juros', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
+            <CampoTexto label={t('financeiro.receita.campos.observacao')} placeholder={t('financeiro.receita.placeholders.observacao')} value={formulario.observacaoEfetivacao} onChangeText={(observacaoEfetivacao) => setFormulario((atual) => ({ ...atual, observacaoEfetivacao }))} multiline numberOfLines={4} estilo={{ marginBottom: 12 }} />
             <CampoArquivo label={t('financeiro.receita.campos.anexoDocumento')} placeholder={t('financeiro.receita.placeholders.anexo')} value={formulario.anexoDocumento} onChange={(anexoDocumento) => setFormulario((atual) => ({ ...atual, anexoDocumento, documentos: anexoDocumento ? atual.documentos : [] }))} onSelecionarArquivo={(documento) => setFormulario((atual) => ({ ...atual, documentos: documento ? [documento] : [] }))} estilo={{ marginBottom: 20 }} />
             <View style={{ flexDirection: 'row', marginHorizontal: -5 }}>
               <Botao titulo={t('comum.acoes.cancelar')} onPress={resetarTela} tipo="secundario" estilo={{ flex: 1, marginHorizontal: 5 }} />
               <Botao titulo={t('financeiro.receita.acoes.confirmarEfetivacao')} onPress={efetivarReceita} tipo="primario" estilo={{ flex: 1, marginHorizontal: 5 }} />
+            </View>
+          </>
+        ) : null}
+
+        {modoTela === 'estorno' ? (
+          <>
+            {renderCampoBloqueado(t('financeiro.receita.campos.valorLiquido'), formulario.valorLiquido)}
+            {renderCampoBloqueado(t('financeiro.receita.campos.valorEfetivacao'), formulario.valorEfetivacao)}
+            <CampoData label={t('financeiro.receita.campos.dataEstorno')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataEstorno} onChange={(dataEstorno) => { setCamposInvalidos((atual) => ({ ...atual, dataEstorno: false })); setFormulario((atual) => ({ ...atual, dataEstorno })); }} error={camposInvalidos.dataEstorno} obrigatorio estilo={{ marginBottom: 12 }} />
+            <CampoTexto label={t('financeiro.receita.campos.observacao')} placeholder={t('financeiro.receita.placeholders.observacao')} value={formulario.observacaoEstorno} onChangeText={(observacaoEstorno) => setFormulario((atual) => ({ ...atual, observacaoEstorno }))} multiline numberOfLines={4} estilo={{ marginBottom: 12 }} />
+            <View style={{ marginBottom: 20, backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <Text style={{ color: COLORS.textPrimary, flex: 1, fontSize: 13 }}>{t('financeiro.receita.campos.ocultarEfetivacaoEstornoRegistros')}</Text>
+                <Switch
+                  value={formulario.ocultarEfetivacaoEstornoRegistros}
+                  onValueChange={(ocultarEfetivacaoEstornoRegistros) => setFormulario((atual) => ({ ...atual, ocultarEfetivacaoEstornoRegistros }))}
+                  trackColor={{ false: COLORS.borderColor, true: COLORS.accent }}
+                  thumbColor={formulario.ocultarEfetivacaoEstornoRegistros ? COLORS.accent : COLORS.textSecondary}
+                />
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', marginHorizontal: -5 }}>
+              <Botao titulo={t('comum.acoes.cancelar')} onPress={resetarTela} tipo="secundario" estilo={{ flex: 1, marginHorizontal: 5 }} />
+              <Botao titulo={t('financeiro.receita.acoes.confirmarEstorno')} onPress={estornarReceita} tipo="primario" estilo={{ flex: 1, marginHorizontal: 5 }} />
             </View>
           </>
         ) : null}

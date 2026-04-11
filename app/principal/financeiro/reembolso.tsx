@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CampoData } from '../../../src/componentes/comuns/CampoData';
 import { CampoArquivo } from '../../../src/componentes/comuns/CampoArquivo';
@@ -25,6 +25,8 @@ import {
   obterReembolsoApi,
   criarReembolsoApi,
   atualizarReembolsoApi,
+  efetivarReembolsoApi,
+  estornarReembolsoApi,
   type CartaoOpcaoApi,
   type ContaBancariaOpcaoApi,
   type RegistroFinanceiroApi,
@@ -33,7 +35,6 @@ import { encontrarDespesaJaVinculada } from '../../../src/utils/reembolso';
 import {
   parseStatusReembolso,
   podeEditarReembolso,
-  podeEfetivarReembolso,
   podeEstornarReembolso,
   serializarStatusReembolso,
   type StatusReembolso,
@@ -52,16 +53,21 @@ interface Reembolso {
   solicitante: string;
   dataLancamento: string;
   dataEfetivacao?: string;
+  dataEstorno?: string;
+  observacao: string;
+  observacaoEfetivacao: string;
+  observacaoEstorno: string;
   tipoRecebimento: string;
   contaBancariaId?: number;
   cartaoId?: number;
   despesasVinculadas: number[];
   valorEfetivacao?: number;
   documentos: DocumentoFinanceiro[];
+  ocultarEfetivacaoEstornoRegistros: boolean;
   status: StatusReembolso;
 }
 
-type ModoFormulario = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao';
+type ModoFormulario = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao' | 'estorno';
 const tiposRecebimento = ['pix', 'transferencia', 'contaCorrente', 'cartaoCredito', 'cartaoDebito', 'dinheiro', 'boleto'] as const;
 
 function paraNumero(valor: unknown, padrao = 0): number {
@@ -95,6 +101,10 @@ function normalizarReembolsoApi(item: RegistroFinanceiroApi): Reembolso {
     solicitante: String(item.solicitante ?? item.solicitanteName ?? ''),
     dataLancamento: String(item.dataLancamento ?? item.data ?? '').slice(0, 10),
     dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : undefined,
+    dataEstorno: item.dataEstorno ? String(item.dataEstorno).slice(0, 10) : undefined,
+    observacao: String(item.observacao ?? ''),
+    observacaoEfetivacao: '',
+    observacaoEstorno: '',
     tipoRecebimento: String(item.tipoRecebimento ?? item.tipoPagamento ?? ''),
     contaBancariaId: item.contaBancariaId
       ? paraNumero(item.contaBancariaId)
@@ -109,6 +119,7 @@ function normalizarReembolsoApi(item: RegistroFinanceiroApi): Reembolso {
     despesasVinculadas,
     valorEfetivacao: valorEfetivacaoBruto === null || valorEfetivacaoBruto === undefined ? undefined : paraNumero(valorEfetivacaoBruto),
     documentos: normalizarDocumentosApi(item.documentos),
+    ocultarEfetivacaoEstornoRegistros: true,
     status: parseStatusReembolso(item.status),
   };
 }
@@ -130,12 +141,17 @@ function criarReembolsoVazio(): Reembolso {
     solicitante: '',
     dataLancamento: hoje,
     dataEfetivacao: hoje,
+    dataEstorno: hoje,
+    observacao: '',
+    observacaoEfetivacao: '',
+    observacaoEstorno: '',
     tipoRecebimento: '',
     contaBancariaId: undefined,
     cartaoId: undefined,
     despesasVinculadas: [],
     valorEfetivacao: 0,
     documentos: [],
+    ocultarEfetivacaoEstornoRegistros: true,
     status: 'pendente',
   };
 }
@@ -255,7 +271,11 @@ export default function TelaReembolso() {
       setReembolsoAtual({
         ...completo,
         dataEfetivacao: completo.dataEfetivacao || new Date().toISOString().split('T')[0],
+        dataEstorno: completo.dataEstorno || new Date().toISOString().split('T')[0],
         valorEfetivacao: completo.valorEfetivacao ?? calcularTotal(completo.despesasVinculadas),
+        observacaoEfetivacao: '',
+        observacaoEstorno: '',
+        ocultarEfetivacaoEstornoRegistros: completo.ocultarEfetivacaoEstornoRegistros ?? true,
       });
       return completo;
     } catch {
@@ -288,11 +308,22 @@ export default function TelaReembolso() {
   const abrirEfetivacao = (id: number) => {
     const encontrado = reembolsos.find((reembolso) => reembolso.id === id);
     if (!encontrado) return;
-    if (!podeEfetivarReembolso(encontrado.status)) {
+    if (podeEstornarReembolso(encontrado.status)) {
       notificarErro(t('financeiro.reembolso.mensagens.efetivacaoSomentePendente'));
       return;
     }
     setModoFormulario('efetivacao');
+    void carregarReembolsoPorId(id);
+  };
+
+  const abrirEstorno = (id: number) => {
+    const encontrado = reembolsos.find((reembolso) => reembolso.id === id);
+    if (!encontrado) return;
+    if (!podeEstornarReembolso(encontrado.status)) {
+      notificarErro(t('financeiro.reembolso.mensagens.estornoSomenteEfetivado'));
+      return;
+    }
+    setModoFormulario('estorno');
     void carregarReembolsoPorId(id);
   };
 
@@ -365,6 +396,10 @@ export default function TelaReembolso() {
 
   const efetivar = async () => {
     if (!reembolsoAtual.id) return;
+    if (podeEstornarReembolso(reembolsoAtual.status)) {
+      notificarErro(t('financeiro.reembolso.mensagens.efetivacaoSomentePendente'));
+      return;
+    }
     if (!reembolsoAtual.dataEfetivacao) {
       notificarErro(t('financeiro.reembolso.mensagens.obrigatorioEfetivacao'));
       return;
@@ -378,10 +413,10 @@ export default function TelaReembolso() {
     setCarregando(true);
     try {
       const valorEfetivacao = calcularTotal(reembolsoAtual.despesasVinculadas);
-      await atualizarReembolsoApi(reembolsoAtual.id, {
-        status: serializarStatusReembolso('efetivada'),
+      await efetivarReembolsoApi(reembolsoAtual.id, {
         dataEfetivacao: reembolsoAtual.dataEfetivacao,
         valorEfetivacao,
+        observacaoHistorico: reembolsoAtual.observacaoEfetivacao.trim(),
         documentos: montarDocumentosPayload(reembolsoAtual.documentos),
       });
 
@@ -397,20 +432,35 @@ export default function TelaReembolso() {
     }
   };
 
-  const estornar = async (reembolso: Reembolso) => {
-    if (!podeEstornarReembolso(reembolso.status)) {
+  const estornar = async () => {
+    if (!reembolsoAtual.id) return;
+    if (!podeEstornarReembolso(reembolsoAtual.status)) {
       notificarErro(t('financeiro.reembolso.mensagens.estornoSomenteEfetivado'));
+      return;
+    }
+    if (!reembolsoAtual.dataEstorno) {
+      notificarErro(t('financeiro.reembolso.mensagens.obrigatorioEstorno'));
+      return;
+    }
+    if (dataIsoMaiorQue(reembolsoAtual.dataLancamento, reembolsoAtual.dataEstorno)) {
+      notificarErro(t('financeiro.reembolso.mensagens.dataEfetivacaoMaiorQueSolicitacao'));
+      return;
+    }
+    if (reembolsoAtual.dataEfetivacao && dataIsoMaiorQue(reembolsoAtual.dataEfetivacao, reembolsoAtual.dataEstorno)) {
+      notificarErro(t('financeiro.reembolso.mensagens.dataEfetivacaoMaiorQueSolicitacao'));
       return;
     }
 
     setCarregando(true);
     try {
-      await atualizarReembolsoApi(reembolso.id, {
-        status: serializarStatusReembolso('pendente'),
-        dataEfetivacao: null,
-        valorEfetivacao: null,
+      await estornarReembolsoApi(reembolsoAtual.id, {
+        dataEstorno: reembolsoAtual.dataEstorno,
+        observacaoHistorico: reembolsoAtual.observacaoEstorno.trim(),
+        ocultarDoHistorico: reembolsoAtual.ocultarEfetivacaoEstornoRegistros,
       });
       notificarSucesso(t('financeiro.reembolso.mensagens.estornado'));
+      setModoFormulario('lista');
+      limparFormulario();
       await carregarDados();
     } catch (erro) {
       if (erroApiJaNotificado(erro)) return;
@@ -665,13 +715,13 @@ export default function TelaReembolso() {
                           <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text>
                         </TouchableOpacity>
                       ) : null}
-                      {podeEfetivarReembolso(reembolso.status) ? (
+                      {!podeEstornarReembolso(reembolso.status) ? (
                         <TouchableOpacity onPress={() => abrirEfetivacao(reembolso.id)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
                           <Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.reembolso.acoes.efetivar')}</Text>
                         </TouchableOpacity>
                       ) : null}
                       {podeEstornarReembolso(reembolso.status) ? (
-                        <TouchableOpacity onPress={() => void estornar(reembolso)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
+                        <TouchableOpacity onPress={() => abrirEstorno(reembolso.id)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
                           <Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.reembolso.acoes.estornar')}</Text>
                         </TouchableOpacity>
                       ) : null}
@@ -723,6 +773,15 @@ export default function TelaReembolso() {
               obrigatorio
               estilo={{ marginBottom: 12 }}
             />
+            <CampoTexto
+              label={t('financeiro.reembolso.campos.observacao')}
+              placeholder={t('financeiro.reembolso.placeholders.observacao')}
+              value={reembolsoAtual.observacaoEfetivacao}
+              onChangeText={(observacaoEfetivacao) => setReembolsoAtual((atual) => ({ ...atual, observacaoEfetivacao }))}
+              multiline
+              numberOfLines={4}
+              estilo={{ marginBottom: 12 }}
+            />
 
             <CampoArquivo
               label={t('financeiro.despesa.campos.anexoDocumento')}
@@ -746,6 +805,47 @@ export default function TelaReembolso() {
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Botao titulo={t('comum.acoes.cancelar')} onPress={() => setModoFormulario('lista')} tipo="secundario" estilo={{ flex: 1 }} disabled={carregando} />
               <Botao titulo={t('financeiro.reembolso.acoes.confirmarEfetivacao')} onPress={() => void efetivar()} tipo="primario" estilo={{ flex: 1 }} disabled={carregando} />
+            </View>
+          </>
+        ) : null}
+
+        {modoFormulario === 'estorno' ? (
+          <>
+            {renderCampoBloqueado(t('financeiro.reembolso.descricao'), reembolsoAtual.descricao)}
+            {renderCampoBloqueado(t('financeiro.reembolso.solicitante'), reembolsoAtual.solicitante)}
+            {renderCampoBloqueado(t('financeiro.reembolso.valorTotal'), formatarValorPorIdioma(calcularTotal(reembolsoAtual.despesasVinculadas)))}
+            {renderCampoBloqueado(t('financeiro.reembolso.campos.valorEfetivacao'), formatarValorPorIdioma(calcularTotal(reembolsoAtual.despesasVinculadas)))}
+            <CampoData
+              label={t('financeiro.reembolso.campos.dataEstorno')}
+              placeholder={t('financeiro.reembolso.placeholderData')}
+              value={reembolsoAtual.dataEstorno || ''}
+              onChange={(dataEstorno) => setReembolsoAtual((atual) => ({ ...atual, dataEstorno }))}
+              obrigatorio
+              estilo={{ marginBottom: 12 }}
+            />
+            <CampoTexto
+              label={t('financeiro.reembolso.campos.observacao')}
+              placeholder={t('financeiro.reembolso.placeholders.observacao')}
+              value={reembolsoAtual.observacaoEstorno}
+              onChangeText={(observacaoEstorno) => setReembolsoAtual((atual) => ({ ...atual, observacaoEstorno }))}
+              multiline
+              numberOfLines={4}
+              estilo={{ marginBottom: 12 }}
+            />
+            <View style={{ marginBottom: 20, backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <Text style={{ color: COLORS.textPrimary, flex: 1, fontSize: 13 }}>{t('financeiro.reembolso.campos.ocultarEfetivacaoEstornoRegistros')}</Text>
+                <Switch
+                  value={reembolsoAtual.ocultarEfetivacaoEstornoRegistros}
+                  onValueChange={(ocultarEfetivacaoEstornoRegistros) => setReembolsoAtual((atual) => ({ ...atual, ocultarEfetivacaoEstornoRegistros }))}
+                  trackColor={{ false: COLORS.borderColor, true: COLORS.accent }}
+                  thumbColor={reembolsoAtual.ocultarEfetivacaoEstornoRegistros ? COLORS.accent : COLORS.textSecondary}
+                />
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Botao titulo={t('comum.acoes.cancelar')} onPress={() => setModoFormulario('lista')} tipo="secundario" estilo={{ flex: 1 }} disabled={carregando} />
+              <Botao titulo={t('financeiro.reembolso.acoes.confirmarEstorno')} onPress={() => void estornar()} tipo="primario" estilo={{ flex: 1 }} disabled={carregando} />
             </View>
           </>
         ) : null}

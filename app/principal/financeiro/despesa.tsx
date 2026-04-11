@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoArquivo } from '../../../src/componentes/comuns/CampoArquivo';
@@ -56,7 +56,7 @@ import {
 } from '../../../src/servicos/financeiro';
 
 type StatusDespesa = 'pendente' | 'efetivada' | 'cancelada' | 'pendenteAprovacao' | 'rejeitada';
-type ModoTela = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao';
+type ModoTela = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao' | 'estorno';
 type EscopoAcaoRecorrencia = 'apenasEsta' | 'estaEProximas' | 'todasPendentes';
 type EscopoRecorrenciaApi = 1 | 2 | 3;
 
@@ -118,9 +118,12 @@ interface DespesaRegistro {
 interface DespesaForm {
   descricao: string;
   observacao: string;
+  observacaoEfetivacao: string;
+  observacaoEstorno: string;
   dataLancamento: string;
   dataVencimento: string;
   dataEfetivacao: string;
+  dataEstorno: string;
   tipoDespesa: string;
   tipoPagamento: string;
   recorrenciaBase: RecorrenciaFinanceiraBaseChave;
@@ -142,6 +145,7 @@ interface DespesaForm {
   cartao: string;
   anexoDocumento: string;
   documentos: DocumentoFinanceiro[];
+  ocultarEfetivacaoEstornoRegistros: boolean;
 }
 
 const tiposDespesa = ['alimentacao', 'transporte', 'moradia', 'lazer', 'saude', 'educacao', 'servicos'] as const;
@@ -178,9 +182,12 @@ function criarFormularioVazio(locale: string): DespesaForm {
   return {
     descricao: '',
     observacao: '',
+    observacaoEfetivacao: '',
+    observacaoEstorno: '',
     dataLancamento: hoje,
     dataVencimento: '',
     dataEfetivacao: hoje,
+    dataEstorno: hoje,
     tipoDespesa: '',
     tipoPagamento: '',
     recorrenciaBase: 'unica',
@@ -202,6 +209,7 @@ function criarFormularioVazio(locale: string): DespesaForm {
     cartao: '',
     anexoDocumento: '',
     documentos: [],
+    ocultarEfetivacaoEstornoRegistros: true,
   };
 }
 
@@ -702,6 +710,7 @@ export default function TelaDespesa() {
       dataLancamento: despesa.dataLancamento,
       dataVencimento: despesa.dataVencimento,
       dataEfetivacao: despesa.dataEfetivacao || new Date().toISOString().split('T')[0],
+      dataEstorno: new Date().toISOString().split('T')[0],
       tipoDespesa: despesa.tipoDespesa,
       tipoPagamento: despesa.tipoPagamento,
       recorrenciaBase: despesa.recorrenciaBase,
@@ -727,6 +736,9 @@ export default function TelaDespesa() {
         : (despesa.cartaoId ? (mapaCartoesPorId.get(despesa.cartaoId) ?? '') : ''),
       anexoDocumento: despesa.anexoDocumento,
       documentos: despesa.documentos,
+      observacaoEfetivacao: '',
+      observacaoEstorno: '',
+      ocultarEfetivacaoEstornoRegistros: true,
     });
   };
 
@@ -782,6 +794,15 @@ export default function TelaDespesa() {
       return;
     }
     setModoTela('efetivacao');
+    void carregarDespesaPorId(despesa.id);
+  };
+
+  const abrirEstorno = (despesa: DespesaRegistro) => {
+    if (despesa.status !== 'efetivada') {
+      notificarErro(t('financeiro.despesa.mensagens.estornoSomenteEfetivada'));
+      return;
+    }
+    setModoTela('estorno');
     void carregarDespesaPorId(despesa.id);
   };
 
@@ -1202,6 +1223,7 @@ export default function TelaDespesa() {
     try {
       await efetivarDespesaApi(despesaSelecionada.id, {
         dataEfetivacao: base.dataEfetivacao,
+        observacaoHistorico: formulario.observacaoEfetivacao.trim(),
         tipoPagamento: formulario.tipoPagamento,
         valorTotal: base.valorTotal,
         desconto: base.desconto,
@@ -1250,15 +1272,37 @@ export default function TelaDespesa() {
     }
   };
 
-  const estornarDespesa = async (despesa: DespesaRegistro) => {
-    if (despesa.status !== 'efetivada') {
+  const estornarDespesa = async () => {
+    if (!despesaSelecionada) return;
+    if (despesaSelecionada.status !== 'efetivada') {
       notificarErro( t('financeiro.despesa.mensagens.estornoSomenteEfetivada'));
+      return;
+    }
+    if (!formulario.dataEstorno) {
+      setCamposInvalidos((atual) => ({ ...atual, dataEstorno: true }));
+      notificarErro(t('financeiro.despesa.mensagens.obrigatorioEstorno'));
+      return;
+    }
+    if (dataIsoMaiorQue(despesaSelecionada.dataLancamento, formulario.dataEstorno)) {
+      setCamposInvalidos((atual) => ({ ...atual, dataEstorno: true }));
+      notificarErro(t('financeiro.despesa.mensagens.dataEfetivacaoMaiorQueLancamento'));
+      return;
+    }
+    if (despesaSelecionada.dataEfetivacao && dataIsoMaiorQue(despesaSelecionada.dataEfetivacao, formulario.dataEstorno)) {
+      setCamposInvalidos((atual) => ({ ...atual, dataEstorno: true }));
+      notificarErro(t('financeiro.despesa.mensagens.dataEfetivacaoMaiorQueLancamento'));
       return;
     }
 
     try {
-      await estornarDespesaApi(despesa.id);
+      await estornarDespesaApi(despesaSelecionada.id, {
+        dataEstorno: formulario.dataEstorno,
+        observacaoHistorico: formulario.observacaoEstorno.trim(),
+        ocultarDoHistorico: formulario.ocultarEfetivacaoEstornoRegistros,
+      });
       await carregarDespesasApi();
+      notificarSucesso(t('financeiro.despesa.mensagens.estornada'));
+      resetarTela();
       return;
     } catch {
       return;
@@ -1517,7 +1561,7 @@ export default function TelaDespesa() {
                     {despesa.status === 'pendente' ? <TouchableOpacity onPress={() => cancelarDespesa(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.despesa.acoes.cancelarDespesa')}</Text></TouchableOpacity> : null}
                     {despesa.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => aceitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
                     {despesa.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => rejeitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
-                    {despesa.status === 'efetivada' ? <TouchableOpacity onPress={() => estornarDespesa(despesa)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.despesa.acoes.estornar')}</Text></TouchableOpacity> : null}
+                    {despesa.status === 'efetivada' ? <TouchableOpacity onPress={() => abrirEstorno(despesa)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.despesa.acoes.estornar')}</Text></TouchableOpacity> : null}
                   </View>
                 </View>
               ))}
@@ -1563,10 +1607,35 @@ export default function TelaDespesa() {
             <CampoTexto label={t('financeiro.despesa.campos.acrescimo')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.acrescimo} onChangeText={(valor) => atualizarCampoMoeda('acrescimo', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
             <CampoTexto label={t('financeiro.despesa.campos.imposto')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.imposto} onChangeText={(valor) => atualizarCampoMoeda('imposto', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
             <CampoTexto label={t('financeiro.despesa.campos.juros')} placeholder={t('financeiro.despesa.placeholders.valor')} value={formulario.juros} onChangeText={(valor) => atualizarCampoMoeda('juros', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />
+            <CampoTexto label={t('financeiro.despesa.campos.observacao')} placeholder={t('financeiro.despesa.placeholders.observacao')} value={formulario.observacaoEfetivacao} onChangeText={(observacaoEfetivacao) => setFormulario((atual) => ({ ...atual, observacaoEfetivacao }))} multiline numberOfLines={4} estilo={{ marginBottom: 12 }} />
             <CampoArquivo label={t('financeiro.despesa.campos.anexoDocumento')} placeholder={t('financeiro.despesa.placeholders.anexo')} value={formulario.anexoDocumento} onChange={(anexoDocumento) => setFormulario((atual) => ({ ...atual, anexoDocumento, documentos: anexoDocumento ? atual.documentos : [] }))} onSelecionarArquivo={(documento) => setFormulario((atual) => ({ ...atual, documentos: documento ? [documento] : [] }))} estilo={{ marginBottom: 20 }} />
             <View style={{ flexDirection: 'row', marginHorizontal: -5 }}>
               <Botao titulo={t('comum.acoes.cancelar')} onPress={resetarTela} tipo="secundario" estilo={{ flex: 1, marginHorizontal: 5 }} />
               <Botao titulo={t('financeiro.despesa.acoes.confirmarEfetivacao')} onPress={efetivarDespesa} tipo="primario" estilo={{ flex: 1, marginHorizontal: 5 }} />
+            </View>
+          </>
+        ) : null}
+
+        {modoTela === 'estorno' ? (
+          <>
+            {renderCampoBloqueado(t('financeiro.despesa.campos.valorLiquido'), formulario.valorLiquido)}
+            {renderCampoBloqueado(t('financeiro.despesa.campos.valorEfetivacao'), formulario.valorEfetivacao)}
+            <CampoData label={t('financeiro.despesa.campos.dataEstorno')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataEstorno} onChange={(dataEstorno) => { setCamposInvalidos((atual) => ({ ...atual, dataEstorno: false })); setFormulario((atual) => ({ ...atual, dataEstorno })); }} error={camposInvalidos.dataEstorno} obrigatorio estilo={{ marginBottom: 12 }} />
+            <CampoTexto label={t('financeiro.despesa.campos.observacao')} placeholder={t('financeiro.despesa.placeholders.observacao')} value={formulario.observacaoEstorno} onChangeText={(observacaoEstorno) => setFormulario((atual) => ({ ...atual, observacaoEstorno }))} multiline numberOfLines={4} estilo={{ marginBottom: 12 }} />
+            <View style={{ marginBottom: 20, backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <Text style={{ color: COLORS.textPrimary, flex: 1, fontSize: 13 }}>{t('financeiro.despesa.campos.ocultarEfetivacaoEstornoRegistros')}</Text>
+                <Switch
+                  value={formulario.ocultarEfetivacaoEstornoRegistros}
+                  onValueChange={(ocultarEfetivacaoEstornoRegistros) => setFormulario((atual) => ({ ...atual, ocultarEfetivacaoEstornoRegistros }))}
+                  trackColor={{ false: COLORS.borderColor, true: COLORS.accent }}
+                  thumbColor={formulario.ocultarEfetivacaoEstornoRegistros ? COLORS.accent : COLORS.textSecondary}
+                />
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', marginHorizontal: -5 }}>
+              <Botao titulo={t('comum.acoes.cancelar')} onPress={resetarTela} tipo="secundario" estilo={{ flex: 1, marginHorizontal: 5 }} />
+              <Botao titulo={t('financeiro.despesa.acoes.confirmarEstorno')} onPress={estornarDespesa} tipo="primario" estilo={{ flex: 1, marginHorizontal: 5 }} />
             </View>
           </>
         ) : null}
