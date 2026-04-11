@@ -39,7 +39,7 @@ A tela de despesa permite:
 - os campos obrigatorios ficam destacados quando nao sao preenchidos
 - o valor liquido e calculado automaticamente
 - o valor liquido fica bloqueado para digitacao
-- na efetivacao, a data de efetivacao nao pode ser maior que a data de lancamento
+- na efetivacao, a data de efetivacao nao pode ser menor que a data de lancamento
 
 ## Regras da recorrencia
 ### Despesa comum
@@ -85,6 +85,7 @@ Voce deve escolher uma area valida e, depois, uma subarea da propria area.
 ## Como efetivar
 - a opcao de efetivar so aparece para despesa com status `Pendente`
 - o valor de efetivacao acompanha o valor liquido
+- a observacao da efetivacao e enviada no historico como `observacaoHistorico`
 
 ## Como cancelar
 - a opcao de cancelar so aparece para despesa com status `Pendente`
@@ -92,6 +93,11 @@ Voce deve escolher uma area valida e, depois, uma subarea da propria area.
 ## Como estornar
 - a opcao de estornar so aparece para despesa com status `Efetivada`
 - apos o estorno, a despesa volta para `Pendente`
+- `Data de estorno` e obrigatoria
+- `Data de estorno` nao pode ser menor que a data de lancamento
+- se existir data de efetivacao, a data de estorno nao pode ser menor que ela
+- no estorno, a observacao e enviada no historico como `observacaoHistorico`
+- no estorno, o campo `Ocultar efetivacao/estorno dos registros` vem marcado por padrao
 
 ## Fluxo de aprovacao
 - quando a despesa estiver em `Pendente de aprovacao`, a tela exibe as acoes `Aceitar` e `Rejeitar`

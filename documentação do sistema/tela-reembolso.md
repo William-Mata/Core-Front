@@ -8,8 +8,8 @@ A tela de Reembolso permite registrar pedidos de reembolso vinculando despesas j
 - filtrar por ID, descricao e periodo
 - criar novo reembolso
 - editar reembolso pendente
-- efetivar reembolso pendente
-- estornar reembolso efetivado
+- efetivar reembolso com status diferente de pago
+- estornar reembolso pago
 - cancelar reembolso pendente
 
 ## Campos do reembolso
@@ -26,8 +26,12 @@ A tela de Reembolso permite registrar pedidos de reembolso vinculando despesas j
 - uma despesa so pode estar vinculada a um unico reembolso
 - se tentar vincular uma despesa ja usada em outro reembolso, o sistema bloqueia e informa o conflito
 - apenas reembolso `Pendente` pode ser editado
-- apenas reembolso `Pendente` pode ser efetivado
-- apenas reembolso `Efetivada` pode ser estornado
+- efetivacao exige status diferente de `Pago`
+- estorno exige status `Pago`
+- na efetivacao, a data de efetivacao nao pode ser menor que a data de lancamento
+- no estorno, a data de estorno e obrigatoria
+- no estorno, a data de estorno nao pode ser menor que a data de lancamento
+- no estorno, quando existir data de efetivacao, a data de estorno nao pode ser menor que a data de efetivacao
 - apenas reembolso `Pendente` pode ser cancelado
 
 ## Como cadastrar um reembolso
@@ -47,11 +51,15 @@ A tela de Reembolso permite registrar pedidos de reembolso vinculando despesas j
 ## Como efetivar
 1. Na lista, clique em `Efetivar`.
 2. Revise data, valor total e valor de efetivacao.
+3. Se desejar, preencha a observacao do historico (`observacaoHistorico`).
 3. Clique em `Confirmar efetivacao`.
 
 ## Como estornar
 1. Na lista, clique em `Estornar`.
-2. O status volta para `Pendente`.
+2. Informe a data de estorno (obrigatoria).
+3. Se desejar, preencha a observacao do historico (`observacaoHistorico`).
+4. O campo `Ocultar efetivacao/estorno dos registros` vem marcado por padrao.
+5. O status volta para `Pendente`.
 
 ## Como cancelar
 1. Na lista, clique em `Cancelar`.

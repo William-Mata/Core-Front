@@ -15,6 +15,7 @@ Arquivo principal:
 - `edicao`
 - `visualizacao`
 - `efetivacao`
+- `estorno`
 
 ## Endpoints consumidos pelo front
 - `GET /api/financeiro/despesas`
@@ -57,7 +58,7 @@ Comportamento:
 
 ## Regras de validacao no front
 - campos obrigatorios: descricao, datas, tipo de despesa, tipo de pagamento e valor total
-- data de efetivacao nao pode ser anterior a data de lancamento
+- data de efetivacao nao pode ser menor que a data de lancamento
 - `pix` e `transferencia` exigem `contaBancariaId`
 - `cartaoCredito` e `cartaoDebito` exigem `cartaoId`
 - conta e cartao nao podem ser informados ao mesmo tempo
@@ -77,10 +78,26 @@ Aplicacao:
 ## Efetivacao
 O front usa `POST /despesas/{id}/efetivar` com:
 - `dataEfetivacao`
+- `observacaoHistorico` (opcional)
 - `tipoPagamento`
 - valores monetarios
 - `contaBancariaId` / `cartaoId`
 - `documentos`
+
+Regras de fluxo:
+- apenas despesa com status `pendente`
+- `dataEfetivacao` nao pode ser menor que `dataLancamento`
+
+## Estorno
+O front usa `POST /despesas/{id}/estornar` com:
+- `dataEstorno` (obrigatorio)
+- `observacaoHistorico` (opcional)
+- `ocultarDoHistorico` (opcional, padrao `true`)
+
+Regras de fluxo:
+- apenas despesa com status `efetivada`
+- `dataEstorno` nao pode ser menor que `dataLancamento`
+- quando existir `dataEfetivacao`, `dataEstorno` nao pode ser menor que `dataEfetivacao`
 
 ## Regras de rateio no front
 - rateio por amigos e por area/subarea deve fechar exatamente com os totais informados

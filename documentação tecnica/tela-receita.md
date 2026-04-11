@@ -15,12 +15,15 @@ Arquivo principal:
 - `edicao`
 - `visualizacao`
 - `efetivacao`
+- `estorno`
 
 ## Endpoints consumidos pelo front
 - `GET /api/financeiro/receitas`
 - `GET /api/financeiro/receitas/{id}`
 - `POST /api/financeiro/receitas`
 - `PUT /api/financeiro/receitas/{id}`
+- `POST /api/financeiro/receitas/{id}/efetivar`
+- `POST /api/financeiro/receitas/{id}/estornar`
 - `POST /api/financeiro/receitas/{id}/cancelar`
 - `POST /api/financeiro/receitas/{id}/aprovar`
 - `POST /api/financeiro/receitas/{id}/rejeitar`
@@ -55,7 +58,7 @@ Comportamento:
 
 ## Regras de validacao no front
 - campos obrigatorios: descricao, datas, tipo de receita, tipo de recebimento e valor total
-- data de efetivacao nao pode ser anterior a data de lancamento
+- data de efetivacao nao pode ser menor que a data de lancamento
 - `pix`, `transferencia` e `contaCorrente` exigem `contaBancariaId`
 - `cartaoCredito` e `cartaoDebito` exigem `cartaoId`
 - conta e cartao nao podem ser informados ao mesmo tempo
@@ -71,12 +74,29 @@ Aplicacao:
 - `PUT /receitas/{id}` (edicao)
 - `POST /receitas/{id}/cancelar` (cancelamento)
 
-## Efetivacao e estorno no estado atual
-Nao ha endpoint dedicado de efetivacao/estorno para receita na camada de servico do front.
+## Efetivacao
+O front usa `POST /receitas/{id}/efetivar` com:
+- `dataEfetivacao`
+- `observacaoHistorico` (opcional)
+- `tipoRecebimento`
+- valores monetarios
+- `contaBancariaId` / `cartaoId`
+- `documentos`
 
-Operacoes usadas:
-- efetivar: `PUT /receitas/{id}` com `status = efetivada`, `dataEfetivacao`, valores e vinculos
-- estornar: `PUT /receitas/{id}` com `status = pendente`, `dataEfetivacao = null`, `valorEfetivacao = null`
+Regras de fluxo:
+- apenas receita com status `pendente`
+- `dataEfetivacao` nao pode ser menor que `dataLancamento`
+
+## Estorno
+O front usa `POST /receitas/{id}/estornar` com:
+- `dataEstorno` (obrigatorio)
+- `observacaoHistorico` (opcional)
+- `ocultarDoHistorico` (opcional, padrao `true`)
+
+Regras de fluxo:
+- apenas receita com status `efetivada`
+- `dataEstorno` nao pode ser menor que `dataLancamento`
+- quando existir `dataEfetivacao`, `dataEstorno` nao pode ser menor que `dataEfetivacao`
 
 ## Regras de rateio no front
 - rateio por amigos e por area/subarea deve fechar exatamente com os totais informados

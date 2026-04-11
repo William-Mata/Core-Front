@@ -15,12 +15,15 @@ Arquivo principal:
 - `edicao`
 - `visualizacao`
 - `efetivacao`
+- `estorno`
 
 ## Endpoints consumidos pelo front
 - `GET /api/financeiro/reembolsos`
 - `GET /api/financeiro/reembolsos/{id}`
 - `POST /api/financeiro/reembolsos`
 - `PUT /api/financeiro/reembolsos/{id}`
+- `POST /api/financeiro/reembolsos/{id}/efetivar`
+- `POST /api/financeiro/reembolsos/{id}/estornar`
 
 Dependencias de apoio:
 - `GET /api/financeiro/despesas`
@@ -51,24 +54,36 @@ Comportamento:
 - descricao obrigatoria
 - precisa ter pelo menos uma despesa vinculada
 - uma despesa nao pode estar vinculada a mais de um reembolso
-- data de efetivacao nao pode ser anterior a data de lancamento
+- data de efetivacao nao pode ser menor que a data de lancamento
 - `pix`, `transferencia` e `contaCorrente` exigem `contaBancariaId`
 - `cartaoCredito` e `cartaoDebito` exigem `cartaoId`
 
-## Efetivacao, estorno e cancelamento no estado atual
-No front atual, essas operacoes sao feitas com `PUT /reembolsos/{id}`:
+## Efetivacao
+O front usa `POST /reembolsos/{id}/efetivar` com:
+- `dataEfetivacao`
+- `valorEfetivacao` (calculado pela soma das despesas vinculadas)
+- `observacaoHistorico` (opcional)
+- `documentos`
 
-- efetivar:
-  - `status = efetivada`
-  - `dataEfetivacao`
-  - `valorEfetivacao` (calculado pela soma das despesas vinculadas)
-- estornar:
-  - `status = pendente`
-  - `dataEfetivacao = null`
-  - `valorEfetivacao = null`
-- cancelar:
-  - `status = cancelada`
-  - mantem os demais dados e limpa efetivacao
+Regras de fluxo:
+- exige reembolso com status diferente de `pago`
+- `dataEfetivacao` nao pode ser menor que `dataLancamento`
+
+## Estorno
+O front usa `POST /reembolsos/{id}/estornar` com:
+- `dataEstorno` (obrigatorio)
+- `observacaoHistorico` (opcional)
+- `ocultarDoHistorico` (opcional, padrao `true`)
+
+Regras de fluxo:
+- exige reembolso com status `pago`
+- `dataEstorno` nao pode ser menor que `dataLancamento`
+- quando existir `dataEfetivacao`, `dataEstorno` nao pode ser menor que `dataEfetivacao`
+
+## Cancelamento
+O front usa `PUT /reembolsos/{id}` com:
+- `status = cancelada`
+- demais campos do reembolso preservados
 
 ## Campos relevantes do payload no front
 - `descricao`

@@ -12,19 +12,24 @@
       "desdobramento": "Desglose (cuotas)",
       "rateio": "Prorrateo",
       "contaBancaria": "Cuenta bancaria",
-      "cartao": "Tarjeta"
+      "cartao": "Tarjeta",
+      "observacao": "Observacion",
+      "dataEstorno": "Fecha de Reversion",
+      "ocultarEfetivacaoEstornoRegistros": "Ocultar liquidacion/reversion de los registros"
     },
     "placeholders": {
       "titulo": "Ej: Almuerzo",
       "descricao": "Detalles",
       "valor": "0.00",
       "data": "AAAA-MM-DD",
-      "desdobramento": "1"
+      "desdobramento": "1",
+      "observacao": "Ingrese observaciones adicionales"
     },
     "acoes": {
       "efetivar": "Liquidar",
       "estornar": "Revertir",
-      "documentacao": "Documentación"
+      "documentacao": "Documentación",
+      "confirmarEstorno": "Confirmar Reversion"
     },
     "status": {
       "pendente": "PENDIENTE",
@@ -50,7 +55,9 @@
       "confirmarRemocao": "¿Desea eliminar este gasto?",
       "semDescricao": "Sin descripción",
       "criada": "Gasto creado con éxito.",
-      "atualizada": "Gasto actualizado con éxito."
+      "atualizada": "Gasto actualizado con éxito.",
+      "obrigatorioEstorno": "La fecha de reversion es obligatoria.",
+      "estornada": "Gasto revertido con exito."
     }
   },
   "receita": {
@@ -63,16 +70,22 @@
       "valor": "Valor",
       "efetivacao": "Fecha de liquidación",
       "contaBancaria": "Cuenta bancaria",
-      "cartao": "Tarjeta"
+      "cartao": "Tarjeta",
+      "observacao": "Observacion",
+      "dataEstorno": "Fecha de Reversion",
+      "ocultarEfetivacaoEstornoRegistros": "Ocultar liquidacion/reversion de los registros"
     },
     "placeholders": {
       "titulo": "Ej: Salario",
       "descricao": "Detalles",
       "valor": "0.00",
-      "data": "AAAA-MM-DD"
+      "data": "AAAA-MM-DD",
+      "observacao": "Ingrese observaciones adicionales"
     },
     "mensagens": {
-      "obrigatorio": "Título, categoría y valor son obligatorios."
+      "obrigatorio": "Título, categoría y valor son obligatorios.",
+      "obrigatorioEstorno": "La fecha de reversion es obligatoria.",
+      "estornada": "Ingreso revertido con exito."
     },
     "categorias": {
       "salario": "Salario",
@@ -80,6 +93,9 @@
       "reembolso": "Reembolso",
       "investimento": "Inversión",
       "outros": "Otros"
+    },
+    "acoes": {
+      "confirmarEstorno": "Confirmar Reversion"
     }
   },
   "reembolso": {
@@ -118,16 +134,24 @@
       "estornoSomenteEfetivado": "Solo los reembolsos liquidados pueden revertirse.",
       "dataEfetivacaoMaiorQueSolicitacao": "La fecha de liquidacion no puede ser menor que la fecha de solicitud.",
       "efetivado": "Reembolso liquidado con éxito.",
-      "estornado": "Reembolso revertido con éxito."
+      "estornado": "Reembolso revertido con éxito.",
+      "obrigatorioEstorno": "La fecha de reversion es obligatoria."
     },
     "campos": {
       "dataEfetivacao": "Fecha de Liquidacion",
-      "valorEfetivacao": "Valor de Liquidacion"
+      "valorEfetivacao": "Valor de Liquidacion",
+      "dataEstorno": "Fecha de Reversion",
+      "observacao": "Observacion",
+      "ocultarEfetivacaoEstornoRegistros": "Ocultar liquidacion/reversion de los registros"
     },
     "acoes": {
       "efetivar": "Liquidar",
       "estornar": "Revertir",
-      "confirmarEfetivacao": "Confirmar Liquidacion"
+      "confirmarEfetivacao": "Confirmar Liquidacion",
+      "confirmarEstorno": "Confirmar Reversion"
+    },
+    "placeholders": {
+      "observacao": "Ingrese observaciones adicionales"
     }
   },
   "contaBancaria": {

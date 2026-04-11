@@ -12,19 +12,24 @@
       "desdobramento": "Installments",
       "rateio": "Split",
       "contaBancaria": "Bank Account",
-      "cartao": "Card"
+      "cartao": "Card",
+      "observacao": "Notes",
+      "dataEstorno": "Reversal Date",
+      "ocultarEfetivacaoEstornoRegistros": "Hide settlement/reversal from records"
     },
     "placeholders": {
       "titulo": "Ex: Lunch",
       "descricao": "Details",
       "valor": "0.00",
       "data": "YYYY-MM-DD",
-      "desdobramento": "1"
+      "desdobramento": "1",
+      "observacao": "Enter additional notes"
     },
     "acoes": {
       "efetivar": "Settle",
       "estornar": "Reverse",
-      "documentacao": "Documentation"
+      "documentacao": "Documentation",
+      "confirmarEstorno": "Confirm Reversal"
     },
     "status": {
       "pendente": "PENDING",
@@ -50,7 +55,9 @@
       "confirmarRemocao": "Do you want to remove this expense?",
       "semDescricao": "No description",
       "criada": "Expense created successfully.",
-      "atualizada": "Expense updated successfully."
+      "atualizada": "Expense updated successfully.",
+      "obrigatorioEstorno": "Reversal date is required.",
+      "estornada": "Expense reversed successfully."
     }
   },
   "receita": {
@@ -63,16 +70,22 @@
       "valor": "Amount",
       "efetivacao": "Settlement Date",
       "contaBancaria": "Bank Account",
-      "cartao": "Card"
+      "cartao": "Card",
+      "observacao": "Notes",
+      "dataEstorno": "Reversal Date",
+      "ocultarEfetivacaoEstornoRegistros": "Hide settlement/reversal from records"
     },
     "placeholders": {
       "titulo": "Ex: Salary",
       "descricao": "Details",
       "valor": "0.00",
-      "data": "YYYY-MM-DD"
+      "data": "YYYY-MM-DD",
+      "observacao": "Enter additional notes"
     },
     "mensagens": {
-      "obrigatorio": "Title, category and amount are required."
+      "obrigatorio": "Title, category and amount are required.",
+      "obrigatorioEstorno": "Reversal date is required.",
+      "estornada": "Income reversed successfully."
     },
     "categorias": {
       "salario": "Salary",
@@ -80,6 +93,9 @@
       "reembolso": "Reimbursement",
       "investimento": "Investment",
       "outros": "Others"
+    },
+    "acoes": {
+      "confirmarEstorno": "Confirm Reversal"
     }
   },
   "reembolso": {
@@ -89,7 +105,8 @@
     "vazio": "No reimbursements found.",
     "descricao": "Description",
     "placeholderDescricao": "Enter reimbursement description",
-    "solicitante": "Requester", "dataLancamento": "Issue Date",
+    "solicitante": "Requester",
+    "dataLancamento": "Issue Date",
     "placeholderData": "YYYY-MM-DD",
     "despesasVinculadas": "Linked Expenses",
     "despesasSelecionadas": "{{count}} linked expense(s)",
@@ -117,16 +134,24 @@
       "estornoSomenteEfetivado": "Only settled reimbursements can be reversed.",
       "dataEfetivacaoMaiorQueSolicitacao": "Settlement date cannot be less than request date.",
       "efetivado": "Reimbursement settled successfully.",
-      "estornado": "Reimbursement reversed successfully."
+      "estornado": "Reimbursement reversed successfully.",
+      "obrigatorioEstorno": "Reversal date is required."
     },
     "campos": {
       "dataEfetivacao": "Settlement Date",
-      "valorEfetivacao": "Settlement Amount"
+      "valorEfetivacao": "Settlement Amount",
+      "dataEstorno": "Reversal Date",
+      "observacao": "Notes",
+      "ocultarEfetivacaoEstornoRegistros": "Hide settlement/reversal from records"
     },
     "acoes": {
       "efetivar": "Settle",
       "estornar": "Reverse",
-      "confirmarEfetivacao": "Confirm Settlement"
+      "confirmarEfetivacao": "Confirm Settlement",
+      "confirmarEstorno": "Confirm Reversal"
+    },
+    "placeholders": {
+      "observacao": "Enter additional notes"
     }
   },
   "contaBancaria": {

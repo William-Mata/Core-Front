@@ -12,19 +12,24 @@
       "desdobramento": "Desdobramento (parcelas)",
       "rateio": "Rateio",
       "contaBancaria": "Conta Bancaria",
-      "cartao": "Cartão"
+      "cartao": "Cartão",
+      "observacao": "Observacao",
+      "dataEstorno": "Data de Estorno",
+      "ocultarEfetivacaoEstornoRegistros": "Ocultar efetivacao/estorno dos registros"
     },
     "placeholders": {
       "titulo": "Ex: Almoço",
       "descricao": "Detalhes",
       "valor": "0.00",
       "data": "AAAA-MM-DD",
-      "desdobramento": "1"
+      "desdobramento": "1",
+      "observacao": "Digite observacoes adicionais"
     },
     "acoes": {
       "efetivar": "Efetivar",
       "estornar": "Estornar",
-      "documentacao": "Documentação"
+      "documentacao": "Documentação",
+      "confirmarEstorno": "Confirmar Estorno"
     },
     "status": {
       "pendente": "PENDENTE",
@@ -50,7 +55,9 @@
       "confirmarRemocao": "Deseja remover esta despesa?",
       "semDescricao": "Sem descrição",
       "criada": "Despesa criada com sucesso.",
-      "atualizada": "Despesa atualizada com sucesso."
+      "atualizada": "Despesa atualizada com sucesso.",
+      "obrigatorioEstorno": "Data de estorno e obrigatoria.",
+      "estornada": "Despesa estornada com sucesso."
     }
   },
   "receita": {
@@ -63,16 +70,22 @@
       "valor": "Valor",
       "efetivacao": "Data de Efetivação",
       "contaBancaria": "Conta Bancaria",
-      "cartao": "Cartao"
+      "cartao": "Cartao",
+      "observacao": "Observacao",
+      "dataEstorno": "Data de Estorno",
+      "ocultarEfetivacaoEstornoRegistros": "Ocultar efetivacao/estorno dos registros"
     },
     "placeholders": {
       "titulo": "Ex: Salário",
       "descricao": "Detalhes",
       "valor": "0.00",
-      "data": "AAAA-MM-DD"
+      "data": "AAAA-MM-DD",
+      "observacao": "Digite observacoes adicionais"
     },
     "mensagens": {
-      "obrigatorio": "Título, categoria e valor são obrigatórios."
+      "obrigatorio": "Título, categoria e valor são obrigatórios.",
+      "obrigatorioEstorno": "Data de estorno e obrigatoria.",
+      "estornada": "Receita estornada com sucesso."
     },
     "categorias": {
       "salario": "Salário",
@@ -80,6 +93,9 @@
       "reembolso": "Reembolso",
       "investimento": "Investimento",
       "outros": "Outros"
+    },
+    "acoes": {
+      "confirmarEstorno": "Confirmar Estorno"
     }
   },
   "reembolso": {
@@ -117,18 +133,26 @@
       "estornoSomenteEfetivado": "Apenas reembolsos efetivados podem ser estornados.",
       "dataEfetivacaoMaiorQueSolicitacao": "A data de efetivacao nao pode ser maior que a data de solicitacao.",
       "efetivado": "Reembolso efetivado com sucesso.",
-      "estornado": "Reembolso estornado com sucesso."
+      "estornado": "Reembolso estornado com sucesso.",
+      "obrigatorioEstorno": "Data de estorno e obrigatoria."
     },
     "campos": {
       "dataEfetivacao": "Data de Efetivacao",
-      "valorEfetivacao": "Valor Efetivacao"
+      "valorEfetivacao": "Valor Efetivacao",
+      "dataEstorno": "Data de Estorno",
+      "observacao": "Observacao",
+      "ocultarEfetivacaoEstornoRegistros": "Ocultar efetivacao/estorno dos registros"
     },
     "acoes": {
       "efetivar": "Efetivar",
       "estornar": "Estornar",
-      "confirmarEfetivacao": "Confirmar Efetivacao"
+      "confirmarEfetivacao": "Confirmar Efetivacao",
+      "confirmarEstorno": "Confirmar Estorno"
     },
-    "dataLancamento": "Data de Lançamento"
+    "dataLancamento": "Data de Lançamento",
+    "placeholders": {
+      "observacao": "Digite observacoes adicionais"
+    }
   },
   "contaBancaria": {
     "titulo": "Contas Bancárias",
