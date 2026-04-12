@@ -19,12 +19,10 @@ describe('servico financeiro - filtros por competencia', () => {
     jest.clearAllMocks();
   });
 
-  it('deve enviar dataInicio e dataFim ao listar despesas', async () => {
+  it('deve enviar competencia ao listar despesas', async () => {
     mockGet.mockResolvedValueOnce({ data: [] });
 
     await listarDespesasApi({
-      dataInicio: '2026-03-01',
-      dataFim: '2026-03-31',
       competenciaMes: 3,
       competenciaAno: 2026
     });
@@ -32,28 +30,24 @@ describe('servico financeiro - filtros por competencia', () => {
     expect(mockGet).toHaveBeenCalledWith('/financeiro/despesas', {
       signal: undefined,
       params: {
-        dataInicio: '2026-03-01',
-        dataFim: '2026-03-31',
         competencia: '2026-03'
       },
     });
   });
 
-  it('deve enviar periodo ao listar receitas mantendo signal', async () => {
+  it('deve enviar competencia ao listar receitas mantendo signal', async () => {
     const controller = new AbortController();
     mockGet.mockResolvedValueOnce({ data: [] });
 
     await listarReceitasApi({
       signal: controller.signal,
-      dataInicio: '2026-04-01',
-      dataFim: '2026-04-30',
+      competencia: '04/2026',
     });
 
     expect(mockGet).toHaveBeenCalledWith('/financeiro/receitas', {
       signal: controller.signal,
       params: {
-        dataInicio: '2026-04-01',
-        dataFim: '2026-04-30',
+        competencia: '04/2026',
       },
     });
   });

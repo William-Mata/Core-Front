@@ -37,15 +37,11 @@ describe('servico financeiro - detalhes de cartao e conta bancaria', () => {
 
     const resultado = await listarCartoesDetalheApi({
       descricao: 'A',
-      dataInicio: '2026-04-01',
-      dataFim: '2026-04-30',
     });
 
     expect(mockGet).toHaveBeenCalledWith('/financeiro/cartoes', {
       signal: undefined,
       params: {
-        dataInicio: '2026-04-01',
-        dataFim: '2026-04-30',
         descricao: 'A',
       },
     });
