@@ -36,11 +36,13 @@ Filtros enviados na consulta:
 - `descricao`
 - `dataInicio`
 - `dataFim`
-- `competencia` (`YYYY-MM`)
+- `competencia` (`yyyy-MM`)
 
 Comportamento:
 - a tela so consulta quando o usuario aciona `Consultar`
-- a navegacao de competencia altera o periodo consultado
+- `competencia` e a fonte de verdade para cadastro, edicao e listagem
+- quando `competencia` nao for informada, a API assume a competencia atual
+- a navegacao de competencia altera a competencia consultada
 - alem da consulta na API, existe filtro local adicional na lista
 
 ## Regras de status para acoes
@@ -89,6 +91,7 @@ O front usa `PUT /reembolsos/{id}` com:
 - `descricao`
 - `solicitante`
 - `dataLancamento`
+- `competencia`
 - `despesasVinculadas` (array de ids)
 - `valorTotal` (calculado no front)
 - `documentos`

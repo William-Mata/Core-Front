@@ -5,6 +5,7 @@ A tela de receita permite:
 - consultar receitas cadastradas
 - filtrar por ID, descricao e periodo
 - navegar por competencia mensal
+- usar competencia como referencia principal de cadastro, edicao e listagem
 - criar receita
 - editar receita pendente
 - visualizar a receita com historico
@@ -40,6 +41,8 @@ A tela de receita permite:
 - os campos obrigatorios ficam destacados quando nao sao preenchidos
 - o valor liquido e calculado automaticamente
 - o valor liquido fica bloqueado para digitacao
+- a competencia da receita segue o formato `yyyy-MM`
+- quando nao informar competencia, o sistema usa a competencia atual
 - na efetivacao, a data de efetivacao nao pode ser menor que a data de lancamento
 - quando o tipo de recebimento for `Pix` ou `Transferencia`, a conta bancaria passa a ser obrigatoria
 - quando o tipo de recebimento for `Transferencia` ou `Pix`, o campo `Conta destino` aparece como opcional

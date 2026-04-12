@@ -6,6 +6,7 @@ A tela de Reembolso permite registrar pedidos de reembolso vinculando despesas j
 ## O que voce pode fazer
 - consultar reembolsos cadastrados
 - filtrar por ID, descricao e periodo
+- usar competencia como referencia principal de cadastro, edicao e listagem
 - criar novo reembolso
 - editar reembolso pendente
 - efetivar reembolso com status diferente de pago
@@ -26,6 +27,8 @@ A tela de Reembolso permite registrar pedidos de reembolso vinculando despesas j
 - uma despesa so pode estar vinculada a um unico reembolso
 - se tentar vincular uma despesa ja usada em outro reembolso, o sistema bloqueia e informa o conflito
 - apenas reembolso `Pendente` pode ser editado
+- a competencia do reembolso segue o formato `yyyy-MM`
+- quando nao informar competencia, o sistema usa a competencia atual
 - efetivacao exige status diferente de `Pago`
 - estorno exige status `Pago`
 - na efetivacao, a data de efetivacao nao pode ser menor que a data de lancamento

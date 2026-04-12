@@ -5,6 +5,7 @@ A tela de despesa permite:
 - consultar despesas cadastradas
 - filtrar por ID, descricao e periodo
 - navegar por competencia mensal
+- usar competencia como referencia principal de cadastro, edicao e listagem
 - criar despesa
 - editar despesa pendente
 - visualizar a despesa com historico
@@ -41,6 +42,8 @@ A tela de despesa permite:
 - os campos obrigatorios ficam destacados quando nao sao preenchidos
 - o valor liquido e calculado automaticamente
 - o valor liquido fica bloqueado para digitacao
+- a competencia da despesa segue o formato `yyyy-MM`
+- quando nao informar competencia, o sistema usa a competencia atual
 - na efetivacao, a data de efetivacao nao pode ser menor que a data de lancamento
 - em transferencia, a tela mostra tambem o campo `Conta destino`
 - `Conta destino` e opcional e so aparece quando o tipo de pagamento e `Transferencia` ou `Pix`
