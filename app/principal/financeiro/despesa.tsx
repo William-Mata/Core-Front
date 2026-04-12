@@ -14,7 +14,7 @@ import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
-import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterIntervaloCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
+import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterCompetenciaPorData, serializarCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
 import { rateioConfereValorTotalExato, rateioNaoUltrapassaValorTotal } from '../../../src/utils/rateioValidacao';
 import { obterIconeBanco, obterIconeBandeiraCartao, obterImagemBanco, obterImagemBandeiraCartao } from '../../../src/utils/icones';
@@ -82,6 +82,7 @@ interface DespesaRegistro {
   descricao: string;
   observacao: string;
   dataLancamento: string;
+  competencia?: string;
   dataVencimento: string;
   dataEfetivacao?: string;
   tipoDespesa: string;
@@ -113,6 +114,9 @@ interface DespesaRegistro {
   contaDestinoId?: number;
   cartao?: string;
   cartaoId?: number;
+  faturaId?: number;
+  ehFatura?: boolean;
+  despesasVinculadasIds?: number[];
   anexoDocumento: string;
   documentos: DocumentoFinanceiro[];
   logs: LogDespesa[];
@@ -124,6 +128,7 @@ interface DespesaForm {
   observacaoEfetivacao: string;
   observacaoEstorno: string;
   dataLancamento: string;
+  competencia?: string;
   dataVencimento: string;
   dataEfetivacao: string;
   dataEstorno: string;
@@ -313,7 +318,25 @@ function obterRotuloStatusDespesa(status: StatusDespesa, t: (chave: string) => s
 }
 
 function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
+  const paraNumeroOpcional = (valor: unknown): number | undefined => {
+    const numero = Number(valor ?? NaN);
+    return Number.isFinite(numero) && numero > 0 ? numero : undefined;
+  };
+  const extrairIdsVinculados = (valor: unknown): number[] => {
+    if (!Array.isArray(valor)) return [];
+    return valor
+      .map((entrada) => {
+        if (typeof entrada === 'number' || typeof entrada === 'string') return Number(entrada);
+        if (entrada && typeof entrada === 'object') {
+          const registro = entrada as Record<string, unknown>;
+          return Number(registro.id ?? registro.despesaId ?? NaN);
+        }
+        return NaN;
+      })
+      .filter((numero): numero is number => Number.isFinite(numero) && numero > 0);
+  };
   const dataBase = String(item.dataLancamento ?? item.data ?? new Date().toISOString().slice(0, 10)).slice(0, 10);
+  const competenciaBase = String(item.competencia ?? serializarCompetencia(obterCompetenciaPorData(dataBase))).slice(0, 7);
   const valorBase = Number(item.valor ?? item.valorTotal ?? item.valorLiquido ?? 0);
   const desconto = Number(item.desconto ?? 0);
   const acrescimo = Number(item.acrescimo ?? 0);
@@ -415,12 +438,27 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
   const cartaoNome = cartaoBruto && cartaoBruto !== String(cartaoIdNormalizado)
     ? cartaoBruto
     : undefined;
+  const faturaIdDireta = paraNumeroOpcional(item.faturaId ?? item.idFatura ?? item.faturaReferenciaId);
+  const faturaRegistro = item.fatura && typeof item.fatura === 'object'
+    ? (item.fatura as Record<string, unknown>)
+    : null;
+  const faturaIdRelacionada = paraNumeroOpcional(faturaRegistro?.id ?? faturaRegistro?.faturaId);
+  const despesasVinculadasIds = [
+    ...extrairIdsVinculados(item.despesasVinculadas),
+    ...extrairIdsVinculados(item.despesas),
+  ].filter((id, indice, lista) => lista.indexOf(id) === indice);
+  const tipoDespesaBruto = String(item.tipoDespesa ?? item.tipoLancamento ?? item.tipo ?? '').toLowerCase();
+  const ehFatura = Boolean(item.ehFatura)
+    || tipoDespesaBruto.includes('fatura')
+    || despesasVinculadasIds.length > 0;
+  const faturaId = faturaIdDireta ?? faturaIdRelacionada;
 
   return {
     id: Number(item.id),
     descricao: String(item.descricao ?? item.titulo ?? `Despesa ${item.id}`),
     observacao: String(item.observacao ?? item.descricao ?? ''),
     dataLancamento: dataBase,
+    competencia: competenciaBase,
     dataVencimento: String(item.dataVencimento ?? dataBase).slice(0, 10),
     dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : undefined,
     tipoDespesa: normalizarTipoDespesa(item.tipoDespesa ?? item.categoria),
@@ -464,6 +502,9 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
     cartaoId: Number.isFinite(cartaoIdNormalizado) && cartaoIdNormalizado > 0
       ? cartaoIdNormalizado
       : undefined,
+    faturaId,
+    ehFatura,
+    despesasVinculadasIds,
     anexoDocumento: documentos[0]?.nomeArquivo ?? String(item.anexoDocumento ?? ''),
     documentos,
     logs: Array.isArray(item.logs)
@@ -510,6 +551,7 @@ export default function TelaDespesa() {
   const [despesaPendenteEdicaoRecorrente, setDespesaPendenteEdicaoRecorrente] = useState<DespesaRegistro | null>(null);
   const [escopoCancelamentoRecorrente, setEscopoCancelamentoRecorrente] = useState<EscopoAcaoRecorrencia>('apenasEsta');
   const [escopoEdicaoRecorrente, setEscopoEdicaoRecorrente] = useState<EscopoAcaoRecorrencia>('apenasEsta');
+  const [faturasExpandidas, setFaturasExpandidas] = useState<number[]>([]);
   const [salvandoDespesa, setSalvandoDespesa] = useState(false);
   const [cancelandoDespesa, setCancelandoDespesa] = useState(false);
   const definirTipoRateioAmigos = (valor: TipoRateioAmigos) => {
@@ -663,7 +705,7 @@ export default function TelaDespesa() {
 
   const mensagemLimiteRecorrenciaNormal = t('financeiro.comum.mensagens.limiteRecorrenciaNormal').replace('{limite}', String(LIMITE_RECORRENCIA_NORMAL));
   const competenciaLabel = useMemo(() => formatarCompetencia(competencia, locale), [competencia, locale]);
-  const competenciaConsulta = useMemo(() => `${String(competencia.ano)}-${String(competencia.mes).padStart(2, '0')}`, [competencia.ano, competencia.mes]);
+  const competenciaConsulta = useMemo(() => serializarCompetencia(competencia), [competencia]);
   const opcoesEscopoCancelamentoRecorrencia = useMemo(() => ([
     { valor: 'apenasEsta', rotulo: t('financeiro.comum.opcoesEscopoCancelamentoRecorrencia.apenasEsta') },
     { valor: 'estaEProximas', rotulo: t('financeiro.comum.opcoesEscopoCancelamentoRecorrencia.estaEProximas') },
@@ -698,9 +740,8 @@ export default function TelaDespesa() {
 
   const carregarDespesasApi = async (signal?: AbortSignal) => {
     try {
-      const periodoCompetencia = obterIntervaloCompetencia(competencia);
-      const dataInicio = filtroAplicado.dataInicio || periodoCompetencia.dataInicio;
-      const dataFim = filtroAplicado.dataFim || periodoCompetencia.dataFim;
+      const dataInicio = filtroAplicado.dataInicio.trim() || undefined;
+      const dataFim = filtroAplicado.dataFim.trim() || undefined;
       const dados = await listarDespesasApi({
         signal,
         id: filtroAplicado.id.trim() || undefined,
@@ -773,6 +814,64 @@ export default function TelaDespesa() {
       return bateId && bateDescricao && bateData;
     });
   }, [despesas, filtroAplicado, t]);
+
+  const gruposFatura = useMemo(() => {
+    const mapaDespesasPorId = new Map(despesasFiltradas.map((despesa) => [despesa.id, despesa]));
+    const mapaDespesasVinculadasPorFaturaId = new Map<number, DespesaRegistro[]>();
+    const idsFaturaRelacionadas = new Set<number>();
+    const adicionarDespesaVinculada = (faturaId: number, despesa: DespesaRegistro) => {
+      if (!mapaDespesasPorId.has(faturaId)) return;
+      const atuais = mapaDespesasVinculadasPorFaturaId.get(faturaId) ?? [];
+      if (atuais.some((item) => item.id === despesa.id)) return;
+      mapaDespesasVinculadasPorFaturaId.set(faturaId, [...atuais, despesa]);
+    };
+
+    despesasFiltradas.forEach((despesa) => {
+      if (despesa.faturaId && despesa.faturaId !== despesa.id) {
+        idsFaturaRelacionadas.add(despesa.faturaId);
+        adicionarDespesaVinculada(despesa.faturaId, despesa);
+      }
+    });
+
+    despesasFiltradas.forEach((despesa) => {
+      if (despesa.ehFatura || (despesa.despesasVinculadasIds?.length ?? 0) > 0) {
+        idsFaturaRelacionadas.add(despesa.id);
+      }
+      despesa.despesasVinculadasIds?.forEach((despesaVinculadaId) => {
+        const despesaVinculada = mapaDespesasPorId.get(despesaVinculadaId);
+        if (!despesaVinculada || despesaVinculada.id === despesa.id) return;
+        idsFaturaRelacionadas.add(despesa.id);
+        adicionarDespesaVinculada(despesa.id, despesaVinculada);
+      });
+    });
+
+    return Array.from(idsFaturaRelacionadas)
+      .map((faturaId) => {
+        const fatura = mapaDespesasPorId.get(faturaId);
+        if (!fatura) return null;
+        const despesasVinculadas = (mapaDespesasVinculadasPorFaturaId.get(faturaId) ?? []).sort((a, b) => a.id - b.id);
+        if (despesasVinculadas.length === 0) return null;
+        return { fatura, despesasVinculadas };
+      })
+      .filter((grupo): grupo is { fatura: DespesaRegistro; despesasVinculadas: DespesaRegistro[] } => Boolean(grupo))
+      .sort((a, b) => a.fatura.id - b.fatura.id);
+  }, [despesasFiltradas]);
+
+  const mapaGrupoPorFaturaId = useMemo(
+    () => new Map(gruposFatura.map((grupo) => [grupo.fatura.id, grupo])),
+    [gruposFatura],
+  );
+  const idsDespesasVinculadasAFatura = useMemo(() => {
+    const ids = new Set<number>();
+    gruposFatura.forEach((grupo) => {
+      grupo.despesasVinculadas.forEach((despesa) => ids.add(despesa.id));
+    });
+    return ids;
+  }, [gruposFatura]);
+  const despesasListaPrincipal = useMemo(
+    () => despesasFiltradas.filter((despesa) => !idsDespesasVinculadasAFatura.has(despesa.id)),
+    [despesasFiltradas, idsDespesasVinculadasAFatura],
+  );
 
   const atualizarCampoMoeda = (campo: keyof DespesaForm, valor: string) => {
     setCamposInvalidos((atual) => ({ ...atual, [campo]: false }));
@@ -1124,6 +1223,7 @@ export default function TelaDespesa() {
 
     return {
       dataLancamento,
+      competencia: serializarCompetencia(obterCompetenciaPorData(dataLancamento)),
       dataVencimento,
       valorTotal,
       valorLiquido,
@@ -1187,6 +1287,7 @@ export default function TelaDespesa() {
       descricao: formulario.descricao,
       observacao: formulario.observacao,
       dataLancamento: base.dataLancamento,
+      competencia: base.competencia,
       dataVencimento: base.dataVencimento,
       tipoDespesa: formulario.tipoDespesa,
       tipoPagamento: formulario.tipoPagamento,
@@ -1421,6 +1522,44 @@ export default function TelaDespesa() {
     }
   };
 
+  const alternarExpansaoFatura = (faturaId: number) => {
+    setFaturasExpandidas((atual) =>
+      atual.includes(faturaId)
+        ? atual.filter((id) => id !== faturaId)
+        : [...atual, faturaId],
+    );
+  };
+
+  const renderAcoesDespesa = (
+    despesa: DespesaRegistro,
+    opcoes?: { ocultarAcoesOperacionais?: boolean; podeEfetivar?: boolean },
+  ) => (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
+      <TouchableOpacity onPress={() => abrirVisualizacao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('financeiro.despesa.acoes.visualizar')}</Text></TouchableOpacity>
+      {despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais ? <TouchableOpacity onPress={() => abrirEdicao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
+      {despesa.status === 'pendente' && (opcoes?.podeEfetivar ?? true) ? <TouchableOpacity onPress={() => abrirEfetivacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.despesa.acoes.efetivar')}</Text></TouchableOpacity> : null}
+      {despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais ? <TouchableOpacity onPress={() => cancelarDespesa(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.despesa.acoes.cancelarDespesa')}</Text></TouchableOpacity> : null}
+      {despesa.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => aceitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
+      {despesa.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => rejeitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
+      {despesa.status === 'efetivada' ? <TouchableOpacity onPress={() => abrirEstorno(despesa)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.despesa.acoes.estornar')}</Text></TouchableOpacity> : null}
+    </View>
+  );
+
+  const renderCartaoDespesa = (
+    despesa: DespesaRegistro,
+    opcoes?: { margemInferior?: number; ocultarAcoesOperacionais?: boolean; podeEfetivar?: boolean },
+  ) => (
+    <View key={despesa.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginBottom: opcoes?.margemInferior ?? 10 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+        <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{despesa.id} {despesa.descricao}</Text>
+        <Text style={{ color: despesa.status === 'efetivada' ? COLORS.success : despesa.status === 'cancelada' ? COLORS.error : COLORS.warning, fontSize: 12, fontWeight: '700' }}>{obterRotuloStatusDespesa(despesa.status, t)}</Text>
+      </View>
+      <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>{t(`financeiro.despesa.tipoDespesa.${despesa.tipoDespesa}`)} | {formatarDataPorIdioma(despesa.dataVencimento)} | {formatarValorPorIdioma(despesa.valorLiquido)}</Text>
+      <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>{despesa.observacao || t('financeiro.despesa.mensagens.semObservacao')}</Text>
+      {renderAcoesDespesa(despesa, { ocultarAcoesOperacionais: opcoes?.ocultarAcoesOperacionais, podeEfetivar: opcoes?.podeEfetivar })}
+    </View>
+  );
+
   const renderCampoBloqueado = (label: string, valor: string) => (
     <View style={{ marginBottom: 12 }}>
       <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
@@ -1654,31 +1793,37 @@ export default function TelaDespesa() {
                 </TouchableOpacity>
               </View>
             </View>
-            <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
-            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo='secundario' estilo={{ marginBottom: 12 }} />
-            <View>
-              {despesasFiltradas.length === 0 ? <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 24 }}>{t('financeiro.despesa.vazio')}</Text> : despesasFiltradas.map((despesa) => (
-                <View key={despesa.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{despesa.id} {despesa.descricao}</Text>
-                    <Text style={{ color: despesa.status === 'efetivada' ? COLORS.success : despesa.status === 'cancelada' ? COLORS.error : COLORS.warning, fontSize: 12, fontWeight: '700' }}>{obterRotuloStatusDespesa(despesa.status, t)}</Text>
-                  </View>
-                  <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>{t(`financeiro.despesa.tipoDespesa.${despesa.tipoDespesa}`)} | {formatarDataPorIdioma(despesa.dataVencimento)} | {formatarValorPorIdioma(despesa.valorLiquido)}</Text>
-                  <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>{despesa.observacao || t('financeiro.despesa.mensagens.semObservacao')}</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
-                    <TouchableOpacity onPress={() => abrirVisualizacao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('financeiro.despesa.acoes.visualizar')}</Text></TouchableOpacity>
-                    {despesa.status === 'pendente' ? <TouchableOpacity onPress={() => abrirEdicao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
-                    {despesa.status === 'pendente' ? <TouchableOpacity onPress={() => abrirEfetivacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.despesa.acoes.efetivar')}</Text></TouchableOpacity> : null}
-                    {despesa.status === 'pendente' ? <TouchableOpacity onPress={() => cancelarDespesa(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.despesa.acoes.cancelarDespesa')}</Text></TouchableOpacity> : null}
-                    {despesa.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => aceitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
-                    {despesa.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => rejeitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
-                    {despesa.status === 'efetivada' ? <TouchableOpacity onPress={() => abrirEstorno(despesa)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.despesa.acoes.estornar')}</Text></TouchableOpacity> : null}
-                  </View>
-                </View>
-              ))}
-            </View>
-          </>
-        ) : null}
+	            <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
+	            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo='secundario' estilo={{ marginBottom: 12 }} />
+	            <View>
+	              {despesasListaPrincipal.length === 0 ? <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 24 }}>{t('financeiro.despesa.vazio')}</Text> : despesasListaPrincipal.map((despesa) => {
+	                const grupoFatura = mapaGrupoPorFaturaId.get(despesa.id);
+	                if (!grupoFatura) return renderCartaoDespesa(despesa);
+	                const expandida = faturasExpandidas.includes(grupoFatura.fatura.id);
+	                const podeEfetivarFatura = grupoFatura.despesasVinculadas.length > 0 && grupoFatura.despesasVinculadas.every((item) => item.status === 'efetivada');
+	                return (
+	                  <View key={grupoFatura.fatura.id}>
+	                    {renderCartaoDespesa(grupoFatura.fatura, {
+	                      ocultarAcoesOperacionais: true,
+	                      podeEfetivar: podeEfetivarFatura,
+	                      margemInferior: expandida ? 8 : 10,
+	                    })}
+	                    <View style={{ marginTop: -4, marginBottom: 10, alignItems: 'flex-end' }}>
+	                      <TouchableOpacity onPress={() => alternarExpansaoFatura(grupoFatura.fatura.id)} style={{ backgroundColor: COLORS.accentSubtle, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
+	                        <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700' }}>{`${t('financeiro.cartao.acoes.fatura')} (${grupoFatura.despesasVinculadas.length}) ${expandida ? '▲' : '▼'}`}</Text>
+	                      </TouchableOpacity>
+	                    </View>
+	                    {expandida ? (
+	                      <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10 }}>
+	                        {grupoFatura.despesasVinculadas.map((despesaVinculada) => renderCartaoDespesa(despesaVinculada, { margemInferior: 8 }))}
+	                      </View>
+	                    ) : null}
+	                  </View>
+	                );
+	              })}
+	            </View>
+	          </>
+	        ) : null}
         {(modoTela === 'novo' || modoTela === 'edicao') ? (
           <>
             {renderFormularioBase(false)}
