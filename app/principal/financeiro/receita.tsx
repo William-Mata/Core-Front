@@ -14,7 +14,7 @@ import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
-import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterIntervaloCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
+import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterCompetenciaPorData, serializarCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
 import { rateioConfereValorTotalExato, rateioNaoUltrapassaValorTotal } from '../../../src/utils/rateioValidacao';
 import { obterIconeBanco, obterIconeBandeiraCartao, obterImagemBanco, obterImagemBandeiraCartao } from '../../../src/utils/icones';
@@ -81,6 +81,7 @@ interface ReceitaRegistro {
   descricao: string;
   observacao: string;
   dataLancamento: string;
+  competencia?: string;
   dataVencimento: string;
   dataEfetivacao?: string;
   tipoReceita: string;
@@ -122,6 +123,7 @@ interface ReceitaForm {
   observacaoEfetivacao: string;
   observacaoEstorno: string;
   dataLancamento: string;
+  competencia?: string;
   dataVencimento: string;
   dataEfetivacao: string;
   dataEstorno: string;
@@ -300,6 +302,7 @@ function obterRotuloStatusReceita(status: StatusReceita, t: (chave: string) => s
 
 function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
   const dataBase = String(item.dataLancamento ?? item.data ?? new Date().toISOString().slice(0, 10)).slice(0, 10);
+  const competenciaBase = String(item.competencia ?? serializarCompetencia(obterCompetenciaPorData(dataBase))).slice(0, 7);
   const valorBase = Number(item.valor ?? item.valorTotal ?? item.valorLiquido ?? 0);
   const desconto = Number(item.desconto ?? 0);
   const acrescimo = Number(item.acrescimo ?? 0);
@@ -405,6 +408,7 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
     descricao: String(item.descricao ?? item.titulo ?? `Receita ${item.id}`),
     observacao: String(item.observacao ?? item.descricao ?? ''),
     dataLancamento: dataBase,
+    competencia: competenciaBase,
     dataVencimento: String(item.dataVencimento ?? dataBase).slice(0, 10),
     dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : undefined,
     tipoReceita: normalizarTipoReceita(item.tipoReceita ?? item.categoria),
@@ -653,7 +657,7 @@ export default function TelaReceita() {
   const rotuloQuantidadeRecorrencia = t('financeiro.comum.campos.quantidadeRecorrencia');
   const mensagemLimiteRecorrenciaNormal = t('financeiro.comum.mensagens.limiteRecorrenciaNormal').replace('{limite}', String(LIMITE_RECORRENCIA_NORMAL));
   const competenciaLabel = useMemo(() => formatarCompetencia(competencia, locale), [competencia, locale]);
-  const competenciaConsulta = useMemo(() => `${String(competencia.ano)}-${String(competencia.mes).padStart(2, '0')}`, [competencia.ano, competencia.mes]);
+  const competenciaConsulta = useMemo(() => serializarCompetencia(competencia), [competencia]);
   const opcoesEscopoCancelamentoRecorrencia = useMemo(() => ([
     { valor: 'apenasEsta', rotulo: t('financeiro.comum.opcoesEscopoCancelamentoRecorrencia.apenasEsta') },
     { valor: 'estaEProximas', rotulo: t('financeiro.comum.opcoesEscopoCancelamentoRecorrencia.estaEProximas') },
@@ -677,9 +681,8 @@ export default function TelaReceita() {
 
   const carregarReceitasApi = async (signal?: AbortSignal) => {
     try {
-      const periodoCompetencia = obterIntervaloCompetencia(competencia);
-      const dataInicio = filtroAplicado.dataInicio || periodoCompetencia.dataInicio;
-      const dataFim = filtroAplicado.dataFim || periodoCompetencia.dataFim;
+      const dataInicio = filtroAplicado.dataInicio.trim() || undefined;
+      const dataFim = filtroAplicado.dataFim.trim() || undefined;
       const opcoesConsulta = {
         signal,
         id: filtroAplicado.id.trim() || undefined,
@@ -1117,6 +1120,7 @@ export default function TelaReceita() {
 
     return {
       dataLancamento: formulario.dataLancamento,
+      competencia: serializarCompetencia(obterCompetenciaPorData(formulario.dataLancamento)),
       dataVencimento: formulario.dataVencimento,
       valorTotal,
       valorLiquido,
@@ -1165,6 +1169,7 @@ export default function TelaReceita() {
       descricao: formulario.descricao,
       observacao: formulario.observacao,
       dataLancamento: formulario.dataLancamento,
+      competencia: base.competencia,
       dataVencimento: formulario.dataVencimento,
       tipoReceita: formulario.tipoReceita,
       tipoRecebimento: formulario.tipoRecebimento,

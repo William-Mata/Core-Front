@@ -227,8 +227,6 @@ export default function TelaCartao() {
         signal,
         id: filtroAplicado.id.trim() || undefined,
         descricao: filtroAplicado.descricao.trim() || undefined,
-        dataInicio: filtroAplicado.dataInicio || undefined,
-        dataFim: filtroAplicado.dataFim || undefined,
       });
       setCartoes(dados.map((item) => mapearCartaoApi(item)));
     } catch {

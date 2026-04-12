@@ -11,7 +11,7 @@ import { ModalConfirmacao } from '../../../src/componentes/comuns/ModalConfirmac
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
-import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterIntervaloCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
+import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterCompetenciaPorData, serializarCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { obterIconeBanco, obterIconeBandeiraCartao, obterImagemBanco, obterImagemBandeiraCartao } from '../../../src/utils/icones';
 import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
@@ -53,6 +53,7 @@ interface Reembolso {
   descricao: string;
   solicitante: string;
   dataLancamento: string;
+  competencia?: string;
   dataEfetivacao?: string;
   dataEstorno?: string;
   observacao: string;
@@ -96,12 +97,15 @@ function normalizarReembolsoApi(item: RegistroFinanceiroApi): Reembolso {
     })
     .filter((id): id is number => Number.isFinite(id));
 
-  return {
-    id: paraNumero(item.id),
-    descricao: String(item.descricao ?? item.titulo ?? ''),
-    solicitante: String(item.solicitante ?? item.solicitanteName ?? ''),
-    dataLancamento: String(item.dataLancamento ?? item.data ?? '').slice(0, 10),
-    dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : undefined,
+    return {
+      id: paraNumero(item.id),
+      descricao: String(item.descricao ?? item.titulo ?? ''),
+      solicitante: String(item.solicitante ?? item.solicitanteName ?? ''),
+      dataLancamento: String(item.dataLancamento ?? item.data ?? '').slice(0, 10),
+      competencia: String(
+        item.competencia ?? serializarCompetencia(obterCompetenciaPorData(String(item.dataLancamento ?? item.data ?? ''))),
+      ).slice(0, 7),
+      dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : undefined,
     dataEstorno: item.dataEstorno ? String(item.dataEstorno).slice(0, 10) : undefined,
     observacao: String(item.observacao ?? ''),
     observacaoEfetivacao: '',
@@ -180,7 +184,7 @@ export default function TelaReembolso() {
   const [secaoRateioExpandida, setSecaoRateioExpandida] = useState(true);
   const [reembolsoPendenteCancelamento, setReembolsoPendenteCancelamento] = useState<Reembolso | null>(null);
   const competenciaLabel = useMemo(() => formatarCompetencia(competencia, locale), [competencia, locale]);
-  const competenciaConsulta = useMemo(() => `${String(competencia.ano)}-${String(competencia.mes).padStart(2, '0')}`, [competencia.ano, competencia.mes]);
+  const competenciaConsulta = useMemo(() => serializarCompetencia(competencia), [competencia]);
   const exibeContaBancaria = reembolsoAtual.tipoRecebimento === 'pix' || reembolsoAtual.tipoRecebimento === 'transferencia' || reembolsoAtual.tipoRecebimento === 'contaCorrente';
   const exibeCartao = reembolsoAtual.tipoRecebimento === 'cartaoCredito' || reembolsoAtual.tipoRecebimento === 'cartaoDebito';
   const opcoesContaBancaria = useMemo(
@@ -204,9 +208,8 @@ export default function TelaReembolso() {
   const carregarDados = async (signal?: AbortSignal) => {
     setCarregando(true);
     try {
-      const periodoCompetencia = obterIntervaloCompetencia(competencia);
-      const dataInicio = filtroAplicado.dataInicio || periodoCompetencia.dataInicio;
-      const dataFim = filtroAplicado.dataFim || periodoCompetencia.dataFim;
+      const dataInicio = filtroAplicado.dataInicio.trim() || undefined;
+      const dataFim = filtroAplicado.dataFim.trim() || undefined;
       const opcoesConsulta = {
         signal,
         id: filtroAplicado.id.trim() || undefined,
@@ -380,6 +383,7 @@ export default function TelaReembolso() {
       descricao: reembolsoAtual.descricao.trim(),
       solicitante: reembolsoAtual.solicitante.trim(),
       dataLancamento: reembolsoAtual.dataLancamento,
+      competencia: serializarCompetencia(obterCompetenciaPorData(reembolsoAtual.dataLancamento)),
       despesasVinculadas: reembolsoAtual.despesasVinculadas,
       valorTotal,
       documentos: montarDocumentosPayload(reembolsoAtual.documentos),
@@ -504,6 +508,7 @@ export default function TelaReembolso() {
         descricao: completo.descricao,
         solicitante: completo.solicitante,
         dataLancamento: completo.dataLancamento,
+        competencia: completo.competencia,
         dataEfetivacao: null,
         despesasVinculadas: completo.despesasVinculadas,
         valorTotal: calcularTotal(completo.despesasVinculadas),

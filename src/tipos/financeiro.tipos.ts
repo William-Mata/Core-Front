@@ -37,6 +37,7 @@ export interface InterfaceDespesa {
   descricao: string;
   valor: number;
   data: string;
+  competencia?: string;
   status: StatusDespesa;
   tipo: TipoTransacao;
   tipoPagamento: TipoPagamento;
@@ -54,6 +55,7 @@ export interface InterfaceReembolso {
   solicitanteName: string;
   responsavelAprovacaoId?: number;
   responsavelAprovacaoName?: string;
+  competencia?: string;
   dataLancamento: string;
   dataAprovacao?: string;
   dataPagamento?: string;

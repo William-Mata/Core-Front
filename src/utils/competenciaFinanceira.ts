@@ -5,6 +5,37 @@ export interface CompetenciaFinanceira {
   mes: number;
 }
 
+export function serializarCompetencia(competencia: CompetenciaFinanceira): string {
+  return `${String(competencia.ano)}-${String(competencia.mes).padStart(2, '0')}`;
+}
+
+export function desserializarCompetencia(competencia: string | null | undefined): CompetenciaFinanceira | null {
+  if (!competencia) return null;
+
+  const texto = String(competencia).trim();
+  const [primeiraParte, segundaParte] = texto.includes('/') ? texto.split('/') : texto.split('-');
+  const mes = Number(primeiraParte);
+  const ano = Number(segundaParte);
+
+  if (!Number.isInteger(mes) || !Number.isInteger(ano) || mes < 1 || mes > 12 || ano < 1) {
+    return null;
+  }
+
+  return { mes, ano };
+}
+
+export function obterCompetenciaPorData(data: string | Date | null | undefined, referencia: Date = new Date()): CompetenciaFinanceira {
+  if (!data) return obterCompetenciaAtual(referencia);
+
+  const valor = data instanceof Date ? data : new Date(`${data}T12:00:00`);
+  if (Number.isNaN(valor.getTime())) return obterCompetenciaAtual(referencia);
+
+  return {
+    ano: valor.getFullYear(),
+    mes: valor.getMonth() + 1,
+  };
+}
+
 function normalizarAnoMes(ano: number, mes: number): CompetenciaFinanceira {
   const data = new Date(ano, mes - 1, 1, 12, 0, 0, 0);
   return {

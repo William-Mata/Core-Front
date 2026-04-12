@@ -213,8 +213,6 @@ export default function TelaContaBancaria() {
         signal,
         id: filtroAplicado.id.trim() || undefined,
         descricao: filtroAplicado.descricao.trim() || undefined,
-        dataInicio: filtroAplicado.dataInicio || undefined,
-        dataFim: filtroAplicado.dataFim || undefined,
       });
       setContas(dados.map((item) => mapearContaApi(item)));
     } catch {
