@@ -14,8 +14,10 @@ export function desserializarCompetencia(competencia: string | null | undefined)
 
   const texto = String(competencia).trim();
   const [primeiraParte, segundaParte] = texto.includes('/') ? texto.split('/') : texto.split('-');
-  const mes = Number(primeiraParte);
-  const ano = Number(segundaParte);
+  const primeiraParteNumero = Number(primeiraParte);
+  const segundaParteNumero = Number(segundaParte);
+  const ano = primeiraParte?.length === 4 ? primeiraParteNumero : segundaParteNumero;
+  const mes = primeiraParte?.length === 4 ? segundaParteNumero : primeiraParteNumero;
 
   if (!Number.isInteger(mes) || !Number.isInteger(ano) || mes < 1 || mes > 12 || ano < 1) {
     return null;
@@ -82,4 +84,31 @@ export function formatarCompetencia(competencia: CompetenciaFinanceira, locale: 
     .replace(/\.$/, '');
   const mesCapitalizado = mes ? mes[0].toUpperCase() + mes.slice(1) : '';
   return `${mesCapitalizado}/${competencia.ano}`;
+}
+
+function usarAnoPrimeiro(locale: string): boolean {
+  return locale.toLowerCase().startsWith('en');
+}
+
+export function formatarCompetenciaParaEntrada(competencia: CompetenciaFinanceira, locale: string = obterLocaleAtivo()): string {
+  if (usarAnoPrimeiro(locale)) {
+    return `${String(competencia.ano).padStart(4, '0')}/${String(competencia.mes).padStart(2, '0')}`;
+  }
+
+  return `${String(competencia.mes).padStart(2, '0')}/${String(competencia.ano).padStart(4, '0')}`;
+}
+
+export function aplicarMascaraCompetencia(valor: string, locale: string = obterLocaleAtivo()): string {
+  const digitos = String(valor ?? '').replace(/\D/g, '').slice(0, 6);
+  if (!digitos) return '';
+
+  if (usarAnoPrimeiro(locale)) {
+    const ano = digitos.slice(0, 4);
+    const mes = digitos.slice(4, 6);
+    return mes ? `${ano}/${mes}` : ano;
+  }
+
+  const mes = digitos.slice(0, 2);
+  const ano = digitos.slice(2, 6);
+  return ano ? `${mes}/${ano}` : mes;
 }
