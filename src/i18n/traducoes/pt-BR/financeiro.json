@@ -4,23 +4,25 @@
     "nova": "Nova Despesa",
     "vazio": "Nenhuma despesa encontrada.",
     "campos": {
-      "titulo": "Título",
+      "titulo": "TÃ­tulo",
       "categoria": "Categoria",
-      "descricao": "Descrição",
+      "descricao": "DescriÃ§Ã£o",
+      "competencia": "Competência",
       "valor": "Valor",
-      "efetivacao": "Data de Efetivação",
+      "efetivacao": "Data de EfetivaÃ§Ã£o",
       "desdobramento": "Desdobramento (parcelas)",
       "rateio": "Rateio",
       "contaBancaria": "Conta Bancaria",
       "contaDestino": "Conta Destino",
-      "cartao": "Cartão",
+      "cartao": "CartÃ£o",
       "observacao": "Observacao",
       "dataEstorno": "Data de Estorno",
       "ocultarEfetivacaoEstornoRegistros": "Ocultar efetivacao/estorno dos registros"
     },
     "placeholders": {
-      "titulo": "Ex: Almoço",
+      "titulo": "Ex: AlmoÃ§o",
       "descricao": "Detalhes",
+      "competencia": "MM/AAAA",
       "valor": "0.00",
       "data": "AAAA-MM-DD",
       "desdobramento": "1",
@@ -29,7 +31,7 @@
     "acoes": {
       "efetivar": "Efetivar",
       "estornar": "Estornar",
-      "documentacao": "Documentação",
+      "documentacao": "DocumentaÃ§Ã£o",
       "confirmarEstorno": "Confirmar Estorno"
     },
     "status": {
@@ -40,21 +42,21 @@
     "rateio": {
       "nenhum": "Nenhum",
       "amigos": "Amigos",
-      "area": "Área"
+      "area": "Ãrea"
     },
     "categorias": {
-      "alimentacao": "Alimentação",
+      "alimentacao": "AlimentaÃ§Ã£o",
       "transporte": "Transporte",
       "utilidades": "Utilidades",
-      "saude": "Saúde",
-      "educacao": "Educação",
+      "saude": "SaÃºde",
+      "educacao": "EducaÃ§Ã£o",
       "lazer": "Lazer",
       "outros": "Outros"
     },
     "mensagens": {
-      "obrigatorio": "Título, categoria e valor são obrigatórios.",
+      "obrigatorio": "TÃ­tulo, categoria e valor sÃ£o obrigatÃ³rios.",
       "confirmarRemocao": "Deseja remover esta despesa?",
-      "semDescricao": "Sem descrição",
+      "semDescricao": "Sem descriÃ§Ã£o",
       "criada": "Despesa criada com sucesso.",
       "atualizada": "Despesa atualizada com sucesso.",
       "obrigatorioEstorno": "Data de estorno e obrigatoria.",
@@ -65,11 +67,11 @@
     "titulo": "Receitas",
     "nova": "Nova Receita",
     "campos": {
-      "titulo": "Título",
+      "titulo": "TÃ­tulo",
       "categoria": "Categoria",
-      "descricao": "Descrição",
+      "descricao": "DescriÃ§Ã£o",
       "valor": "Valor",
-      "efetivacao": "Data de Efetivação",
+      "efetivacao": "Data de EfetivaÃ§Ã£o",
       "contaBancaria": "Conta Bancaria",
       "contaDestino": "Conta Destino",
       "cartao": "Cartao",
@@ -78,19 +80,20 @@
       "ocultarEfetivacaoEstornoRegistros": "Ocultar efetivacao/estorno dos registros"
     },
     "placeholders": {
-      "titulo": "Ex: Salário",
+      "titulo": "Ex: SalÃ¡rio",
       "descricao": "Detalhes",
+      "competencia": "MM/AAAA",
       "valor": "0.00",
       "data": "AAAA-MM-DD",
       "observacao": "Digite observacoes adicionais"
     },
     "mensagens": {
-      "obrigatorio": "Título, categoria e valor são obrigatórios.",
+      "obrigatorio": "TÃ­tulo, categoria e valor sÃ£o obrigatÃ³rios.",
       "obrigatorioEstorno": "Data de estorno e obrigatoria.",
       "estornada": "Receita estornada com sucesso."
     },
     "categorias": {
-      "salario": "Salário",
+      "salario": "SalÃ¡rio",
       "freelance": "Freelance",
       "reembolso": "Reembolso",
       "investimento": "Investimento",
@@ -105,13 +108,14 @@
     "novo": "Novo Reembolso",
     "editar": "Editar Reembolso",
     "vazio": "Nenhum reembolso encontrado.",
-    "descricao": "Descrição",
-    "placeholderDescricao": "Digite a descrição do reembolso",
+    "descricao": "DescriÃ§Ã£o",
+    "placeholderDescricao": "Digite a descriÃ§Ã£o do reembolso",
     "solicitante": "Solicitante",
+    "competencia": "Competência",
     "placeholderData": "AAAA-MM-DD",
     "despesasVinculadas": "Despesas Vinculadas",
     "despesasSelecionadas": "{{count}} despesa(s) vinculada(s)",
-    "valorTotal": "Valor Total da Solicitação",
+    "valorTotal": "Valor Total da SolicitaÃ§Ã£o",
     "statusLista": {
       "aguardando": "AGUARDANDO",
       "aprovado": "APROVADO",
@@ -120,15 +124,15 @@
       "cancelada": "CANCELADA"
     },
     "mensagens": {
-      "descricaoObrigatoria": "Descrição é obrigatória",
+      "descricaoObrigatoria": "DescriÃ§Ã£o Ã© obrigatÃ³ria",
       "adicionarDespesa": "Adicione pelo menos uma despesa",
-      "despesaJaVinculada": "A despesa {{despesa}} já está vinculada a outro reembolso.",
+      "despesaJaVinculada": "A despesa {{despesa}} jÃ¡ estÃ¡ vinculada a outro reembolso.",
       "confirmarRemocao": "Deseja remover este reembolso?",
       "criado": "Reembolso criado com sucesso.",
       "atualizado": "Reembolso atualizado com sucesso.",
       "removido": "Reembolso removido com sucesso.",
-      "falhaSalvar": "Não foi possível salvar o reembolso.",
-      "falhaCarregar": "Não foi possível carregar os dados de reembolso.",
+      "falhaSalvar": "NÃ£o foi possÃ­vel salvar o reembolso.",
+      "falhaCarregar": "NÃ£o foi possÃ­vel carregar os dados de reembolso.",
       "edicaoSomentePendente": "O reembolso so pode ser editado enquanto estiver pendente.",
       "obrigatorioEfetivacao": "Data de efetivacao e obrigatoria.",
       "efetivacaoSomentePendente": "Apenas reembolsos pendentes podem ser efetivados.",
@@ -151,58 +155,59 @@
       "confirmarEfetivacao": "Confirmar Efetivacao",
       "confirmarEstorno": "Confirmar Estorno"
     },
-    "dataLancamento": "Data de Lançamento",
+    "dataLancamento": "Data de LanÃ§amento",
     "placeholders": {
+      "competencia": "MM/AAAA",
       "observacao": "Digite observacoes adicionais"
     }
   },
   "contaBancaria": {
-    "titulo": "Contas Bancárias",
-    "nova": "Nova Conta Bancária",
-    "vazio": "Nenhuma conta bancária encontrada.",
+    "titulo": "Contas BancÃ¡rias",
+    "nova": "Nova Conta BancÃ¡ria",
+    "vazio": "Nenhuma conta bancÃ¡ria encontrada.",
     "saldoAtual": "Saldo atual",
     "extratoTitulo": "Extrato da Conta",
     "extratoVazio": "Nenhum movimento de extrato para esta conta.",
     "campos": {
       "nome": "Nome da Conta",
       "banco": "Banco",
-      "agencia": "Agência",
-      "numero": "Número",
+      "agencia": "AgÃªncia",
+      "numero": "NÃºmero",
       "saldoInicial": "Saldo Inicial",
       "dataAbertura": "Data de Abertura"
     },
     "placeholders": {
       "nome": "Ex: Conta Principal",
-      "banco": "Ex: Itaú",
+      "banco": "Ex: ItaÃº",
       "agencia": "Ex: 1234",
       "numero": "Ex: 12345-6",
       "saldoInicial": "0.00",
       "dataAbertura": "AAAA-MM-DD"
     },
     "tipos": {
-      "credito": "Crédito",
-      "debito": "Débito"
+      "credito": "CrÃ©dito",
+      "debito": "DÃ©bito"
     },
     "acoes": {
       "extrato": "Extrato"
     },
     "mensagens": {
-      "obrigatorio": "Nome, banco, agência e número são obrigatórios.",
-      "confirmarRemocao": "Deseja remover esta conta bancária?",
-      "criada": "Conta bancária criada com sucesso.",
-      "atualizada": "Conta bancária atualizada com sucesso."
+      "obrigatorio": "Nome, banco, agÃªncia e nÃºmero sÃ£o obrigatÃ³rios.",
+      "confirmarRemocao": "Deseja remover esta conta bancÃ¡ria?",
+      "criada": "Conta bancÃ¡ria criada com sucesso.",
+      "atualizada": "Conta bancÃ¡ria atualizada com sucesso."
     }
   },
   "cartao": {
-    "titulo": "Cartões",
-    "novo": "Novo Cartão",
-    "vazio": "Nenhum cartão encontrado.",
-    "faturaTitulo": "Fatura do Cartão",
-    "faturaVazia": "Nenhum lançamento de fatura para este cartão.",
+    "titulo": "CartÃµes",
+    "novo": "Novo CartÃ£o",
+    "vazio": "Nenhum cartÃ£o encontrado.",
+    "faturaTitulo": "Fatura do CartÃ£o",
+    "faturaVazia": "Nenhum lanÃ§amento de fatura para este cartÃ£o.",
     "totalFatura": "Total da Fatura",
     "limiteDisponivel": "Limite",
     "campos": {
-      "nome": "Nome do Cartão",
+      "nome": "Nome do CartÃ£o",
       "bandeira": "Bandeira",
       "tipo": "Tipo",
       "limite": "Limite",
@@ -217,20 +222,20 @@
       "dataCadastro": "AAAA-MM-DD"
     },
     "tipos": {
-      "credito": "Crédito",
-      "debito": "Débito"
+      "credito": "CrÃ©dito",
+      "debito": "DÃ©bito"
     },
     "acoes": {
       "fatura": "Fatura"
     },
     "mensagens": {
-      "obrigatorio": "Nome e bandeira são obrigatórios.",
-      "creditoObrigatorio": "Para cartão de crédito, informe limite e dia de vencimento.",
-      "confirmarRemocao": "Deseja remover este cartão?",
-      "faturaSomenteCredito": "A funcionalidade de fatura está disponível apenas para cartão de crédito.",
-      "cartaoDebito": "Cartão de débito não possui fatura mensal.",
-      "criado": "Cartão criado com sucesso.",
-      "atualizado": "Cartão atualizado com sucesso."
+      "obrigatorio": "Nome e bandeira sÃ£o obrigatÃ³rios.",
+      "creditoObrigatorio": "Para cartÃ£o de crÃ©dito, informe limite e dia de vencimento.",
+      "confirmarRemocao": "Deseja remover este cartÃ£o?",
+      "faturaSomenteCredito": "A funcionalidade de fatura estÃ¡ disponÃ­vel apenas para cartÃ£o de crÃ©dito.",
+      "cartaoDebito": "CartÃ£o de dÃ©bito nÃ£o possui fatura mensal.",
+      "criado": "CartÃ£o criado com sucesso.",
+      "atualizado": "CartÃ£o atualizado com sucesso."
     }
   },
   "comum": {
@@ -242,7 +247,7 @@
       "amigo": "Amigo"
     },
     "acoes": {
-      "rateioIgualitario": "Rateio igualitário",
+      "rateioIgualitario": "Rateio igualitÃ¡rio",
       "aceitar": "Aceitar",
       "rejeitar": "Rejeitar"
     },
@@ -272,7 +277,8 @@
       "cancelamentoFixaTodasPendentes": "Ao cancelar todas as pendentes em recorrencia fixa, nao serao geradas novas ocorrencias.",
       "edicaoReplicaPendentes": "Ao editar essa e as proximas, ou todas as pendentes, os novos dados serao replicados respeitando as datas da regra de recorrencia.",
       "confirmarEdicaoRecorrente": "Selecione o tipo de edicao para este lancamento recorrente.",
-      "valorTotalRateioAmigosMaiorQueValorLiquido": "Valor total de rateio de amigos deve ser maior que valor liquido."
+      "valorTotalRateioAmigosMaiorQueValorLiquido": "Valor total de rateio de amigos deve ser maior que valor liquido.",
+      "competenciaObrigatoria": "Competencia e obrigatoria."
     },
     "status": {
       "pendenteAprovacao": "PENDENTE APROVACAO",

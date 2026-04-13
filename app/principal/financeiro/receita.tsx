@@ -8,13 +8,14 @@ import { ModalConfirmacao } from '../../../src/componentes/comuns/ModalConfirmac
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
+import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { usarAutenticacaoStore } from '../../../src/store/usarAutenticacaoStore';
 import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
-import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterCompetenciaPorData, serializarCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
+import { aplicarMascaraCompetencia, avancarCompetencia, desserializarCompetencia, formatarCompetencia, formatarCompetenciaParaEntrada, obterCompetenciaAtual, obterCompetenciaPorData, serializarCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
 import { rateioConfereValorTotalExato, rateioNaoUltrapassaValorTotal } from '../../../src/utils/rateioValidacao';
 import { obterIconeBanco, obterIconeBandeiraCartao, obterImagemBanco, obterImagemBandeiraCartao } from '../../../src/utils/icones';
@@ -41,6 +42,7 @@ import {
   criarReceitaApi,
   efetivarReceitaApi,
   estornarReceitaApi,
+  listarDetalhesFaturasCartaoApi,
   listarCartoesApi,
   listarContasBancariasApi,
   listarAmigosRateioApi,
@@ -52,10 +54,12 @@ import {
   type AreaSubareaRateioApi,
   type CartaoOpcaoApi,
   type ContaBancariaOpcaoApi,
+  type FaturaCartaoDetalheApi,
   type RegistroFinanceiroApi,
 } from '../../../src/servicos/financeiro';
 
 type StatusReceita = 'pendente' | 'efetivada' | 'cancelada' | 'pendenteAprovacao' | 'rejeitada';
+type StatusFaturaCartao = 'aberta' | 'fechada' | 'efetivada' | 'estornada';
 type ModoTela = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao' | 'estorno';
 type EscopoAcaoRecorrencia = 'apenasEsta' | 'estaEProximas' | 'todasPendentes';
 type EscopoRecorrenciaApi = 1 | 2 | 3;
@@ -112,6 +116,11 @@ interface ReceitaRegistro {
   contaDestinoId?: number;
   cartao?: string;
   cartaoId?: number;
+  faturaCartaoId?: number;
+  faturaId?: number;
+  ehFatura?: boolean;
+  statusFaturaCartao?: StatusFaturaCartao;
+  receitasVinculadasIds?: number[];
   anexoDocumento: string;
   documentos: DocumentoFinanceiro[];
   logs: LogReceita[];
@@ -123,7 +132,7 @@ interface ReceitaForm {
   observacaoEfetivacao: string;
   observacaoEstorno: string;
   dataLancamento: string;
-  competencia?: string;
+  competencia: string;
   dataVencimento: string;
   dataEfetivacao: string;
   dataEstorno: string;
@@ -150,6 +159,17 @@ interface ReceitaForm {
   anexoDocumento: string;
   documentos: DocumentoFinanceiro[];
   ocultarEfetivacaoEstornoRegistros: boolean;
+}
+
+interface GrupoFaturaReceita {
+  fatura: ReceitaRegistro;
+  receitasVinculadas: ReceitaRegistro[];
+  valorTotalGrupo: number;
+  valorTotalFatura: number;
+  valorTotalTransacoes: number;
+  cartaoId?: number;
+  competencia?: string;
+  statusFaturaCartao: StatusFaturaCartao;
 }
 
 const tiposReceita = ['salario', 'freelance', 'reembolso', 'investimento', 'bonus', 'outros'] as const;
@@ -189,6 +209,7 @@ function criarFormularioVazio(locale: string): ReceitaForm {
     observacaoEfetivacao: '',
     observacaoEstorno: '',
     dataLancamento: hoje,
+    competencia: formatarCompetenciaParaEntrada(obterCompetenciaAtual(), locale),
     dataVencimento: '',
     dataEfetivacao: hoje,
     dataEstorno: hoje,
@@ -258,6 +279,14 @@ function normalizarStatusReceita(status: unknown): StatusReceita {
   return 'pendente';
 }
 
+function normalizarStatusFaturaCartao(status: unknown): StatusFaturaCartao {
+  const valor = String(status ?? '').toLowerCase();
+  if (valor.includes('estorn')) return 'estornada';
+  if (valor.includes('efetiv')) return 'efetivada';
+  if (valor.includes('fech')) return 'fechada';
+  return 'aberta';
+}
+
 function normalizarTipoReceita(valor: unknown): (typeof tiposReceita)[number] {
   const texto = String(valor ?? '').trim().toLowerCase();
   const tipoEncontrado = tiposReceita.find((tipo) => tipo.toLowerCase() === texto);
@@ -301,6 +330,23 @@ function obterRotuloStatusReceita(status: StatusReceita, t: (chave: string) => s
 }
 
 function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
+  const paraNumeroOpcional = (valor: unknown): number | undefined => {
+    const numero = Number(valor ?? NaN);
+    return Number.isFinite(numero) && numero > 0 ? numero : undefined;
+  };
+  const extrairIdsVinculados = (valor: unknown): number[] => {
+    if (!Array.isArray(valor)) return [];
+    return valor
+      .map((entrada) => {
+        if (typeof entrada === 'number' || typeof entrada === 'string') return Number(entrada);
+        if (entrada && typeof entrada === 'object') {
+          const registro = entrada as Record<string, unknown>;
+          return Number(registro.id ?? registro.receitaId ?? NaN);
+        }
+        return NaN;
+      })
+      .filter((numero): numero is number => Number.isFinite(numero) && numero > 0);
+  };
   const dataBase = String(item.dataLancamento ?? item.data ?? new Date().toISOString().slice(0, 10)).slice(0, 10);
   const competenciaBase = String(item.competencia ?? serializarCompetencia(obterCompetenciaPorData(dataBase))).slice(0, 7);
   const valorBase = Number(item.valor ?? item.valorTotal ?? item.valorLiquido ?? 0);
@@ -402,6 +448,28 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
   const cartaoNome = cartaoBruto && cartaoBruto !== String(cartaoIdNormalizado)
     ? cartaoBruto
     : undefined;
+  const faturaCartaoRegistro = item.faturaCartao && typeof item.faturaCartao === 'object'
+    ? (item.faturaCartao as Record<string, unknown>)
+    : null;
+  const faturaCartaoId = paraNumeroOpcional(item.faturaCartaoId ?? faturaCartaoRegistro?.id ?? faturaCartaoRegistro?.faturaCartaoId);
+  const faturaIdDireta = paraNumeroOpcional(item.faturaId ?? item.idFatura ?? item.faturaReferenciaId ?? faturaCartaoId);
+  const faturaRegistro = item.fatura && typeof item.fatura === 'object'
+    ? (item.fatura as Record<string, unknown>)
+    : null;
+  const faturaIdRelacionada = paraNumeroOpcional(faturaRegistro?.id ?? faturaRegistro?.faturaId);
+  const receitasVinculadasIds = [
+    ...extrairIdsVinculados(item.receitasVinculadas),
+    ...extrairIdsVinculados(item.receitas),
+    ...extrairIdsVinculados(item.transacoes),
+  ].filter((id, indice, lista) => lista.indexOf(id) === indice);
+  const tipoReceitaBruto = String(item.tipoReceita ?? item.tipoLancamento ?? item.tipo ?? '').toLowerCase();
+  const ehFatura = Boolean(item.ehFatura)
+    || tipoReceitaBruto.includes('fatura')
+    || receitasVinculadasIds.length > 0;
+  const faturaId = faturaIdDireta ?? faturaIdRelacionada;
+  const statusFaturaCartao = ehFatura
+    ? normalizarStatusFaturaCartao(item.statusFaturaCartao ?? item.statusFatura ?? item.status)
+    : undefined;
 
   return {
     id: Number(item.id),
@@ -410,7 +478,7 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
     dataLancamento: dataBase,
     competencia: competenciaBase,
     dataVencimento: String(item.dataVencimento ?? dataBase).slice(0, 10),
-    dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : undefined,
+    dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : (faturaCartaoId ? dataBase : undefined),
     tipoReceita: normalizarTipoReceita(item.tipoReceita ?? item.categoria),
     tipoRecebimento: normalizarTipoRecebimento(item.tipoRecebimento ?? item.tipoPagamento),
     recorrencia: normalizarRecorrenciaFinanceira(item.recorrencia),
@@ -451,6 +519,11 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
     cartaoId: Number.isFinite(cartaoIdNormalizado) && cartaoIdNormalizado > 0
       ? cartaoIdNormalizado
       : undefined,
+    faturaCartaoId,
+    faturaId,
+    ehFatura,
+    statusFaturaCartao,
+    receitasVinculadasIds,
     anexoDocumento: documentos[0]?.nomeArquivo ?? String(item.anexoDocumento ?? ''),
     documentos,
     logs: Array.isArray(item.logs)
@@ -479,6 +552,7 @@ export default function TelaReceita() {
   const [modoTela, setModoTela] = useState<ModoTela>(idParam ? 'visualizacao' : 'lista');
   const [receitaSelecionadaId, setReceitaSelecionadaId] = useState<number | null>(idParam);
   const [receitas, setReceitas] = useState<ReceitaRegistro[]>([]);
+  const [detalhesFaturasCartao, setDetalhesFaturasCartao] = useState<FaturaCartaoDetalheApi[]>([]);
   const [formulario, setFormulario] = useState<ReceitaForm>(() => criarFormularioVazio(locale));
   const [camposInvalidos, setCamposInvalidos] = useState<Record<string, boolean>>({});
   const [tipoRateioAmigos, setTipoRateioAmigos] = useState<TipoRateioAmigos>('comum');
@@ -497,6 +571,7 @@ export default function TelaReceita() {
   const [receitaPendenteEdicaoRecorrente, setReceitaPendenteEdicaoRecorrente] = useState<ReceitaRegistro | null>(null);
   const [escopoCancelamentoRecorrente, setEscopoCancelamentoRecorrente] = useState<EscopoAcaoRecorrencia>('apenasEsta');
   const [escopoEdicaoRecorrente, setEscopoEdicaoRecorrente] = useState<EscopoAcaoRecorrencia>('apenasEsta');
+  const [faturasExpandidas, setFaturasExpandidas] = useState<number[]>([]);
   const [salvandoReceita, setSalvandoReceita] = useState(false);
   const [cancelandoReceita, setCancelandoReceita] = useState(false);
   const definirTipoRateioAmigos = (valor: TipoRateioAmigos) => {
@@ -690,12 +765,22 @@ export default function TelaReceita() {
         dataInicio,
         dataFim,
         competencia: competenciaConsulta,
+        desconsiderarVinculadosCartaoCredito: true,
         verificarUltimaRecorrencia: true,
       };
-      const dados = await listarReceitasApi(opcoesConsulta);
+      const [dados, detalhesFatura] = await Promise.all([
+        listarReceitasApi(opcoesConsulta),
+        listarDetalhesFaturasCartaoApi({
+          signal,
+          competencia: competenciaConsulta,
+          tipoTransacao: 'receita',
+        }).catch(() => [] as FaturaCartaoDetalheApi[]),
+      ]);
       setReceitas(dados.map(mapearReceitaApi));
+      setDetalhesFaturasCartao(detalhesFatura);
     } catch {
       setReceitas([]);
+      setDetalhesFaturasCartao([]);
     }
   }; 
 
@@ -757,6 +842,96 @@ export default function TelaReceita() {
     });
   }, [receitas, filtroAplicado, t]);
 
+  const receitaBateFiltroLista = (receita: ReceitaRegistro) => {
+    const bateId = !filtroAplicado.id || String(receita.id).includes(filtroAplicado.id);
+    const termo = filtroAplicado.descricao.trim().toLowerCase();
+    const tipoTraduzido = t(`financeiro.receita.tipoReceita.${receita.tipoReceita}`).toLowerCase();
+    const statusTraduzido = obterRotuloStatusReceita(receita.status, t).toLowerCase();
+    const bateDescricao =
+      !termo
+      || receita.descricao.toLowerCase().includes(termo)
+      || receita.observacao.toLowerCase().includes(termo)
+      || tipoTraduzido.includes(termo)
+      || statusTraduzido.includes(termo);
+    const bateData = estaDentroIntervalo(receita.dataLancamento, filtroAplicado.dataInicio, filtroAplicado.dataFim);
+    return bateId && bateDescricao && bateData;
+  };
+
+  const gruposFaturaApi = useMemo<GrupoFaturaReceita[]>(() => {
+    return detalhesFaturasCartao
+      .map((detalhe) => {
+        const receitasVinculadas = detalhe.transacoes
+          .map((transacao) => mapearReceitaApi({ ...transacao, faturaCartaoId: detalhe.faturaCartaoId, faturaId: detalhe.faturaCartaoId }))
+          .filter(receitaBateFiltroLista)
+          .sort((a, b) => a.id - b.id);
+        const dataBase = detalhe.competencia ? `${detalhe.competencia}-01` : new Date().toISOString().slice(0, 10);
+        const valorTotalTransacoes = Number.isFinite(detalhe.valorTotalTransacoes) ? detalhe.valorTotalTransacoes : receitasVinculadas.reduce((total, item) => total + item.valorLiquido, 0);
+        const valorTotalFatura = Number.isFinite(detalhe.valorTotal) ? detalhe.valorTotal : valorTotalTransacoes;
+        const statusFaturaCartao = normalizarStatusFaturaCartao(detalhe.status);
+        const fatura = mapearReceitaApi({
+          id: detalhe.faturaCartaoId * -1,
+          faturaCartaoId: detalhe.faturaCartaoId,
+          ehFatura: true,
+          statusFaturaCartao,
+          descricao: `${t('financeiro.cartao.faturaTitulo')} ${detalhe.competencia || ''}`.trim(),
+          observacao: '',
+          dataLancamento: dataBase,
+          dataVencimento: dataBase,
+          dataEfetivacao: dataBase,
+          tipoReceita: 'outros',
+          tipoRecebimento: 'cartaoCredito',
+          valorTotal: valorTotalTransacoes,
+          valorLiquido: valorTotalTransacoes,
+          status: statusFaturaCartao === 'efetivada' ? 'efetivada' : 'pendente',
+          receitasVinculadas: receitasVinculadas.map((item) => ({ id: item.id })),
+        });
+        return {
+          fatura,
+          receitasVinculadas,
+          valorTotalGrupo: valorTotalTransacoes,
+          valorTotalFatura,
+          valorTotalTransacoes,
+          cartaoId: detalhe.cartaoId,
+          competencia: detalhe.competencia,
+          statusFaturaCartao,
+        };
+      })
+      .sort((a, b) => a.fatura.id - b.fatura.id);
+  }, [detalhesFaturasCartao, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, t]);
+  const gruposFatura = gruposFaturaApi;
+  const mapaGrupoPorFaturaId = useMemo(
+    () => new Map(gruposFatura.map((grupo) => [grupo.fatura.id, grupo])),
+    [gruposFatura],
+  );
+  const idsReceitasVinculadasAFatura = useMemo(() => {
+    const ids = new Set<number>();
+    gruposFatura.forEach((grupo) => {
+      grupo.receitasVinculadas.forEach((receita) => ids.add(receita.id));
+    });
+    receitasFiltradas
+      .filter((receita) => Boolean(receita.faturaCartaoId))
+      .forEach((receita) => ids.add(receita.id));
+    return ids;
+  }, [gruposFatura, receitasFiltradas]);
+  const receitasListaPrincipal = useMemo(() => {
+    const idsPaisFaturas = new Set(gruposFatura.map((grupo) => grupo.fatura.id));
+    const receitasNaoVinculadas = receitasFiltradas.filter(
+      (receita) => !idsReceitasVinculadasAFatura.has(receita.id) && !receita.faturaCartaoId,
+    );
+    return [
+      ...gruposFatura.map((grupo) => grupo.fatura),
+      ...receitasNaoVinculadas.filter((receita) => !idsPaisFaturas.has(receita.id)),
+    ];
+  }, [gruposFatura, idsReceitasVinculadasAFatura, receitasFiltradas]);
+  const totalListaPrincipal = useMemo(() => {
+    const idsPaisFaturas = new Set(gruposFatura.map((grupo) => grupo.fatura.id));
+    const totalFaturas = gruposFatura.reduce((total, grupo) => total + grupo.valorTotalGrupo, 0);
+    const totalTransacoesComuns = receitasListaPrincipal
+      .filter((receita) => !idsPaisFaturas.has(receita.id))
+      .reduce((total, receita) => total + receita.valorLiquido, 0);
+    return totalFaturas + totalTransacoesComuns;
+  }, [gruposFatura, receitasListaPrincipal]);
+
   const atualizarCampoMoeda = (campo: keyof ReceitaForm, valor: string) => {
     setCamposInvalidos((atual) => ({ ...atual, [campo]: false }));
     setFormulario((atual) => {
@@ -776,6 +951,7 @@ export default function TelaReceita() {
       descricao: receita.descricao,
       observacao: receita.observacao,
       dataLancamento: receita.dataLancamento,
+      competencia: formatarCompetenciaParaEntrada(desserializarCompetencia(receita.competencia) ?? obterCompetenciaPorData(receita.dataLancamento), locale),
       dataVencimento: receita.dataVencimento,
       dataEfetivacao: receita.dataEfetivacao || new Date().toISOString().split('T')[0],
       dataEstorno: new Date().toISOString().split('T')[0],
@@ -842,7 +1018,10 @@ export default function TelaReceita() {
   const resetarTela = () => {
     setModoTela('lista');
     setReceitaSelecionadaId(null);
-    setFormulario(criarFormularioVazio(locale));
+    setFormulario((atual) => ({
+      ...criarFormularioVazio(locale),
+      competencia: formatarCompetenciaParaEntrada(competencia, locale),
+    }));
     definirTipoRateioAmigos('comum');
     setNovoAmigoRateio(participanteRateioPadrao);
     setNovoValorAmigoRateio(formatarMoedaParaInput(0, locale));
@@ -856,7 +1035,10 @@ export default function TelaReceita() {
 
   const abrirNovo = () => {
     setReceitaSelecionadaId(null);
-    setFormulario(criarFormularioVazio(locale));
+    setFormulario((atual) => ({
+      ...criarFormularioVazio(locale),
+      competencia: formatarCompetenciaParaEntrada(competencia, locale),
+    }));
     setModoTela('novo');
   };
 
@@ -1077,6 +1259,11 @@ export default function TelaReceita() {
       return null;
     }
 
+    if (!formulario.competencia.trim()) {
+      notificarErro(t('financeiro.comum.mensagens.competenciaObrigatoria'));
+      return null;
+    }
+
     if (tipoRecebimentoExigeContaBancaria && !contaBancariaIdSelecionada) {
       setCamposInvalidos((atual) => ({ ...atual, contaBancaria: true }));
       notificarErro( t('financeiro.receita.mensagens.contaObrigatoria'));
@@ -1120,7 +1307,7 @@ export default function TelaReceita() {
 
     return {
       dataLancamento: formulario.dataLancamento,
-      competencia: serializarCompetencia(obterCompetenciaPorData(formulario.dataLancamento)),
+      competencia: formulario.competencia.trim() || serializarCompetencia(obterCompetenciaPorData(formulario.dataLancamento)),
       dataVencimento: formulario.dataVencimento,
       valorTotal,
       valorLiquido,
@@ -1376,6 +1563,146 @@ export default function TelaReceita() {
     }
   };
 
+  const alternarExpansaoFatura = (faturaId: number) => {
+    setFaturasExpandidas((atual) =>
+      atual.includes(faturaId)
+        ? atual.filter((id) => id !== faturaId)
+        : [...atual, faturaId],
+    );
+  };
+
+  const obterCorStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => {
+    if (status === 'efetivada') return COLORS.success;
+    if (status === 'estornada') return COLORS.warning;
+    return COLORS.warning;
+  };
+
+  const obterEstiloBadgeStatusReceita = (status: StatusReceita) => {
+    if (status === 'efetivada') return { corTexto: COLORS.success, corBorda: '#86efac', corFundo: '#14532d' };
+    if (status === 'cancelada' || status === 'rejeitada') return { corTexto: COLORS.error, corBorda: '#fca5a5', corFundo: '#7f1d1d' };
+    return { corTexto: COLORS.warning, corBorda: '#fde68a', corFundo: '#78350f' };
+  };
+
+  const obterRotuloStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => String(status ?? 'aberta').toUpperCase();
+  const obterEstiloBadgeStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => {
+    if (status === 'efetivada') return { corTexto: COLORS.success, corBorda: '#86efac', corFundo: '#14532d' };
+    if (status === 'estornada') return { corTexto: COLORS.error, corBorda: '#fca5a5', corFundo: '#7f1d1d' };
+    if (status === 'fechada') return { corTexto: COLORS.info, corBorda: '#93c5fd', corFundo: '#1e3a8a' };
+    return { corTexto: COLORS.warning, corBorda: '#fde68a', corFundo: '#78350f' };
+  };
+  const renderBadgeStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => {
+    const estilo = obterEstiloBadgeStatusFaturaCartao(status);
+    return (
+      <DistintivoStatus
+        testID="badge-tipo-transacao"
+        rotulo={obterRotuloStatusFaturaCartao(status)}
+        corTexto={estilo.corTexto}
+        corBorda={estilo.corBorda}
+        corFundo={estilo.corFundo}
+      />
+    );
+  };
+
+  const renderAcoesReceita = (
+    receita: ReceitaRegistro,
+    opcoes?: { ocultarAcoesOperacionais?: boolean; podeEfetivar?: boolean; ocultarTodasAcoes?: boolean; ocultarEfetivacaoEstorno?: boolean },
+  ) => (
+    opcoes?.ocultarTodasAcoes ? null : (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
+        {receita.ehFatura ? null : (
+          <>
+            <TouchableOpacity onPress={() => abrirVisualizacao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('financeiro.receita.acoes.visualizar')}</Text></TouchableOpacity>
+            {receita.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais ? <TouchableOpacity onPress={() => abrirEdicao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
+            {receita.status === 'pendente' && (opcoes?.podeEfetivar ?? true) && !opcoes?.ocultarEfetivacaoEstorno ? <TouchableOpacity onPress={() => abrirEfetivacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.receita.acoes.efetivar')}</Text></TouchableOpacity> : null}
+            {receita.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais ? <TouchableOpacity onPress={() => cancelarReceita(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.receita.acoes.cancelarReceita')}</Text></TouchableOpacity> : null}
+            {receita.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => aceitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
+            {receita.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => rejeitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
+            {receita.status === 'efetivada' && !opcoes?.ocultarEfetivacaoEstorno ? <TouchableOpacity onPress={() => abrirEstorno(receita)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.receita.acoes.estornar')}</Text></TouchableOpacity> : null}
+          </>
+        )}
+      </View>
+    )
+  );
+
+  const renderCartaoReceita = (
+    receita: ReceitaRegistro,
+    opcoes?: { margemInferior?: number; ocultarAcoesOperacionais?: boolean; podeEfetivar?: boolean; ocultarTodasAcoes?: boolean; ocultarEfetivacaoEstorno?: boolean },
+  ) => {
+    const corStatus = receita.ehFatura
+      ? obterCorStatusFaturaCartao(receita.statusFaturaCartao)
+      : (receita.status === 'efetivada' ? COLORS.success : receita.status === 'cancelada' ? COLORS.error : COLORS.warning);
+    const rotuloStatus = receita.ehFatura
+      ? obterRotuloStatusFaturaCartao(receita.statusFaturaCartao)
+      : obterRotuloStatusReceita(receita.status, t);
+    const estiloBadge = receita.ehFatura
+      ? obterEstiloBadgeStatusFaturaCartao(receita.statusFaturaCartao)
+      : obterEstiloBadgeStatusReceita(receita.status);
+
+    return (
+      <View key={receita.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginBottom: opcoes?.margemInferior ?? 10 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+          <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{receita.id} {receita.descricao}</Text>
+          <DistintivoStatus
+            rotulo={rotuloStatus}
+            corTexto={estiloBadge.corTexto}
+            corBorda={estiloBadge.corBorda}
+            corFundo={estiloBadge.corFundo}
+          />
+        </View>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>{t(`financeiro.receita.tipoReceita.${receita.tipoReceita}`)} | {formatarDataPorIdioma(receita.dataVencimento)} | {formatarValorPorIdioma(receita.valorLiquido)}</Text>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>{receita.observacao || t('financeiro.receita.mensagens.semObservacao')}</Text>
+        {renderAcoesReceita(receita, {
+          ocultarAcoesOperacionais: opcoes?.ocultarAcoesOperacionais,
+          podeEfetivar: opcoes?.podeEfetivar,
+          ocultarTodasAcoes: opcoes?.ocultarTodasAcoes,
+          ocultarEfetivacaoEstorno: opcoes?.ocultarEfetivacaoEstorno,
+        })}
+      </View>
+    );
+  };
+  const renderCartaoFaturaReceita = (grupo: GrupoFaturaReceita, expandida: boolean) => {
+    const cartaoDescricao = grupo.cartaoId ? (mapaCartoesPorId.get(grupo.cartaoId) ?? '-') : '-';
+    const referenciaBandeira = cartaoDescricao !== '-'
+      ? (mapaReferenciaCartaoPorNome.get(cartaoDescricao) ?? cartaoDescricao)
+      : '';
+    const imagemBandeira = referenciaBandeira ? obterImagemBandeiraCartao(referenciaBandeira) : null;
+    const iconeBandeira = referenciaBandeira ? obterIconeBandeiraCartao(referenciaBandeira) : '';
+    const competenciaFatura = grupo.competencia
+      ? formatarCompetencia(desserializarCompetencia(grupo.competencia) ?? competencia, locale)
+      : competenciaLabel;
+
+    return (
+      <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderAccent, borderRadius: 12, padding: 12, marginBottom: expandida ? 8 : 10 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 8 }}>
+         <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>
+            {`#${grupo.fatura.faturaCartaoId ?? Math.abs(grupo.fatura.id)} ${t('financeiro.cartao.faturaTitulo')} - ${competenciaFatura}`}
+          </Text>
+          {renderBadgeStatusFaturaCartao(grupo.statusFaturaCartao)}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+          {cartaoDescricao !== '-' ? (
+            imagemBandeira
+              ? <Image source={imagemBandeira} style={{ width: 16, height: 16, borderRadius: 3, marginRight: 6 }} resizeMode="contain" />
+              : <Text style={{ color: COLORS.textSecondary, marginRight: 6, fontSize: 13 }}>{iconeBandeira}</Text>
+          ) : null}
+          <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>{`${t('financeiro.receita.campos.cartao')}: ${referenciaBandeira || '-'} | ${cartaoDescricao}`}</Text>
+        </View>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 6}}>{`${t('dashboard.colunas.valor')} ${t('dashboard.ultimasTransacoes')} :  ${formatarValorPorIdioma(grupo.valorTotalTransacoes)}`}</Text>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 6}}>{`${t('dashboard.colunas.valor')} ${t('financeiro.cartao.totalFatura')} :  ${formatarValorPorIdioma(grupo.valorTotalFatura)}`}</Text>
+        <View style={{ marginTop: 10, marginBottom: 20, alignItems: 'flex-start', borderBottomWidth: 1, borderBottomColor: COLORS.borderColor }}>
+          <TouchableOpacity onPress={() => alternarExpansaoFatura(grupo.fatura.id)} style={{ backgroundColor: COLORS.accentSubtle, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginBottom: 10 }}>
+            <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700' }}>{`${t('financeiro.cartao.acoes.fatura')} (${grupo.receitasVinculadas.length}) ${expandida ? '^' : 'v'}`}</Text>
+          </TouchableOpacity>
+        </View>
+        {expandida ? (
+          <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10 }}>
+            {grupo.receitasVinculadas.map((receitaVinculada) => renderCartaoReceita(receitaVinculada, { margemInferior: 8, ocultarEfetivacaoEstorno: true }))}
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
   const renderCampoBloqueado = (label: string, valor: string) => (
     <View style={{ marginBottom: 12 }}>
       <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
@@ -1544,6 +1871,7 @@ export default function TelaReceita() {
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.descricao'), formulario.descricao) : <CampoTexto label={t('financeiro.receita.campos.descricao')} placeholder={t('financeiro.receita.placeholders.descricao')} value={formulario.descricao} onChangeText={(descricao) => { setCamposInvalidos((atual) => ({ ...atual, descricao: false })); setFormulario((atual) => ({ ...atual, descricao })); }} error={camposInvalidos.descricao} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.observacao'), formulario.observacao) : <CampoTexto label={t('financeiro.receita.campos.observacao')} placeholder={t('financeiro.receita.placeholders.observacao')} value={formulario.observacao} onChangeText={(observacao) => setFormulario((atual) => ({ ...atual, observacao }))} multiline numberOfLines={4} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.dataLancamento'), formulario.dataLancamento ? formatarDataPorIdioma(formulario.dataLancamento) : '') : <CampoData label={t('financeiro.receita.campos.dataLancamento')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataLancamento} onChange={(dataLancamento) => { setCamposInvalidos((atual) => ({ ...atual, dataLancamento: false })); setFormulario((atual) => ({ ...atual, dataLancamento })); }} error={camposInvalidos.dataLancamento} estilo={{ marginBottom: 12 }} />}
+      {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.competencia'), formulario.competencia) : <CampoTexto label={t('financeiro.receita.campos.competencia')} placeholder={t('financeiro.receita.placeholders.competencia')} value={formulario.competencia} onChangeText={(competencia) => setFormulario((atual) => ({ ...atual, competencia: aplicarMascaraCompetencia(competencia, locale) }))} obrigatorio estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.dataVencimento'), formulario.dataVencimento ? formatarDataPorIdioma(formulario.dataVencimento) : '') : <CampoData label={t('financeiro.receita.campos.dataVencimento')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataVencimento} onChange={(dataVencimento) => { setCamposInvalidos((atual) => ({ ...atual, dataVencimento: false })); setFormulario((atual) => ({ ...atual, dataVencimento })); }} error={camposInvalidos.dataVencimento} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.tipoReceita'), formulario.tipoReceita ? t(`financeiro.receita.tipoReceita.${formulario.tipoReceita}`) : '') : <CampoSelect label={t('financeiro.receita.campos.tipoReceita')} placeholder={t('comum.acoes.selecionar')} options={tiposReceita.map((tipo) => ({ value: tipo, label: t(`financeiro.receita.tipoReceita.${tipo}`) }))} value={formulario.tipoReceita} onChange={(tipoReceita) => { setCamposInvalidos((atual) => ({ ...atual, tipoReceita: false })); setFormulario((atual) => ({ ...atual, tipoReceita })); }} error={camposInvalidos.tipoReceita} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.tipoRecebimento'), formulario.tipoRecebimento ? t(`financeiro.receita.tipoRecebimento.${formulario.tipoRecebimento}`) : '') : <CampoSelect label={t('financeiro.receita.campos.tipoRecebimento')} placeholder={t('comum.acoes.selecionar')} options={tiposRecebimento.map((tipo) => ({ value: tipo, label: t(`financeiro.receita.tipoRecebimento.${tipo}`) }))} value={formulario.tipoRecebimento} onChange={(tipoRecebimento) => { setCamposInvalidos((atual) => ({ ...atual, tipoRecebimento: false, contaBancaria: false, contaDestino: false, cartao: false })); setFormulario((atual) => { const exigeContaBancaria = tipoRecebimento === 'pix' || tipoRecebimento === 'transferencia'; const exigeCartao = tipoRecebimento === 'cartaoCredito' || tipoRecebimento === 'cartaoDebito'; const contaOuCartaoOpcional = !exigeContaBancaria && !exigeCartao; return { ...atual, tipoRecebimento, contaBancaria: exigeContaBancaria || contaOuCartaoOpcional ? atual.contaBancaria : '', contaDestino: tipoRecebimento === 'transferencia' || tipoRecebimento === 'pix' ? atual.contaDestino : '', cartao: exigeCartao || contaOuCartaoOpcional ? atual.cartao : '' }; }); }} error={camposInvalidos.tipoRecebimento} />}
@@ -1597,7 +1925,10 @@ export default function TelaReceita() {
                 >
                   <Text style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' }}>{'<'}</Text>
                 </TouchableOpacity>
-                <Text style={{ color: COLORS.accent, fontSize: 16, fontWeight: '700' }}>{competenciaLabel}</Text>
+              <View style={{ backgroundColor: COLORS.bgTertiary, alignItems: 'center'}}>
+                  <Text style={{ color: COLORS.accent, fontSize: 14, fontWeight: '800', marginBottom: 2 }}>{competenciaLabel}</Text>
+                  <Text style={{ color: COLORS.accent, fontSize: 14, fontWeight: '800' }}>{formatarValorPorIdioma(totalListaPrincipal)}</Text>
+                </View>
                 <TouchableOpacity
                   onPress={() => setCompetencia((atual) => avancarCompetencia(atual, 1))}
                   style={{ backgroundColor: COLORS.bgSecondary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
@@ -1606,31 +1937,18 @@ export default function TelaReceita() {
                 </TouchableOpacity>
               </View>
             </View>
-            <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
-            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo='secundario' estilo={{ marginBottom: 12 }} />
-            <View>
-              {receitasFiltradas.length === 0 ? <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 24 }}>{t('financeiro.receita.vazio')}</Text> : receitasFiltradas.map((receita) => (
-                <View key={receita.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{receita.id} {receita.descricao}</Text>
-                    <Text style={{ color: receita.status === 'efetivada' ? COLORS.success : receita.status === 'cancelada' ? COLORS.error : COLORS.warning, fontSize: 12, fontWeight: '700' }}>{obterRotuloStatusReceita(receita.status, t)}</Text>
-                  </View>
-                  <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>{t(`financeiro.receita.tipoReceita.${receita.tipoReceita}`)} | {formatarDataPorIdioma(receita.dataVencimento)} | {formatarValorPorIdioma(receita.valorLiquido)}</Text>
-                  <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>{receita.observacao || t('financeiro.receita.mensagens.semObservacao')}</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
-                    <TouchableOpacity onPress={() => abrirVisualizacao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('financeiro.receita.acoes.visualizar')}</Text></TouchableOpacity>
-                    {receita.status === 'pendente' ? <TouchableOpacity onPress={() => abrirEdicao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
-                    {receita.status === 'pendente' ? <TouchableOpacity onPress={() => abrirEfetivacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.receita.acoes.efetivar')}</Text></TouchableOpacity> : null}
-                    {receita.status === 'pendente' ? <TouchableOpacity onPress={() => cancelarReceita(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.receita.acoes.cancelarReceita')}</Text></TouchableOpacity> : null}
-                    {receita.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => aceitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
-                    {receita.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => rejeitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
-                    {receita.status === 'efetivada' ? <TouchableOpacity onPress={() => abrirEstorno(receita)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.receita.acoes.estornar')}</Text></TouchableOpacity> : null}
-                  </View>
-                </View>
-              ))}
-            </View>
-          </>
-        ) : null}
+	            <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
+	            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo='secundario' estilo={{ marginBottom: 12 }} />
+	            <View>
+	              {receitasListaPrincipal.length === 0 ? <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 24 }}>{t('financeiro.receita.vazio')}</Text> : receitasListaPrincipal.map((receita) => {
+	                const grupoFatura = mapaGrupoPorFaturaId.get(receita.id);
+	                if (!grupoFatura) return renderCartaoReceita(receita);
+	                const expandida = faturasExpandidas.includes(grupoFatura.fatura.id);
+		                return <View key={grupoFatura.fatura.id}>{renderCartaoFaturaReceita(grupoFatura, expandida)}</View>;
+		              })}
+		            </View>
+	          </>
+	        ) : null}
 
         {(modoTela === 'novo' || modoTela === 'edicao') ? (
           <>
@@ -1763,10 +2081,6 @@ export default function TelaReceita() {
     </View>
   );
 }
-
-
-
-
 
 
 

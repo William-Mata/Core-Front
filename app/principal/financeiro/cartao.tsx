@@ -6,15 +6,20 @@ import { CampoData } from '../../../src/componentes/comuns/CampoData';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
+import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import {
   obterCartaoApi,
+  efetivarFaturaCartaoApi,
+  estornarFaturaCartaoApi,
   listarCartoesDetalheApi,
+  listarDetalhesFaturasCartaoApi,
   listarLancamentosCartaoApi,
   criarCartaoApi,
   atualizarCartaoApi,
   inativarCartaoApi,
   ativarCartaoApi,
+  type FaturaCartaoDetalheApi,
   type RegistroFinanceiroApi,
 } from '../../../src/servicos/financeiro';
 import { COLORS } from '../../../src/styles/variables';
@@ -60,6 +65,9 @@ interface Cartao {
   dataVencimentoCartao: string;
   status: StatusCartao;
   lancamentos: LancamentoCartao[];
+  faturaCartaoId?: number;
+  statusFatura?: string;
+  valorTotalFatura?: number;
   logs: LogCartao[];
 }
 
@@ -147,6 +155,9 @@ function mapearCartaoApi(item: RegistroFinanceiroApi, atual?: Cartao): Cartao {
     dataVencimentoCartao: String(item.dataVencimentoCartao ?? item.dataVencimento ?? atual?.dataVencimentoCartao ?? ''),
     status,
     lancamentos,
+    faturaCartaoId: atual?.faturaCartaoId,
+    statusFatura: atual?.statusFatura,
+    valorTotalFatura: atual?.valorTotalFatura,
     logs,
   };
 }
@@ -173,6 +184,23 @@ function mapearLancamentoCartaoApi(item: RegistroFinanceiroApi, indice: number):
     valor: Math.abs(valorBruto),
     valorDepoisTransacao: item.valorDepoisTransacao === null || item.valorDepoisTransacao === undefined ? undefined : Number(item.valorDepoisTransacao),
   };
+}
+
+function normalizarStatusFaturaCartao(status: unknown): 'aberta' | 'fechada' | 'efetivada' | 'estornada' {
+  const valor = String(status ?? '').toLowerCase();
+  if (valor.includes('estorn')) return 'estornada';
+  if (valor.includes('efetiv')) return 'efetivada';
+  if (valor.includes('fech')) return 'fechada';
+  return 'aberta';
+}
+
+function selecionarDetalheFaturaCartao(
+  detalhes: FaturaCartaoDetalheApi[],
+  cartaoId: number,
+): FaturaCartaoDetalheApi | null {
+  const detalhesCartao = detalhes.filter((detalhe) => detalhe.cartaoId === cartaoId);
+  if (detalhesCartao.length === 0) return null;
+  return [...detalhesCartao].sort((a, b) => b.faturaCartaoId - a.faturaCartaoId)[0] ?? null;
 }
 
 export default function TelaCartao() {
@@ -299,6 +327,34 @@ export default function TelaCartao() {
 
   const carregarLancamentosCartao = async (id: number, mes: string) => {
     try {
+      const cartaoAtual = cartoes.find((item) => item.id === id);
+      if (cartaoAtual?.tipo === 'credito') {
+        const detalhesFatura = await listarDetalhesFaturasCartaoApi({
+          cartaoId: id,
+          competencia: mes,
+        });
+        const detalheSelecionado = selecionarDetalheFaturaCartao(detalhesFatura, id);
+        const lancamentos = detalheSelecionado
+          ? detalheSelecionado.transacoes.map((item, indice) => mapearLancamentoCartaoApi(item, indice))
+          : [];
+        const valorTotalFatura = detalheSelecionado?.valorTotal ?? calcularTotalLancamentos(lancamentos);
+        const statusFatura = normalizarStatusFaturaCartao(detalheSelecionado?.status);
+        setCartoes((atual) =>
+          atual.map((cartao) =>
+            cartao.id === id
+              ? {
+                  ...cartao,
+                  lancamentos,
+                  faturaCartaoId: detalheSelecionado?.faturaCartaoId,
+                  statusFatura,
+                  valorTotalFatura,
+                }
+              : cartao,
+          ),
+        );
+        return;
+      }
+
       const competencia = formatarCompetenciaParaApi(mes);
       const lancamentos = await listarLancamentosCartaoApi(id, { competencia });
       setCartoes((atual) =>
@@ -307,6 +363,9 @@ export default function TelaCartao() {
             ? {
                 ...cartao,
                 lancamentos: lancamentos.map((item, indice) => mapearLancamentoCartaoApi(item, indice)),
+                faturaCartaoId: undefined,
+                statusFatura: undefined,
+                valorTotalFatura: undefined,
               }
             : cartao,
         ),
@@ -451,6 +510,30 @@ export default function TelaCartao() {
     setCartaoDetalheAberto(cartao.id);
   };
 
+  const efetivarFaturaCartao = async (cartao: Cartao) => {
+    if (!cartao.faturaCartaoId) return;
+    try {
+      await efetivarFaturaCartaoApi(cartao.faturaCartaoId);
+      const mes = obterMesSelecionado(cartao.id);
+      await carregarLancamentosCartao(cartao.id, mes);
+      notificarSucesso(t('financeiro.despesa.mensagens.efetivada'));
+    } catch {
+      notificarErro(t('comum.erro'));
+    }
+  };
+
+  const estornarFaturaCartao = async (cartao: Cartao) => {
+    if (!cartao.faturaCartaoId) return;
+    try {
+      await estornarFaturaCartaoApi(cartao.faturaCartaoId);
+      const mes = obterMesSelecionado(cartao.id);
+      await carregarLancamentosCartao(cartao.id, mes);
+      notificarSucesso(t('financeiro.despesa.mensagens.estornada'));
+    } catch {
+      notificarErro(t('comum.erro'));
+    }
+  };
+
   const obterMesSelecionado = (cartaoId: number) => mesPorCartao[cartaoId] ?? new Date().toISOString().slice(0, 7);
 
   const formatarMesNavegacao = (mes: string) => {
@@ -473,7 +556,10 @@ export default function TelaCartao() {
     return cartao.lancamentos.filter((lancamento) => lancamento.data.startsWith(mesSelecionado));
   };
 
-  const totalPeriodo = (cartao: Cartao) => calcularTotalLancamentos(obterLancamentosDoMes(cartao));
+  const totalPeriodo = (cartao: Cartao) =>
+    cartao.tipo === 'credito' && cartao.valorTotalFatura !== undefined
+      ? cartao.valorTotalFatura
+      : calcularTotalLancamentos(obterLancamentosDoMes(cartao));
 
   const renderIconeBandeira = (bandeira: string) => {
     const imagemBandeira = obterImagemBandeiraCartao(bandeira);
@@ -533,7 +619,12 @@ export default function TelaCartao() {
                         {renderIconeBandeira(cartao.referenciaBandeira || cartao.bandeira)}
                         <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{cartao.id} {cartao.descricao}</Text>
                       </View>
-                      <Text style={{ color: cartao.status === 'ativo' ? COLORS.success : COLORS.warning, fontSize: 12, fontWeight: '700' }}>{t(`financeiro.cartao.status.${cartao.status}`)}</Text>
+                      <DistintivoStatus
+                        rotulo={t(`financeiro.cartao.status.${cartao.status}`)}
+                        corTexto={cartao.status === 'ativo' ? COLORS.success : COLORS.warning}
+                        corBorda={cartao.status === 'ativo' ? '#86efac' : '#fde68a'}
+                        corFundo={cartao.status === 'ativo' ? '#14532d' : '#78350f'}
+                      />
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                       <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>
@@ -575,13 +666,30 @@ export default function TelaCartao() {
                             <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{'\u2192'}</Text>
                           </TouchableOpacity>
                         </View>
-                        <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 8, padding: 10, marginBottom: 8 }}>
-                          <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>{cartao.tipo === 'credito' ? t('financeiro.cartao.totalFatura') : t('financeiro.cartao.totalExtrato')}</Text>
-                          <Text style={{ color: COLORS.accent, fontSize: 20, fontWeight: '800' }}>{formatarValorPorIdioma(totalPeriodo(cartao))}</Text>
-                        </View>
-                        {obterLancamentosDoMes(cartao).length === 0 ? (
-                          <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{cartao.tipo === 'credito' ? t('financeiro.cartao.faturaVazia') : t('financeiro.cartao.extratoVazio')}</Text>
-                        ) : (
+	                        <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 8, padding: 10, marginBottom: 8 }}>
+	                          <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>{cartao.tipo === 'credito' ? t('financeiro.cartao.totalFatura') : t('financeiro.cartao.totalExtrato')}</Text>
+	                          <Text style={{ color: COLORS.accent, fontSize: 20, fontWeight: '800' }}>{formatarValorPorIdioma(totalPeriodo(cartao))}</Text>
+	                        </View>
+	                        {cartao.tipo === 'credito' && cartao.statusFatura ? (
+	                          <View style={{ marginBottom: 8 }}>
+	                            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 6 }}>{t('financeiro.cartao.campos.status')}: {String(cartao.statusFatura).toUpperCase()}</Text>
+	                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
+	                              {(cartao.statusFatura === 'aberta' || cartao.statusFatura === 'fechada') && cartao.faturaCartaoId ? (
+	                                <TouchableOpacity onPress={() => void efetivarFaturaCartao(cartao)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}>
+	                                  <Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.despesa.acoes.efetivar')}</Text>
+	                                </TouchableOpacity>
+	                              ) : null}
+	                              {cartao.statusFatura === 'efetivada' && cartao.faturaCartaoId ? (
+	                                <TouchableOpacity onPress={() => void estornarFaturaCartao(cartao)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}>
+	                                  <Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.despesa.acoes.estornar')}</Text>
+	                                </TouchableOpacity>
+	                              ) : null}
+	                            </View>
+	                          </View>
+	                        ) : null}
+	                        {obterLancamentosDoMes(cartao).length === 0 ? (
+	                          <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{cartao.tipo === 'credito' ? t('financeiro.cartao.faturaVazia') : t('financeiro.cartao.extratoVazio')}</Text>
+	                        ) : (
                           obterLancamentosDoMes(cartao).map((lancamento) => (
                             <View key={lancamento.id} style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 8, padding: 10, marginBottom: 8 }}>
                               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>

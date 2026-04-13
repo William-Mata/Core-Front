@@ -399,9 +399,9 @@ export default function Dashboard() {
       setCarregando(true);
       try {
         const [despesasApi, receitasApi, reembolsosApi] = await Promise.all([
-          listarDespesasApi({ signal: controller.signal }),
-          listarReceitasApi({ signal: controller.signal }),
-          listarReembolsosApi({ signal: controller.signal }),
+          listarDespesasApi({ signal: controller.signal, desconsiderarCancelados: true }),
+          listarReceitasApi({ signal: controller.signal, desconsiderarCancelados: true }),
+          listarReembolsosApi({ signal: controller.signal, desconsiderarCancelados: true }),
         ]);
 
         const despesas = mapearTransacoesApiParaDashboard(despesasApi, 'despesa', t);

@@ -6,6 +6,7 @@ import { CampoData } from '../../../src/componentes/comuns/CampoData';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
+import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import {
   obterContaBancariaApi,
@@ -499,7 +500,12 @@ export default function TelaContaBancaria() {
                         {renderIconeBanco(conta.referenciaBanco || conta.banco)}
                         <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{conta.id} {conta.descricao}</Text>
                       </View>
-                      <Text style={{ color: conta.status === 'ativa' ? COLORS.success : COLORS.warning, fontSize: 12, fontWeight: '700' }}>{t(`financeiro.contaBancaria.status.${conta.status}`)}</Text>
+                      <DistintivoStatus
+                        rotulo={t(`financeiro.contaBancaria.status.${conta.status}`)}
+                        corTexto={conta.status === 'ativa' ? COLORS.success : COLORS.warning}
+                        corBorda={conta.status === 'ativa' ? '#86efac' : '#fde68a'}
+                        corFundo={conta.status === 'ativa' ? '#14532d' : '#78350f'}
+                      />
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                       <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>{conta.banco} | {t('financeiro.contaBancaria.campos.agencia')}: {conta.agencia} | {t('financeiro.contaBancaria.campos.numero')}: {conta.numero}</Text>
@@ -596,7 +602,6 @@ export default function TelaContaBancaria() {
     </View>
   );
 }
-
 
 
 

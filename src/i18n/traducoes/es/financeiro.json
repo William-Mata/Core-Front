@@ -272,7 +272,8 @@
       "cancelamentoFixaTodasPendentes": "Al cancelar todas las pendientes en recurrencia fija, no se generaran nuevas ocurrencias.",
       "edicaoReplicaPendentes": "Al editar esta y las proximas, o todas las pendientes, los nuevos datos se replicaran respetando las fechas de la regla de recurrencia.",
       "confirmarEdicaoRecorrente": "Seleccione el tipo de edicion para este lanzamiento recurrente.",
-      "valorTotalRateioAmigosMaiorQueValorLiquido": "El valor total del prorrateo de amigos debe ser mayor que el valor neto."
+      "valorTotalRateioAmigosMaiorQueValorLiquido": "El valor total del prorrateo de amigos debe ser mayor que el valor neto.",
+      "competenciaObrigatoria": "La competencia es obligatoria."
     },
     "status": {
       "pendenteAprovacao": "PENDIENTE APROBACION",

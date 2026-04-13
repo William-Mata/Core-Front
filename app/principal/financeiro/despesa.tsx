@@ -8,13 +8,14 @@ import { ModalConfirmacao } from '../../../src/componentes/comuns/ModalConfirmac
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
+import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { usarAutenticacaoStore } from '../../../src/store/usarAutenticacaoStore';
 import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
-import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterCompetenciaPorData, serializarCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
+import { aplicarMascaraCompetencia, avancarCompetencia, desserializarCompetencia, formatarCompetencia, formatarCompetenciaParaEntrada, obterCompetenciaAtual, obterCompetenciaPorData, serializarCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
 import { rateioConfereValorTotalExato, rateioNaoUltrapassaValorTotal } from '../../../src/utils/rateioValidacao';
 import { obterIconeBanco, obterIconeBandeiraCartao, obterImagemBanco, obterImagemBandeiraCartao } from '../../../src/utils/icones';
@@ -42,6 +43,7 @@ import {
   criarDespesaApi,
   efetivarDespesaApi,
   estornarDespesaApi,
+  listarDetalhesFaturasCartaoApi,
   listarCartoesApi,
   listarContasBancariasApi,
   listarAmigosRateioApi,
@@ -53,10 +55,12 @@ import {
   type AreaSubareaRateioApi,
   type CartaoOpcaoApi,
   type ContaBancariaOpcaoApi,
+  type FaturaCartaoDetalheApi,
   type RegistroFinanceiroApi,
 } from '../../../src/servicos/financeiro';
 
 type StatusDespesa = 'pendente' | 'efetivada' | 'cancelada' | 'pendenteAprovacao' | 'rejeitada';
+type StatusFaturaCartao = 'aberta' | 'fechada' | 'efetivada' | 'estornada';
 type ModoTela = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao' | 'estorno';
 type EscopoAcaoRecorrencia = 'apenasEsta' | 'estaEProximas' | 'todasPendentes';
 type EscopoRecorrenciaApi = 1 | 2 | 3;
@@ -114,8 +118,10 @@ interface DespesaRegistro {
   contaDestinoId?: number;
   cartao?: string;
   cartaoId?: number;
+  faturaCartaoId?: number;
   faturaId?: number;
   ehFatura?: boolean;
+  statusFaturaCartao?: StatusFaturaCartao;
   despesasVinculadasIds?: number[];
   anexoDocumento: string;
   documentos: DocumentoFinanceiro[];
@@ -128,7 +134,7 @@ interface DespesaForm {
   observacaoEfetivacao: string;
   observacaoEstorno: string;
   dataLancamento: string;
-  competencia?: string;
+  competencia: string;
   dataVencimento: string;
   dataEfetivacao: string;
   dataEstorno: string;
@@ -155,6 +161,17 @@ interface DespesaForm {
   anexoDocumento: string;
   documentos: DocumentoFinanceiro[];
   ocultarEfetivacaoEstornoRegistros: boolean;
+}
+
+interface GrupoFaturaDespesa {
+  fatura: DespesaRegistro;
+  despesasVinculadas: DespesaRegistro[];
+  valorTotalGrupo: number;
+  valorTotalFatura: number;
+  valorTotalTransacoes: number;
+  cartaoId?: number;
+  competencia?: string;
+  statusFaturaCartao: StatusFaturaCartao;
 }
 
 const tiposDespesa = ['alimentacao', 'transporte', 'moradia', 'lazer', 'saude', 'educacao', 'servicos', 'outros'] as const;
@@ -194,6 +211,7 @@ function criarFormularioVazio(locale: string): DespesaForm {
     observacaoEfetivacao: '',
     observacaoEstorno: '',
     dataLancamento: hoje,
+    competencia: formatarCompetenciaParaEntrada(obterCompetenciaAtual(), locale),
     dataVencimento: '',
     dataEfetivacao: hoje,
     dataEstorno: hoje,
@@ -261,6 +279,14 @@ function normalizarStatusDespesa(status: unknown): StatusDespesa {
   if (valor.includes('efetiv')) return 'efetivada';
   if (valor.includes('cancel')) return 'cancelada';
   return 'pendente';
+}
+
+function normalizarStatusFaturaCartao(status: unknown): StatusFaturaCartao {
+  const valor = String(status ?? '').toLowerCase();
+  if (valor.includes('estorn')) return 'estornada';
+  if (valor.includes('efetiv')) return 'efetivada';
+  if (valor.includes('fech')) return 'fechada';
+  return 'aberta';
 }
 
 function normalizarTipoDespesa(valor: unknown): (typeof tiposDespesa)[number] {
@@ -438,7 +464,11 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
   const cartaoNome = cartaoBruto && cartaoBruto !== String(cartaoIdNormalizado)
     ? cartaoBruto
     : undefined;
-  const faturaIdDireta = paraNumeroOpcional(item.faturaId ?? item.idFatura ?? item.faturaReferenciaId);
+  const faturaCartaoRegistro = item.faturaCartao && typeof item.faturaCartao === 'object'
+    ? (item.faturaCartao as Record<string, unknown>)
+    : null;
+  const faturaCartaoId = paraNumeroOpcional(item.faturaCartaoId ?? faturaCartaoRegistro?.id ?? faturaCartaoRegistro?.faturaCartaoId);
+  const faturaIdDireta = paraNumeroOpcional(item.faturaId ?? item.idFatura ?? item.faturaReferenciaId ?? faturaCartaoId);
   const faturaRegistro = item.fatura && typeof item.fatura === 'object'
     ? (item.fatura as Record<string, unknown>)
     : null;
@@ -452,6 +482,9 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
     || tipoDespesaBruto.includes('fatura')
     || despesasVinculadasIds.length > 0;
   const faturaId = faturaIdDireta ?? faturaIdRelacionada;
+  const statusFaturaCartao = ehFatura
+    ? normalizarStatusFaturaCartao(item.statusFaturaCartao ?? item.statusFatura ?? item.status)
+    : undefined;
 
   return {
     id: Number(item.id),
@@ -460,7 +493,7 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
     dataLancamento: dataBase,
     competencia: competenciaBase,
     dataVencimento: String(item.dataVencimento ?? dataBase).slice(0, 10),
-    dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : undefined,
+    dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : (faturaCartaoId ? dataBase : undefined),
     tipoDespesa: normalizarTipoDespesa(item.tipoDespesa ?? item.categoria),
     tipoPagamento: normalizarTipoPagamento(item.tipoPagamento),
     recorrencia: normalizarRecorrenciaFinanceira(item.recorrencia),
@@ -502,8 +535,10 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
     cartaoId: Number.isFinite(cartaoIdNormalizado) && cartaoIdNormalizado > 0
       ? cartaoIdNormalizado
       : undefined,
+    faturaCartaoId,
     faturaId,
     ehFatura,
+    statusFaturaCartao,
     despesasVinculadasIds,
     anexoDocumento: documentos[0]?.nomeArquivo ?? String(item.anexoDocumento ?? ''),
     documentos,
@@ -533,6 +568,7 @@ export default function TelaDespesa() {
   const [modoTela, setModoTela] = useState<ModoTela>(idParam ? 'visualizacao' : 'lista');
   const [despesaSelecionadaId, setDespesaSelecionadaId] = useState<number | null>(idParam);
   const [despesas, setDespesas] = useState<DespesaRegistro[]>([]);
+  const [detalhesFaturasCartao, setDetalhesFaturasCartao] = useState<FaturaCartaoDetalheApi[]>([]);
   const [formulario, setFormulario] = useState<DespesaForm>(() => criarFormularioVazio(locale));
   const [camposInvalidos, setCamposInvalidos] = useState<Record<string, boolean>>({});
   const [tipoRateioAmigos, setTipoRateioAmigos] = useState<TipoRateioAmigos>('comum');
@@ -742,18 +778,28 @@ export default function TelaDespesa() {
     try {
       const dataInicio = filtroAplicado.dataInicio.trim() || undefined;
       const dataFim = filtroAplicado.dataFim.trim() || undefined;
-      const dados = await listarDespesasApi({
-        signal,
-        id: filtroAplicado.id.trim() || undefined,
-        descricao: filtroAplicado.descricao.trim() || undefined,
-        dataInicio,
-        dataFim,
-        competencia: competenciaConsulta,
-        VerificarUltimaRecorrencia: true,
-      });
+      const [dados, detalhesFatura] = await Promise.all([
+        listarDespesasApi({
+          signal,
+          id: filtroAplicado.id.trim() || undefined,
+          descricao: filtroAplicado.descricao.trim() || undefined,
+          dataInicio,
+          dataFim,
+          competencia: competenciaConsulta,
+          desconsiderarVinculadosCartaoCredito: true,
+          verificarUltimaRecorrencia: true,
+        }),
+        listarDetalhesFaturasCartaoApi({
+          signal,
+          competencia: competenciaConsulta,
+          tipoTransacao: 'despesa',
+        }).catch(() => [] as FaturaCartaoDetalheApi[]),
+      ]);
       setDespesas(dados.map(mapearDespesaApi));
+      setDetalhesFaturasCartao(detalhesFatura);
     } catch {
       setDespesas([]);
+      setDetalhesFaturasCartao([]);
     }
   };
 
@@ -815,47 +861,63 @@ export default function TelaDespesa() {
     });
   }, [despesas, filtroAplicado, t]);
 
-  const gruposFatura = useMemo(() => {
-    const mapaDespesasPorId = new Map(despesasFiltradas.map((despesa) => [despesa.id, despesa]));
-    const mapaDespesasVinculadasPorFaturaId = new Map<number, DespesaRegistro[]>();
-    const idsFaturaRelacionadas = new Set<number>();
-    const adicionarDespesaVinculada = (faturaId: number, despesa: DespesaRegistro) => {
-      if (!mapaDespesasPorId.has(faturaId)) return;
-      const atuais = mapaDespesasVinculadasPorFaturaId.get(faturaId) ?? [];
-      if (atuais.some((item) => item.id === despesa.id)) return;
-      mapaDespesasVinculadasPorFaturaId.set(faturaId, [...atuais, despesa]);
-    };
+  const despesaBateFiltroLista = (despesa: DespesaRegistro) => {
+    const bateId = !filtroAplicado.id || String(despesa.id).includes(filtroAplicado.id);
+    const termo = filtroAplicado.descricao.trim().toLowerCase();
+    const tipoTraduzido = t(`financeiro.despesa.tipoDespesa.${despesa.tipoDespesa}`).toLowerCase();
+    const statusTraduzido = obterRotuloStatusDespesa(despesa.status, t).toLowerCase();
+    const bateDescricao =
+      !termo
+      || despesa.descricao.toLowerCase().includes(termo)
+      || despesa.observacao.toLowerCase().includes(termo)
+      || tipoTraduzido.includes(termo)
+      || statusTraduzido.includes(termo);
+    const bateData = estaDentroIntervalo(despesa.dataLancamento, filtroAplicado.dataInicio, filtroAplicado.dataFim);
+    return bateId && bateDescricao && bateData;
+  };
 
-    despesasFiltradas.forEach((despesa) => {
-      if (despesa.faturaId && despesa.faturaId !== despesa.id) {
-        idsFaturaRelacionadas.add(despesa.faturaId);
-        adicionarDespesaVinculada(despesa.faturaId, despesa);
-      }
-    });
-
-    despesasFiltradas.forEach((despesa) => {
-      if (despesa.ehFatura || (despesa.despesasVinculadasIds?.length ?? 0) > 0) {
-        idsFaturaRelacionadas.add(despesa.id);
-      }
-      despesa.despesasVinculadasIds?.forEach((despesaVinculadaId) => {
-        const despesaVinculada = mapaDespesasPorId.get(despesaVinculadaId);
-        if (!despesaVinculada || despesaVinculada.id === despesa.id) return;
-        idsFaturaRelacionadas.add(despesa.id);
-        adicionarDespesaVinculada(despesa.id, despesaVinculada);
-      });
-    });
-
-    return Array.from(idsFaturaRelacionadas)
-      .map((faturaId) => {
-        const fatura = mapaDespesasPorId.get(faturaId);
-        if (!fatura) return null;
-        const despesasVinculadas = (mapaDespesasVinculadasPorFaturaId.get(faturaId) ?? []).sort((a, b) => a.id - b.id);
-        if (despesasVinculadas.length === 0) return null;
-        return { fatura, despesasVinculadas };
+  const gruposFaturaApi = useMemo<GrupoFaturaDespesa[]>(() => {
+    return detalhesFaturasCartao
+      .map((detalhe) => {
+        const despesasVinculadas = detalhe.transacoes
+          .map((transacao) => mapearDespesaApi({ ...transacao, faturaCartaoId: detalhe.faturaCartaoId, faturaId: detalhe.faturaCartaoId }))
+          .filter(despesaBateFiltroLista)
+          .sort((a, b) => a.id - b.id);
+        const dataBase = detalhe.competencia ? `${detalhe.competencia}-01` : new Date().toISOString().slice(0, 10);
+        const valorTotalTransacoes = Number.isFinite(detalhe.valorTotalTransacoes) ? detalhe.valorTotalTransacoes : despesasVinculadas.reduce((total, item) => total + item.valorLiquido, 0);
+        const valorTotalFatura = Number.isFinite(detalhe.valorTotal) ? detalhe.valorTotal : valorTotalTransacoes;
+        const statusFaturaCartao = normalizarStatusFaturaCartao(detalhe.status);
+        const fatura = mapearDespesaApi({
+          id: detalhe.faturaCartaoId * -1,
+          faturaCartaoId: detalhe.faturaCartaoId,
+          ehFatura: true,
+          statusFaturaCartao,
+          descricao: `${t('financeiro.cartao.faturaTitulo')} ${detalhe.competencia || ''}`.trim(),
+          observacao: '',
+          dataLancamento: dataBase,
+          dataVencimento: dataBase,
+          dataEfetivacao: dataBase,
+          tipoDespesa: 'outros',
+          tipoPagamento: 'cartaoCredito',
+          valorTotal: valorTotalTransacoes,
+          valorLiquido: valorTotalTransacoes,
+          status: statusFaturaCartao === 'efetivada' ? 'efetivada' : 'pendente',
+          despesasVinculadas: despesasVinculadas.map((item) => ({ id: item.id })),
+        });
+        return {
+          fatura,
+          despesasVinculadas,
+          valorTotalGrupo: valorTotalTransacoes,
+          valorTotalFatura,
+          valorTotalTransacoes,
+          cartaoId: detalhe.cartaoId,
+          competencia: detalhe.competencia,
+          statusFaturaCartao,
+        };
       })
-      .filter((grupo): grupo is { fatura: DespesaRegistro; despesasVinculadas: DespesaRegistro[] } => Boolean(grupo))
       .sort((a, b) => a.fatura.id - b.fatura.id);
-  }, [despesasFiltradas]);
+  }, [detalhesFaturasCartao, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, t]);
+  const gruposFatura = gruposFaturaApi;
 
   const mapaGrupoPorFaturaId = useMemo(
     () => new Map(gruposFatura.map((grupo) => [grupo.fatura.id, grupo])),
@@ -866,12 +928,29 @@ export default function TelaDespesa() {
     gruposFatura.forEach((grupo) => {
       grupo.despesasVinculadas.forEach((despesa) => ids.add(despesa.id));
     });
+    despesasFiltradas
+      .filter((despesa) => Boolean(despesa.faturaCartaoId))
+      .forEach((despesa) => ids.add(despesa.id));
     return ids;
-  }, [gruposFatura]);
-  const despesasListaPrincipal = useMemo(
-    () => despesasFiltradas.filter((despesa) => !idsDespesasVinculadasAFatura.has(despesa.id)),
-    [despesasFiltradas, idsDespesasVinculadasAFatura],
-  );
+  }, [despesasFiltradas, gruposFatura]);
+  const despesasListaPrincipal = useMemo(() => {
+    const idsPaisFaturas = new Set(gruposFatura.map((grupo) => grupo.fatura.id));
+    const despesasNaoVinculadas = despesasFiltradas.filter(
+      (despesa) => !idsDespesasVinculadasAFatura.has(despesa.id) && !despesa.faturaCartaoId,
+    );
+    return [
+      ...gruposFatura.map((grupo) => grupo.fatura),
+      ...despesasNaoVinculadas.filter((despesa) => !idsPaisFaturas.has(despesa.id)),
+    ];
+  }, [despesasFiltradas, gruposFatura, idsDespesasVinculadasAFatura]);
+  const totalListaPrincipal = useMemo(() => {
+    const idsPaisFaturas = new Set(gruposFatura.map((grupo) => grupo.fatura.id));
+    const totalFaturas = gruposFatura.reduce((total, grupo) => total + grupo.valorTotalGrupo, 0);
+    const totalTransacoesComuns = despesasListaPrincipal
+      .filter((despesa) => !idsPaisFaturas.has(despesa.id))
+      .reduce((total, despesa) => total + despesa.valorLiquido, 0);
+    return totalFaturas + totalTransacoesComuns;
+  }, [despesasListaPrincipal, gruposFatura]);
 
   const atualizarCampoMoeda = (campo: keyof DespesaForm, valor: string) => {
     setCamposInvalidos((atual) => ({ ...atual, [campo]: false }));
@@ -892,6 +971,7 @@ export default function TelaDespesa() {
       descricao: despesa.descricao,
       observacao: despesa.observacao,
       dataLancamento: despesa.dataLancamento,
+      competencia: formatarCompetenciaParaEntrada(desserializarCompetencia(despesa.competencia) ?? obterCompetenciaPorData(despesa.dataLancamento), locale),
       dataVencimento: despesa.dataVencimento,
       dataEfetivacao: despesa.dataEfetivacao || new Date().toISOString().split('T')[0],
       dataEstorno: new Date().toISOString().split('T')[0],
@@ -957,7 +1037,10 @@ export default function TelaDespesa() {
 
   const abrirNovo = () => {
     setDespesaSelecionadaId(null);
-    setFormulario(criarFormularioVazio(locale));
+    setFormulario((atual) => ({
+      ...criarFormularioVazio(locale),
+      competencia: formatarCompetenciaParaEntrada(competencia, locale),
+    }));
     setModoTela('novo');
   };
 
@@ -1181,6 +1264,11 @@ export default function TelaDespesa() {
       return null;
     }
 
+    if (!formulario.competencia.trim()) {
+      notificarErro(t('financeiro.comum.mensagens.competenciaObrigatoria'));
+      return null;
+    }
+
     const valorTotal = converterTextoParaNumero(formulario.valorTotal, locale);
     if (!valorTotal) {
       setCamposInvalidos((atual) => ({ ...atual, valorTotal: true }));
@@ -1223,7 +1311,7 @@ export default function TelaDespesa() {
 
     return {
       dataLancamento,
-      competencia: serializarCompetencia(obterCompetenciaPorData(dataLancamento)),
+      competencia: formulario.competencia.trim() || serializarCompetencia(obterCompetenciaPorData(dataLancamento)),
       dataVencimento,
       valorTotal,
       valorLiquido,
@@ -1241,7 +1329,10 @@ export default function TelaDespesa() {
   const resetarTela = () => {
     setModoTela('lista');
     setDespesaSelecionadaId(null);
-    setFormulario(criarFormularioVazio(locale));
+    setFormulario((atual) => ({
+      ...criarFormularioVazio(locale),
+      competencia: formatarCompetenciaParaEntrada(competencia, locale),
+    }));
     definirTipoRateioAmigos('comum');
     setNovoAmigoRateio(participanteRateioPadrao);
     setNovoValorAmigoRateio(formatarMoedaParaInput(0, locale));
@@ -1530,35 +1621,133 @@ export default function TelaDespesa() {
     );
   };
 
+  const obterCorStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => {
+    if (status === 'efetivada') return COLORS.success;
+    if (status === 'estornada') return COLORS.warning;
+    return COLORS.warning;
+  };
+
+  const obterEstiloBadgeStatusDespesa = (status: StatusDespesa) => {
+    if (status === 'efetivada') return { corTexto: COLORS.success, corBorda: '#86efac', corFundo: '#14532d' };
+    if (status === 'cancelada' || status === 'rejeitada') return { corTexto: COLORS.error, corBorda: '#fca5a5', corFundo: '#7f1d1d' };
+    return { corTexto: COLORS.warning, corBorda: '#fde68a', corFundo: '#78350f' };
+  };
+
+  const obterRotuloStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => String(status ?? 'aberta').toUpperCase();
+  const obterEstiloBadgeStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => {
+    if (status === 'efetivada') return { corTexto: COLORS.success, corBorda: '#86efac', corFundo: '#14532d' };
+    if (status === 'estornada') return { corTexto: COLORS.error, corBorda: '#fca5a5', corFundo: '#7f1d1d' };
+    if (status === 'fechada') return { corTexto: COLORS.info, corBorda: '#93c5fd', corFundo: '#1e3a8a' };
+    return { corTexto: COLORS.warning, corBorda: '#fde68a', corFundo: '#78350f' };
+  };
+  const renderBadgeStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => {
+    const estilo = obterEstiloBadgeStatusFaturaCartao(status);
+    return (
+      <DistintivoStatus
+        testID="badge-tipo-transacao"
+        rotulo={obterRotuloStatusFaturaCartao(status)}
+        corTexto={estilo.corTexto}
+        corBorda={estilo.corBorda}
+        corFundo={estilo.corFundo}
+      />
+    );
+  };
+
   const renderAcoesDespesa = (
     despesa: DespesaRegistro,
-    opcoes?: { ocultarAcoesOperacionais?: boolean; podeEfetivar?: boolean },
+    opcoes?: { ocultarAcoesOperacionais?: boolean; podeEfetivar?: boolean; ocultarTodasAcoes?: boolean; ocultarEfetivacaoEstorno?: boolean },
   ) => (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
-      <TouchableOpacity onPress={() => abrirVisualizacao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('financeiro.despesa.acoes.visualizar')}</Text></TouchableOpacity>
-      {despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais ? <TouchableOpacity onPress={() => abrirEdicao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
-      {despesa.status === 'pendente' && (opcoes?.podeEfetivar ?? true) ? <TouchableOpacity onPress={() => abrirEfetivacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.despesa.acoes.efetivar')}</Text></TouchableOpacity> : null}
-      {despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais ? <TouchableOpacity onPress={() => cancelarDespesa(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.despesa.acoes.cancelarDespesa')}</Text></TouchableOpacity> : null}
-      {despesa.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => aceitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
-      {despesa.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => rejeitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
-      {despesa.status === 'efetivada' ? <TouchableOpacity onPress={() => abrirEstorno(despesa)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.despesa.acoes.estornar')}</Text></TouchableOpacity> : null}
-    </View>
+    opcoes?.ocultarTodasAcoes ? null : (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
+        {despesa.ehFatura ? null : (
+          <>
+            <TouchableOpacity onPress={() => abrirVisualizacao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('financeiro.despesa.acoes.visualizar')}</Text></TouchableOpacity>
+            {despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais ? <TouchableOpacity onPress={() => abrirEdicao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
+            {despesa.status === 'pendente' && (opcoes?.podeEfetivar ?? true) && !opcoes?.ocultarEfetivacaoEstorno ? <TouchableOpacity onPress={() => abrirEfetivacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.despesa.acoes.efetivar')}</Text></TouchableOpacity> : null}
+            {despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais ? <TouchableOpacity onPress={() => cancelarDespesa(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.despesa.acoes.cancelarDespesa')}</Text></TouchableOpacity> : null}
+            {despesa.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => aceitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
+            {despesa.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => rejeitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
+            {despesa.status === 'efetivada' && !opcoes?.ocultarEfetivacaoEstorno ? <TouchableOpacity onPress={() => abrirEstorno(despesa)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.despesa.acoes.estornar')}</Text></TouchableOpacity> : null}
+          </>
+        )}
+      </View>
+    )
   );
 
   const renderCartaoDespesa = (
     despesa: DespesaRegistro,
-    opcoes?: { margemInferior?: number; ocultarAcoesOperacionais?: boolean; podeEfetivar?: boolean },
-  ) => (
-    <View key={despesa.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginBottom: opcoes?.margemInferior ?? 10 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-        <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{despesa.id} {despesa.descricao}</Text>
-        <Text style={{ color: despesa.status === 'efetivada' ? COLORS.success : despesa.status === 'cancelada' ? COLORS.error : COLORS.warning, fontSize: 12, fontWeight: '700' }}>{obterRotuloStatusDespesa(despesa.status, t)}</Text>
+    opcoes?: { margemInferior?: number; ocultarAcoesOperacionais?: boolean; podeEfetivar?: boolean; ocultarTodasAcoes?: boolean; ocultarEfetivacaoEstorno?: boolean },
+  ) => {
+    const corStatus = despesa.ehFatura
+      ? obterCorStatusFaturaCartao(despesa.statusFaturaCartao)
+      : (despesa.status === 'efetivada' ? COLORS.success : despesa.status === 'cancelada' ? COLORS.error : COLORS.warning);
+    const rotuloStatus = despesa.ehFatura
+      ? obterRotuloStatusFaturaCartao(despesa.statusFaturaCartao)
+      : obterRotuloStatusDespesa(despesa.status, t);
+    const estiloBadge = despesa.ehFatura
+      ? obterEstiloBadgeStatusFaturaCartao(despesa.statusFaturaCartao)
+      : obterEstiloBadgeStatusDespesa(despesa.status);
+
+    return (
+      <View key={despesa.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginBottom: opcoes?.margemInferior ?? 10 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+          <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{despesa.id} {despesa.descricao}</Text>
+          <DistintivoStatus
+            rotulo={rotuloStatus}
+            corTexto={estiloBadge.corTexto}
+            corBorda={estiloBadge.corBorda}
+            corFundo={estiloBadge.corFundo}
+          />
+        </View>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>{t(`financeiro.despesa.tipoDespesa.${despesa.tipoDespesa}`)} | {formatarDataPorIdioma(despesa.dataVencimento)} | {formatarValorPorIdioma(despesa.valorLiquido)}</Text>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>{despesa.observacao || t('financeiro.despesa.mensagens.semObservacao')}</Text>
+        {renderAcoesDespesa(despesa, { ocultarAcoesOperacionais: opcoes?.ocultarAcoesOperacionais, podeEfetivar: opcoes?.podeEfetivar, ocultarTodasAcoes: opcoes?.ocultarTodasAcoes, ocultarEfetivacaoEstorno: opcoes?.ocultarEfetivacaoEstorno })}
       </View>
-      <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>{t(`financeiro.despesa.tipoDespesa.${despesa.tipoDespesa}`)} | {formatarDataPorIdioma(despesa.dataVencimento)} | {formatarValorPorIdioma(despesa.valorLiquido)}</Text>
-      <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>{despesa.observacao || t('financeiro.despesa.mensagens.semObservacao')}</Text>
-      {renderAcoesDespesa(despesa, { ocultarAcoesOperacionais: opcoes?.ocultarAcoesOperacionais, podeEfetivar: opcoes?.podeEfetivar })}
-    </View>
-  );
+    );
+  };
+  const renderCartaoFaturaDespesa = (grupo: GrupoFaturaDespesa, expandida: boolean) => {
+    const cartaoDescricao = grupo.cartaoId ? (mapaCartoesPorId.get(grupo.cartaoId) ?? '-') : '-';
+    const referenciaBandeira = cartaoDescricao !== '-'
+      ? (mapaReferenciaCartaoPorNome.get(cartaoDescricao) ?? cartaoDescricao)
+      : '';
+    const imagemBandeira = referenciaBandeira ? obterImagemBandeiraCartao(referenciaBandeira) : null;
+    const iconeBandeira = referenciaBandeira ? obterIconeBandeiraCartao(referenciaBandeira) : '';
+    const competenciaFatura = grupo.competencia
+      ? formatarCompetencia(desserializarCompetencia(grupo.competencia) ?? competencia, locale)
+      : competenciaLabel;
+
+    return (
+      <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderAccent, borderRadius: 12, padding: 12, marginBottom: expandida ? 8 : 10 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 8 }}>
+          <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>
+            {`#${grupo.fatura.faturaCartaoId ?? Math.abs(grupo.fatura.id)} ${t('financeiro.cartao.faturaTitulo')} - ${competenciaFatura}`}
+          </Text>
+          {renderBadgeStatusFaturaCartao(grupo.statusFaturaCartao)}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+          {cartaoDescricao !== '-' ? (
+            imagemBandeira
+              ? <Image source={imagemBandeira} style={{ width: 16, height: 16, borderRadius: 3, marginRight: 6 }} resizeMode="contain" />
+              : <Text style={{ color: COLORS.textSecondary, marginRight: 6, fontSize: 13 }}>{iconeBandeira}</Text>
+          ) : null}
+          <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>{`${t('financeiro.despesa.campos.cartao')}: ${referenciaBandeira || '-'} | ${cartaoDescricao}`}</Text>
+        </View>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 6}}>{`${t('dashboard.colunas.valor')} ${t('dashboard.ultimasTransacoes')} :  ${formatarValorPorIdioma(grupo.valorTotalTransacoes)}`}</Text>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 6}}>{`${t('dashboard.colunas.valor')} ${t('financeiro.cartao.totalFatura')} :  ${formatarValorPorIdioma(grupo.valorTotalFatura)}`}</Text>
+        <View style={{ marginTop: 10, marginBottom: 20, alignItems: 'flex-start',  borderBottomWidth: 1, borderBottomColor: COLORS.borderColor, }}>
+          <TouchableOpacity onPress={() => alternarExpansaoFatura(grupo.fatura.id)} style={{ backgroundColor: COLORS.accentSubtle, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginBottom: 10 }}>
+            <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700' }}>{`${t('financeiro.cartao.acoes.fatura')} (${grupo.despesasVinculadas.length}) ${expandida ? '^' : 'v'}`}</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {expandida ? (
+          <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10}}>
+            {grupo.despesasVinculadas.map((despesaVinculada) => renderCartaoDespesa(despesaVinculada, { margemInferior: 8, ocultarEfetivacaoEstorno: true }))}
+          </View>
+        ) : null}
+      </View>
+    );
+  };
 
   const renderCampoBloqueado = (label: string, valor: string) => (
     <View style={{ marginBottom: 12 }}>
@@ -1730,6 +1919,7 @@ export default function TelaDespesa() {
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.descricao'), formulario.descricao) : <CampoTexto label={t('financeiro.despesa.campos.descricao')} placeholder={t('financeiro.despesa.placeholders.descricao')} value={formulario.descricao} onChangeText={(descricao) => { setCamposInvalidos((atual) => ({ ...atual, descricao: false })); setFormulario((atual) => ({ ...atual, descricao })); }} error={camposInvalidos.descricao} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.observacao'), formulario.observacao) : <CampoTexto label={t('financeiro.despesa.campos.observacao')} placeholder={t('financeiro.despesa.placeholders.observacao')} value={formulario.observacao} onChangeText={(observacao) => setFormulario((atual) => ({ ...atual, observacao }))} multiline numberOfLines={4} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.dataLancamento'), formulario.dataLancamento ? formatarDataPorIdioma(formulario.dataLancamento) : '') : <CampoData label={t('financeiro.despesa.campos.dataLancamento')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataLancamento} onChange={(dataLancamento) => { setCamposInvalidos((atual) => ({ ...atual, dataLancamento: false })); setFormulario((atual) => ({ ...atual, dataLancamento })); }} error={camposInvalidos.dataLancamento} estilo={{ marginBottom: 12 }} />}
+      {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.competencia'), formulario.competencia) : <CampoTexto label={t('financeiro.despesa.campos.competencia')} placeholder={t('financeiro.despesa.placeholders.competencia')} value={formulario.competencia} onChangeText={(competencia) => setFormulario((atual) => ({ ...atual, competencia: aplicarMascaraCompetencia(competencia, locale) }))} obrigatorio estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.dataVencimento'), formulario.dataVencimento ? formatarDataPorIdioma(formulario.dataVencimento) : '') : <CampoData label={t('financeiro.despesa.campos.dataVencimento')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataVencimento} onChange={(dataVencimento) => { setCamposInvalidos((atual) => ({ ...atual, dataVencimento: false })); setFormulario((atual) => ({ ...atual, dataVencimento })); }} error={camposInvalidos.dataVencimento} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoDespesa'), formulario.tipoDespesa ? t(`financeiro.despesa.tipoDespesa.${formulario.tipoDespesa}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoDespesa')} placeholder={t('comum.acoes.selecionar')} options={tiposDespesa.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoDespesa.${tipo}`) }))} value={formulario.tipoDespesa} onChange={(tipoDespesa) => { setCamposInvalidos((atual) => ({ ...atual, tipoDespesa: false })); setFormulario((atual) => ({ ...atual, tipoDespesa })); }} error={camposInvalidos.tipoDespesa} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoPagamento'), formulario.tipoPagamento ? t(`financeiro.despesa.tipoPagamento.${formulario.tipoPagamento}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoPagamento')} placeholder={t('comum.acoes.selecionar')} options={tiposPagamento.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoPagamento.${tipo}`) }))} value={formulario.tipoPagamento} onChange={(tipoPagamento) => { setCamposInvalidos((atual) => ({ ...atual, tipoPagamento: false, quantidadeRecorrencia: false, contaBancaria: false, contaDestino: false, cartao: false })); setFormulario((atual) => { const exigeContaBancaria = tipoPagamento === 'pix' || tipoPagamento === 'transferencia'; const exigeCartao = tipoPagamento === 'cartaoCredito' || tipoPagamento === 'cartaoDebito'; const contaOuCartaoOpcional = !exigeContaBancaria && !exigeCartao; return { ...atual, tipoPagamento, recorrenciaBase: ehPagamentoParcelado(tipoPagamento) ? 'mensal' : atual.recorrenciaBase, contaBancaria: exigeContaBancaria || contaOuCartaoOpcional ? atual.contaBancaria : '', contaDestino: tipoPagamento === 'transferencia' || tipoPagamento === 'pix' ? atual.contaDestino : '', cartao: exigeCartao || contaOuCartaoOpcional ? atual.cartao : '' }; }); }} error={camposInvalidos.tipoPagamento} />}
@@ -1784,7 +1974,10 @@ export default function TelaDespesa() {
                 >
                   <Text style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' }}>{'<'}</Text>
                 </TouchableOpacity>
-                <Text style={{ color: COLORS.accent, fontSize: 16, fontWeight: '700' }}>{competenciaLabel}</Text>
+                <View style={{ backgroundColor: COLORS.bgTertiary, alignItems: 'center'}}>
+                  <Text style={{ color: COLORS.accent, fontSize: 14, fontWeight: '800', marginBottom: 2 }}>{competenciaLabel}</Text>
+                  <Text style={{ color: COLORS.accent, fontSize: 14, fontWeight: '800' }}>{formatarValorPorIdioma(totalListaPrincipal)}</Text>
+                </View>
                 <TouchableOpacity
                   onPress={() => setCompetencia((atual) => avancarCompetencia(atual, 1))}
                   style={{ backgroundColor: COLORS.bgSecondary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
@@ -1795,29 +1988,16 @@ export default function TelaDespesa() {
             </View>
 	            <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
 	            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo='secundario' estilo={{ marginBottom: 12 }} />
+	           
 	            <View>
 	              {despesasListaPrincipal.length === 0 ? <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 24 }}>{t('financeiro.despesa.vazio')}</Text> : despesasListaPrincipal.map((despesa) => {
 	                const grupoFatura = mapaGrupoPorFaturaId.get(despesa.id);
 	                if (!grupoFatura) return renderCartaoDespesa(despesa);
 	                const expandida = faturasExpandidas.includes(grupoFatura.fatura.id);
-	                const podeEfetivarFatura = grupoFatura.despesasVinculadas.length > 0 && grupoFatura.despesasVinculadas.every((item) => item.status === 'efetivada');
 	                return (
 	                  <View key={grupoFatura.fatura.id}>
-	                    {renderCartaoDespesa(grupoFatura.fatura, {
-	                      ocultarAcoesOperacionais: true,
-	                      podeEfetivar: podeEfetivarFatura,
-	                      margemInferior: expandida ? 8 : 10,
-	                    })}
-	                    <View style={{ marginTop: -4, marginBottom: 10, alignItems: 'flex-end' }}>
-	                      <TouchableOpacity onPress={() => alternarExpansaoFatura(grupoFatura.fatura.id)} style={{ backgroundColor: COLORS.accentSubtle, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
-	                        <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700' }}>{`${t('financeiro.cartao.acoes.fatura')} (${grupoFatura.despesasVinculadas.length}) ${expandida ? '▲' : '▼'}`}</Text>
-	                      </TouchableOpacity>
-	                    </View>
-	                    {expandida ? (
-	                      <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10 }}>
-	                        {grupoFatura.despesasVinculadas.map((despesaVinculada) => renderCartaoDespesa(despesaVinculada, { margemInferior: 8 }))}
-	                      </View>
-	                    ) : null}
+	                    {renderCartaoFaturaDespesa(grupoFatura, expandida)}
+	                 
 	                  </View>
 	                );
 	              })}
@@ -1955,8 +2135,6 @@ export default function TelaDespesa() {
     </View>
   );
 }
-
-
 
 
 

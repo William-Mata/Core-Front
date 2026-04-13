@@ -7,6 +7,7 @@
       "titulo": "Title",
       "categoria": "Category",
       "descricao": "Description",
+      "competencia": "Competence",
       "valor": "Amount",
       "efetivacao": "Settlement Date",
       "desdobramento": "Installments",
@@ -21,6 +22,7 @@
     "placeholders": {
       "titulo": "Ex: Lunch",
       "descricao": "Details",
+      "competencia": "MM/YYYY",
       "valor": "0.00",
       "data": "YYYY-MM-DD",
       "desdobramento": "1",
@@ -68,6 +70,7 @@
       "titulo": "Title",
       "categoria": "Category",
       "descricao": "Description",
+      "competencia": "Competence",
       "valor": "Amount",
       "efetivacao": "Settlement Date",
       "contaBancaria": "Bank Account",
@@ -80,6 +83,7 @@
     "placeholders": {
       "titulo": "Ex: Salary",
       "descricao": "Details",
+      "competencia": "MM/YYYY",
       "valor": "0.00",
       "data": "YYYY-MM-DD",
       "observacao": "Enter additional notes"
@@ -108,6 +112,7 @@
     "descricao": "Description",
     "placeholderDescricao": "Enter reimbursement description",
     "solicitante": "Requester",
+    "competencia": "Competence",
     "dataLancamento": "Issue Date",
     "placeholderData": "YYYY-MM-DD",
     "despesasVinculadas": "Linked Expenses",
@@ -153,6 +158,7 @@
       "confirmarEstorno": "Confirm Reversal"
     },
     "placeholders": {
+      "competencia": "MM/YYYY",
       "observacao": "Enter additional notes"
     }
   },
@@ -272,7 +278,8 @@
       "cancelamentoFixaTodasPendentes": "When canceling all pending in fixed recurrence, no new occurrences will be generated.",
       "edicaoReplicaPendentes": "When editing this and next, or all pending, the new data will be replicated respecting recurrence rule dates.",
       "confirmarEdicaoRecorrente": "Select the edit type for this recurring entry.",
-      "valorTotalRateioAmigosMaiorQueValorLiquido": "Friends split total amount must be greater than net amount."
+      "valorTotalRateioAmigosMaiorQueValorLiquido": "Friends split total amount must be greater than net amount.",
+      "competenciaObrigatoria": "Competence is required."
     },
     "status": {
       "pendenteAprovacao": "PENDING APPROVAL",

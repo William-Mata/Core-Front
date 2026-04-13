@@ -7,11 +7,12 @@ import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
+import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
 import { ModalConfirmacao } from '../../../src/componentes/comuns/ModalConfirmacao';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
-import { avancarCompetencia, formatarCompetencia, obterCompetenciaAtual, obterCompetenciaPorData, serializarCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
+import { aplicarMascaraCompetencia, avancarCompetencia, desserializarCompetencia, formatarCompetencia, formatarCompetenciaParaEntrada, obterCompetenciaAtual, obterCompetenciaPorData, serializarCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { obterIconeBanco, obterIconeBandeiraCartao, obterImagemBanco, obterImagemBandeiraCartao } from '../../../src/utils/icones';
 import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
@@ -22,6 +23,7 @@ import {
   listarDespesasApi,
   listarCartoesApi,
   listarContasBancariasApi,
+  listarDetalhesFaturasCartaoApi,
   listarReembolsosApi,
   obterReembolsoApi,
   criarReembolsoApi,
@@ -30,6 +32,7 @@ import {
   estornarReembolsoApi,
   type CartaoOpcaoApi,
   type ContaBancariaOpcaoApi,
+  type FaturaCartaoDetalheApi,
   type RegistroFinanceiroApi,
 } from '../../../src/servicos/financeiro';
 import { encontrarDespesaJaVinculada } from '../../../src/utils/reembolso';
@@ -50,10 +53,12 @@ interface DespesaDisponivel {
 
 interface Reembolso {
   id: number;
+  faturaCartaoId?: number;
+  ehFaturaCartao?: boolean;
   descricao: string;
   solicitante: string;
   dataLancamento: string;
-  competencia?: string;
+  competencia: string;
   dataEfetivacao?: string;
   dataEstorno?: string;
   observacao: string;
@@ -63,13 +68,27 @@ interface Reembolso {
   contaBancariaId?: number;
   cartaoId?: number;
   despesasVinculadas: number[];
+  valorTotal: number;
   valorEfetivacao?: number;
   documentos: DocumentoFinanceiro[];
   ocultarEfetivacaoEstornoRegistros: boolean;
   status: StatusReembolso;
+  statusFaturaCartao?: StatusFaturaCartao;
+}
+
+interface GrupoFaturaReembolso {
+  fatura: Reembolso;
+  reembolsosVinculados: Reembolso[];
+  valorTotalGrupo: number;
+  valorTotalFatura: number;
+  valorTotalTransacoes: number;
+  cartaoId?: number;
+  competencia?: string;
+  statusFaturaCartao: StatusFaturaCartao;
 }
 
 type ModoFormulario = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao' | 'estorno';
+type StatusFaturaCartao = 'aberta' | 'fechada' | 'efetivada' | 'estornada';
 const tiposRecebimento = ['pix', 'transferencia', 'contaCorrente', 'cartaoCredito', 'cartaoDebito', 'dinheiro', 'boleto'] as const;
 
 function paraNumero(valor: unknown, padrao = 0): number {
@@ -77,11 +96,24 @@ function paraNumero(valor: unknown, padrao = 0): number {
   return Number.isFinite(numero) ? numero : padrao;
 }
 
+function normalizarStatusFaturaCartao(status: unknown): StatusFaturaCartao {
+  const valor = String(status ?? '').toLowerCase();
+  if (valor.includes('estorn')) return 'estornada';
+  if (valor.includes('efetiv')) return 'efetivada';
+  if (valor.includes('fech')) return 'fechada';
+  return 'aberta';
+}
+
 function normalizarReembolsoApi(item: RegistroFinanceiroApi): Reembolso {
   const vinculo = (item.vinculo && typeof item.vinculo === 'object')
     ? (item.vinculo as Record<string, unknown>)
     : undefined;
+  const faturaCartaoRegistro = item.faturaCartao && typeof item.faturaCartao === 'object'
+    ? (item.faturaCartao as Record<string, unknown>)
+    : undefined;
+  const faturaCartaoIdBruto = paraNumero(item.faturaCartaoId ?? faturaCartaoRegistro?.id ?? faturaCartaoRegistro?.faturaCartaoId, 0);
   const valorEfetivacaoBruto = item.valorEfetivacao ?? item.valorTotal;
+  const valorTotal = paraNumero(item.valorTotal ?? valorEfetivacaoBruto, 0);
   const despesasVinculadasBrutas = Array.isArray(item.despesasVinculadas)
     ? (item.despesasVinculadas as unknown[])
     : [];
@@ -96,16 +128,21 @@ function normalizarReembolsoApi(item: RegistroFinanceiroApi): Reembolso {
       return NaN;
     })
     .filter((id): id is number => Number.isFinite(id));
+  const ehFaturaCartao = Boolean(item.ehFatura) || String(item.tipo ?? item.tipoLancamento ?? '').toLowerCase().includes('fatura');
+  const statusFaturaCartao = ehFaturaCartao
+    ? normalizarStatusFaturaCartao(item.statusFaturaCartao ?? item.statusFatura ?? item.status)
+    : undefined;
 
-    return {
-      id: paraNumero(item.id),
-      descricao: String(item.descricao ?? item.titulo ?? ''),
-      solicitante: String(item.solicitante ?? item.solicitanteName ?? ''),
-      dataLancamento: String(item.dataLancamento ?? item.data ?? '').slice(0, 10),
-      competencia: String(
-        item.competencia ?? serializarCompetencia(obterCompetenciaPorData(String(item.dataLancamento ?? item.data ?? ''))),
-      ).slice(0, 7),
-      dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : undefined,
+  return {
+    id: paraNumero(item.id),
+    faturaCartaoId: faturaCartaoIdBruto > 0 ? faturaCartaoIdBruto : undefined,
+    ehFaturaCartao,
+    statusFaturaCartao,
+    descricao: String(item.descricao ?? item.titulo ?? ''),
+    solicitante: String(item.solicitante ?? item.solicitanteName ?? ''),
+    dataLancamento: String(item.dataLancamento ?? item.data ?? '').slice(0, 10),
+    competencia: formatarCompetenciaParaEntrada(desserializarCompetencia(String(item.competencia ?? '')) ?? obterCompetenciaPorData(String(item.dataLancamento ?? item.data ?? '')), obterLocaleAtivo()),
+    dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : (faturaCartaoIdBruto > 0 ? String(item.dataLancamento ?? item.data ?? '').slice(0, 10) : undefined),
     dataEstorno: item.dataEstorno ? String(item.dataEstorno).slice(0, 10) : undefined,
     observacao: String(item.observacao ?? ''),
     observacaoEfetivacao: '',
@@ -122,6 +159,7 @@ function normalizarReembolsoApi(item: RegistroFinanceiroApi): Reembolso {
         ? paraNumero(vinculo.cartaoId)
         : undefined,
     despesasVinculadas,
+    valorTotal,
     valorEfetivacao: valorEfetivacaoBruto === null || valorEfetivacaoBruto === undefined ? undefined : paraNumero(valorEfetivacaoBruto),
     documentos: normalizarDocumentosApi(item.documentos),
     ocultarEfetivacaoEstornoRegistros: true,
@@ -138,13 +176,14 @@ function normalizarDespesaApi(item: RegistroFinanceiroApi): DespesaDisponivel {
   };
 }
 
-function criarReembolsoVazio(): Reembolso {
+function criarReembolsoVazio(locale: string): Reembolso {
   const hoje = new Date().toISOString().split('T')[0];
   return {
     id: 0,
     descricao: '',
     solicitante: '',
     dataLancamento: hoje,
+    competencia: formatarCompetenciaParaEntrada(obterCompetenciaAtual(), locale),
     dataEfetivacao: hoje,
     dataEstorno: hoje,
     observacao: '',
@@ -154,6 +193,7 @@ function criarReembolsoVazio(): Reembolso {
     contaBancariaId: undefined,
     cartaoId: undefined,
     despesasVinculadas: [],
+    valorTotal: 0,
     valorEfetivacao: 0,
     documentos: [],
     ocultarEfetivacaoEstornoRegistros: true,
@@ -178,10 +218,12 @@ export default function TelaReembolso() {
   const [reembolsoSelecionadoId, setReembolsoSelecionadoId] = useState<number | null>(idParam);
   const [despesasDisponiveis, setDespesasDisponiveis] = useState<DespesaDisponivel[]>([]);
   const [reembolsos, setReembolsos] = useState<Reembolso[]>([]);
+  const [detalhesFaturasCartao, setDetalhesFaturasCartao] = useState<FaturaCartaoDetalheApi[]>([]);
   const [opcoesContasBancariasApi, setOpcoesContasBancariasApi] = useState<ContaBancariaOpcaoApi[]>([]);
   const [opcoesCartoesApi, setOpcoesCartoesApi] = useState<CartaoOpcaoApi[]>([]);
-  const [reembolsoAtual, setReembolsoAtual] = useState<Reembolso>(criarReembolsoVazio());
+  const [reembolsoAtual, setReembolsoAtual] = useState<Reembolso>(() => criarReembolsoVazio(locale));
   const [secaoRateioExpandida, setSecaoRateioExpandida] = useState(true);
+  const [faturasExpandidas, setFaturasExpandidas] = useState<number[]>([]);
   const [reembolsoPendenteCancelamento, setReembolsoPendenteCancelamento] = useState<Reembolso | null>(null);
   const competenciaLabel = useMemo(() => formatarCompetencia(competencia, locale), [competencia, locale]);
   const competenciaConsulta = useMemo(() => serializarCompetencia(competencia), [competencia]);
@@ -203,6 +245,10 @@ export default function TelaReembolso() {
       }),
     [opcoesCartoesApi],
   );
+  const mapaCartoesPorId = useMemo(
+    () => new Map(opcoesCartoesApi.map((item) => [item.id, item])),
+    [opcoesCartoesApi],
+  );
   const reembolsoSelecionado = reembolsos.find((item) => item.id === reembolsoSelecionadoId) ?? null;
 
   const carregarDados = async (signal?: AbortSignal) => {
@@ -217,18 +263,25 @@ export default function TelaReembolso() {
         dataInicio,
         dataFim,
         competencia: competenciaConsulta,
+        desconsiderarVinculadosCartaoCredito: true,
       };
-      const [resReembolsos, resDespesas, resContas, resCartoes] = await Promise.all([
+      const [resReembolsos, resDespesas, resContas, resCartoes, resDetalhesFatura] = await Promise.all([
         listarReembolsosApi(opcoesConsulta),
         listarDespesasApi(opcoesConsulta),
         listarContasBancariasApi({ signal, competencia: competenciaConsulta }),
         listarCartoesApi({ signal, competencia: competenciaConsulta }),
+        listarDetalhesFaturasCartaoApi({
+          signal,
+          competencia: competenciaConsulta,
+          tipoTransacao: 'reembolso',
+        }).catch(() => [] as FaturaCartaoDetalheApi[]),
       ]);
 
       setReembolsos(resReembolsos.map(normalizarReembolsoApi));
       setDespesasDisponiveis(resDespesas.map(normalizarDespesaApi));
       setOpcoesContasBancariasApi(resContas);
       setOpcoesCartoesApi(resCartoes);
+      setDetalhesFaturasCartao(resDetalhesFatura);
     } catch (erro) {
       if (erroApiJaNotificado(erro)) return;
       notificarErro(extrairMensagemErroApi(erro, t('financeiro.reembolso.mensagens.falhaCarregar')));
@@ -253,6 +306,86 @@ export default function TelaReembolso() {
     });
   }, [filtroAplicado, reembolsos]);
 
+  const reembolsoBateFiltroLista = (reembolso: Reembolso) => {
+    const bateId = !filtroAplicado.id || String(reembolso.id).includes(filtroAplicado.id);
+    const termo = filtroAplicado.descricao.trim().toLowerCase();
+    const bateDescricao = !termo || reembolso.descricao.toLowerCase().includes(termo) || reembolso.solicitante.toLowerCase().includes(termo);
+    const bateData = estaDentroIntervalo(reembolso.dataLancamento, filtroAplicado.dataInicio, filtroAplicado.dataFim);
+    return bateId && bateDescricao && bateData;
+  };
+
+  const gruposFaturaReembolso = useMemo<GrupoFaturaReembolso[]>(() => {
+    return detalhesFaturasCartao
+      .map((detalhe) => {
+        const reembolsosVinculados = detalhe.transacoes
+          .map((transacao) => normalizarReembolsoApi({ ...transacao, faturaCartaoId: detalhe.faturaCartaoId }))
+          .filter(reembolsoBateFiltroLista)
+          .sort((a, b) => a.id - b.id);
+        const dataBase = detalhe.competencia ? `${detalhe.competencia}-01` : new Date().toISOString().slice(0, 10);
+        const valorTotalTransacoes = Number.isFinite(detalhe.valorTotalTransacoes) ? detalhe.valorTotalTransacoes : reembolsosVinculados.reduce((total, item) => total + item.valorTotal, 0);
+        const valorTotalFatura = Number.isFinite(detalhe.valorTotal) ? detalhe.valorTotal : valorTotalTransacoes;
+        const statusFaturaCartao = normalizarStatusFaturaCartao(detalhe.status);
+        const fatura = normalizarReembolsoApi({
+          id: detalhe.faturaCartaoId * -1,
+          faturaCartaoId: detalhe.faturaCartaoId,
+          ehFatura: true,
+          statusFaturaCartao,
+          descricao: `${t('financeiro.cartao.faturaTitulo')} ${detalhe.competencia || ''}`.trim(),
+          dataLancamento: dataBase,
+          competencia: detalhe.competencia,
+          dataEfetivacao: dataBase,
+          valorTotal: valorTotalTransacoes,
+          valorEfetivacao: valorTotalTransacoes,
+          status: statusFaturaCartao === 'efetivada' ? 'efetivada' : 'pendente',
+          despesasVinculadas: [],
+        });
+        return {
+          fatura,
+          reembolsosVinculados,
+          valorTotalGrupo: valorTotalTransacoes,
+          valorTotalFatura,
+          valorTotalTransacoes,
+          cartaoId: detalhe.cartaoId,
+          competencia: detalhe.competencia,
+          statusFaturaCartao,
+        };
+      })
+      .sort((a, b) => a.fatura.id - b.fatura.id);
+  }, [detalhesFaturasCartao, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, t]);
+
+  const mapaGrupoPorFaturaId = useMemo(
+    () => new Map(gruposFaturaReembolso.map((grupo) => [grupo.fatura.id, grupo])),
+    [gruposFaturaReembolso],
+  );
+  const idsReembolsosFilhosFatura = useMemo(() => {
+    const ids = new Set<number>();
+    gruposFaturaReembolso.forEach((grupo) => {
+      grupo.reembolsosVinculados.forEach((reembolso) => ids.add(reembolso.id));
+    });
+    reembolsosFiltrados
+      .filter((reembolso) => Boolean(reembolso.faturaCartaoId))
+      .forEach((reembolso) => ids.add(reembolso.id));
+    return ids;
+  }, [gruposFaturaReembolso, reembolsosFiltrados]);
+  const reembolsosListaPrincipal = useMemo(() => {
+    const idsPais = new Set(gruposFaturaReembolso.map((grupo) => grupo.fatura.id));
+    const reembolsosComuns = reembolsosFiltrados.filter(
+      (reembolso) => !idsReembolsosFilhosFatura.has(reembolso.id) && !reembolso.faturaCartaoId,
+    );
+    return [
+      ...gruposFaturaReembolso.map((grupo) => grupo.fatura),
+      ...reembolsosComuns.filter((reembolso) => !idsPais.has(reembolso.id)),
+    ];
+  }, [gruposFaturaReembolso, idsReembolsosFilhosFatura, reembolsosFiltrados]);
+  const totalListaPrincipal = useMemo(() => {
+    const idsPais = new Set(gruposFaturaReembolso.map((grupo) => grupo.fatura.id));
+    const totalFaturas = gruposFaturaReembolso.reduce((total, grupo) => total + grupo.valorTotalGrupo, 0);
+    const totalComuns = reembolsosListaPrincipal
+      .filter((reembolso) => !idsPais.has(reembolso.id))
+      .reduce((total, reembolso) => total + reembolso.valorTotal, 0);
+    return totalFaturas + totalComuns;
+  }, [gruposFaturaReembolso, reembolsosListaPrincipal]);
+
   const consultarFiltros = () => {
     setFiltroAplicado({ ...filtro });
     setVersaoConsulta((atual) => atual + 1);
@@ -264,7 +397,10 @@ export default function TelaReembolso() {
     idsDespesas.reduce((total, id) => total + (obterDespesaPorId(id)?.valor || 0), 0);
 
   const limparFormulario = () => {
-    setReembolsoAtual(criarReembolsoVazio());
+    setReembolsoAtual((atual) => ({
+      ...criarReembolsoVazio(locale),
+      competencia: formatarCompetenciaParaEntrada(competencia, locale),
+    }));
     setReembolsoSelecionadoId(null);
   };
 
@@ -290,7 +426,7 @@ export default function TelaReembolso() {
         ...completo,
         dataEfetivacao: completo.dataEfetivacao || new Date().toISOString().split('T')[0],
         dataEstorno: completo.dataEstorno || new Date().toISOString().split('T')[0],
-        valorEfetivacao: completo.valorEfetivacao ?? calcularTotal(completo.despesasVinculadas),
+        valorEfetivacao: completo.valorEfetivacao ?? completo.valorTotal ?? calcularTotal(completo.despesasVinculadas),
         observacaoEfetivacao: '',
         observacaoEstorno: '',
         ocultarEfetivacaoEstornoRegistros: completo.ocultarEfetivacaoEstornoRegistros ?? true,
@@ -303,7 +439,11 @@ export default function TelaReembolso() {
   };
 
   const abrirNovo = () => {
-    limparFormulario();
+    setReembolsoAtual((atual) => ({
+      ...criarReembolsoVazio(locale),
+      competencia: formatarCompetenciaParaEntrada(competencia, locale),
+    }));
+    setReembolsoSelecionadoId(null);
     setModoFormulario('novo');
   };
 
@@ -357,6 +497,11 @@ export default function TelaReembolso() {
       return;
     }
 
+    if (!reembolsoAtual.competencia.trim()) {
+      notificarErro(t('financeiro.comum.mensagens.competenciaObrigatoria'));
+      return;
+    }
+
     if (exibeContaBancaria && !reembolsoAtual.contaBancariaId) {
       notificarErro(t('financeiro.receita.mensagens.contaObrigatoria'));
       return;
@@ -383,7 +528,7 @@ export default function TelaReembolso() {
       descricao: reembolsoAtual.descricao.trim(),
       solicitante: reembolsoAtual.solicitante.trim(),
       dataLancamento: reembolsoAtual.dataLancamento,
-      competencia: serializarCompetencia(obterCompetenciaPorData(reembolsoAtual.dataLancamento)),
+      competencia: serializarCompetencia(desserializarCompetencia(reembolsoAtual.competencia) ?? obterCompetenciaPorData(reembolsoAtual.dataLancamento)),
       despesasVinculadas: reembolsoAtual.despesasVinculadas,
       valorTotal,
       documentos: montarDocumentosPayload(reembolsoAtual.documentos),
@@ -528,6 +673,86 @@ export default function TelaReembolso() {
     }
   };
 
+  const alternarExpansaoFatura = (faturaId: number) => {
+    setFaturasExpandidas((atual) =>
+      atual.includes(faturaId)
+        ? atual.filter((id) => id !== faturaId)
+        : [...atual, faturaId],
+    );
+  };
+
+  const obterValorExibicaoReembolso = (reembolso: Reembolso) => {
+    if (reembolso.valorTotal > 0) return reembolso.valorTotal;
+    return calcularTotal(reembolso.despesasVinculadas);
+  };
+
+  const renderCartaoReembolso = (reembolso: Reembolso, opcoes?: { ocultarAcoes?: boolean; margemInferior?: number; ocultarEfetivacaoEstorno?: boolean }) => {
+    const estiloBadge = reembolso.ehFaturaCartao
+      ? obterEstiloBadgeStatusFaturaCartao(reembolso.statusFaturaCartao)
+      : obterEstiloBadgeStatusReembolso(reembolso.status);
+
+    return (
+    <View
+      key={reembolso.id}
+      style={{
+        backgroundColor: COLORS.bgTertiary,
+        borderWidth: 1,
+        borderColor: COLORS.borderColor,
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: opcoes?.margemInferior ?? 10,
+      }}
+    >
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+        <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>
+          #{reembolso.id} {reembolso.descricao}
+        </Text>
+        <DistintivoStatus
+          rotulo={reembolso.ehFaturaCartao ? obterRotuloStatusFaturaCartao(reembolso.statusFaturaCartao) : t(`financeiro.reembolso.statusLista.${reembolso.status}`)}
+          corTexto={estiloBadge.corTexto}
+          corBorda={estiloBadge.corBorda}
+          corFundo={estiloBadge.corFundo}
+        />
+      </View>
+      <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>
+        {reembolso.solicitante || '-'} | {formatarDataPorIdioma(reembolso.dataLancamento)} | {formatarValorPorIdioma(obterValorExibicaoReembolso(reembolso))}
+      </Text>
+      <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
+        {t('financeiro.reembolso.despesasSelecionadas', { count: String(reembolso.despesasVinculadas.length) })}
+      </Text>
+      {opcoes?.ocultarAcoes ? null : (
+        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+          {reembolso.ehFaturaCartao ? null : (
+            <>
+              {podeEditarReembolso(reembolso.status) ? (
+                <TouchableOpacity onPress={() => abrirEdicao(reembolso.id)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
+                  <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text>
+                </TouchableOpacity>
+              ) : null}
+              {!podeEstornarReembolso(reembolso.status) && !opcoes?.ocultarEfetivacaoEstorno ? (
+                <TouchableOpacity onPress={() => abrirEfetivacao(reembolso.id)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
+                  <Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.reembolso.acoes.efetivar')}</Text>
+                </TouchableOpacity>
+              ) : null}
+              {podeEstornarReembolso(reembolso.status) && !opcoes?.ocultarEfetivacaoEstorno ? (
+                <TouchableOpacity onPress={() => abrirEstorno(reembolso.id)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
+                  <Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.reembolso.acoes.estornar')}</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity onPress={() => abrirVisualizacao(reembolso.id)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
+                <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.visualizar')}</Text>
+              </TouchableOpacity>
+              {podeEditarReembolso(reembolso.status) ? <TouchableOpacity onPress={() => cancelar(reembolso)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
+                <Text style={{ color: COLORS.error, fontSize: 12 }}>{t('comum.acoes.cancelar')}</Text>
+              </TouchableOpacity> : null}
+            </>
+          )}
+        </View>
+      )}
+    </View>
+    );
+  };
+
   const renderCampoBloqueado = (label: string, valor: string) => (
     <View style={{ marginBottom: 12 }}>
       <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
@@ -562,6 +787,79 @@ export default function TelaReembolso() {
     if (status === 'cancelada') return COLORS.error;
     return COLORS.warning;
   };
+
+  const corStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => {
+    if (status === 'efetivada') return COLORS.success;
+    if (status === 'estornada') return COLORS.warning;
+    return COLORS.warning;
+  };
+
+  const obterEstiloBadgeStatusReembolso = (status: StatusReembolso) => {
+    if (status === 'efetivada') return { corTexto: COLORS.success, corBorda: '#86efac', corFundo: '#14532d' };
+    if (status === 'cancelada') return { corTexto: COLORS.error, corBorda: '#fca5a5', corFundo: '#7f1d1d' };
+    return { corTexto: COLORS.warning, corBorda: '#fde68a', corFundo: '#78350f' };
+  };
+
+  const obterRotuloStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => String(status ?? 'aberta').toUpperCase();
+  const obterEstiloBadgeStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => {
+    if (status === 'efetivada') return { corTexto: COLORS.success, corBorda: '#86efac', corFundo: '#14532d' };
+    if (status === 'estornada') return { corTexto: COLORS.error, corBorda: '#fca5a5', corFundo: '#7f1d1d' };
+    if (status === 'fechada') return { corTexto: COLORS.info, corBorda: '#93c5fd', corFundo: '#1e3a8a' };
+    return { corTexto: COLORS.warning, corBorda: '#fde68a', corFundo: '#78350f' };
+  };
+  const renderBadgeStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => {
+    const estilo = obterEstiloBadgeStatusFaturaCartao(status);
+    return (
+      <DistintivoStatus
+        testID="badge-tipo-transacao"
+        rotulo={obterRotuloStatusFaturaCartao(status)}
+        corTexto={estilo.corTexto}
+        corBorda={estilo.corBorda}
+        corFundo={estilo.corFundo}
+      />
+    );
+  };
+  const renderCartaoFaturaReembolso = (grupo: GrupoFaturaReembolso, expandida: boolean) => {
+    const cartao = grupo.cartaoId ? mapaCartoesPorId.get(grupo.cartaoId) : undefined;
+    const cartaoDescricao = cartao?.nome ?? '-';
+    const referenciaBandeira = cartao?.bandeira ?? cartao?.nome ?? '';
+    const imagemBandeira = referenciaBandeira ? obterImagemBandeiraCartao(referenciaBandeira) : null;
+    const iconeBandeira = referenciaBandeira ? obterIconeBandeiraCartao(referenciaBandeira) : '';
+    const competenciaFatura = grupo.competencia
+      ? formatarCompetencia(desserializarCompetencia(grupo.competencia) ?? competencia, locale)
+      : competenciaLabel;
+
+    return (
+      <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderAccent, borderRadius: 12, padding: 12, marginBottom: expandida ? 8 : 10 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 8 }}>
+          <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>
+            {`${t('financeiro.cartao.faturaTitulo')} #${grupo.fatura.faturaCartaoId ?? Math.abs(grupo.fatura.id)}`}
+          </Text>
+          {renderBadgeStatusFaturaCartao(grupo.statusFaturaCartao)}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+          {cartaoDescricao !== '-' ? (
+            imagemBandeira
+              ? <Image source={imagemBandeira} style={{ width: 16, height: 16, borderRadius: 3, marginRight: 6 }} resizeMode="contain" />
+              : <Text style={{ color: COLORS.textSecondary, marginRight: 6, fontSize: 13 }}>{iconeBandeira}</Text>
+          ) : null}
+          <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>{`${t('financeiro.despesa.campos.cartao')}: ${referenciaBandeira || '-'} | ${cartaoDescricao}`}</Text>
+        </View>   
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 6}}>{`${t('dashboard.colunas.valor')} ${t('dashboard.ultimasTransacoes')} :  ${formatarValorPorIdioma(grupo.valorTotalTransacoes)}`}</Text>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 6}}>{`${t('dashboard.colunas.valor')} ${t('financeiro.cartao.totalFatura')} :  ${formatarValorPorIdioma(grupo.valorTotalFatura)}`}</Text>
+	        <View style={{ marginTop: 10, marginBottom: 20, alignItems: 'flex-start', borderBottomWidth: 1, borderBottomColor: COLORS.borderColor }}>
+	          <TouchableOpacity onPress={() => alternarExpansaoFatura(grupo.fatura.id)} style={{ backgroundColor: COLORS.accentSubtle, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginBottom: 10 }}>
+	            <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700' }}>{`${t('financeiro.cartao.acoes.fatura')} (${grupo.reembolsosVinculados.length}) ${expandida ? '^' : 'v'}`}</Text>
+	          </TouchableOpacity>
+	        </View>
+	        {expandida ? (
+	          <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10 }}>
+	            {grupo.reembolsosVinculados.map((reembolsoVinculado) => renderCartaoReembolso(reembolsoVinculado, { margemInferior: 8, ocultarEfetivacaoEstorno: true }))}
+	          </View>
+	        ) : null}
+	      </View>
+	    );
+	  };
 
   const renderSecaoRateio = (somenteLeitura: boolean) => {
     const despesasSelecionadas = reembolsoAtual.despesasVinculadas
@@ -632,6 +930,9 @@ export default function TelaReembolso() {
         ? renderCampoBloqueado(t('financeiro.reembolso.dataLancamento'), reembolsoAtual.dataLancamento ? formatarDataPorIdioma(reembolsoAtual.dataLancamento) : '')
         : <CampoData label={t('financeiro.reembolso.dataLancamento')} placeholder={t('financeiro.reembolso.placeholderData')} value={reembolsoAtual.dataLancamento} onChange={(dataLancamento) => setReembolsoAtual((atual) => ({ ...atual, dataLancamento }))} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura
+        ? renderCampoBloqueado(t('financeiro.reembolso.competencia'), reembolsoAtual.competencia)
+        : <CampoTexto label={t('financeiro.reembolso.competencia')} placeholder={t('financeiro.reembolso.placeholderCompetencia')} value={reembolsoAtual.competencia} onChangeText={(competencia) => setReembolsoAtual((atual) => ({ ...atual, competencia: aplicarMascaraCompetencia(competencia, locale) }))} obrigatorio estilo={{ marginBottom: 12 }} />}
+      {somenteLeitura
         ? renderCampoBloqueado(t('financeiro.receita.campos.tipoRecebimento'), reembolsoAtual.tipoRecebimento ? t(`financeiro.receita.tipoRecebimento.${reembolsoAtual.tipoRecebimento}`) : '')
         : <CampoSelect label={t('financeiro.receita.campos.tipoRecebimento')} placeholder={t('comum.acoes.selecionar')} options={tiposRecebimento.map((tipo) => ({ value: tipo, label: t(`financeiro.receita.tipoRecebimento.${tipo}`) }))} value={reembolsoAtual.tipoRecebimento} onChange={(tipoRecebimento) => setReembolsoAtual((atual) => ({ ...atual, tipoRecebimento, contaBancariaId: tipoRecebimento === 'pix' || tipoRecebimento === 'transferencia' || tipoRecebimento === 'contaCorrente' ? atual.contaBancariaId : undefined, cartaoId: tipoRecebimento === 'cartaoCredito' || tipoRecebimento === 'cartaoDebito' ? atual.cartaoId : undefined }))} />}
       {exibeContaBancaria
@@ -679,7 +980,7 @@ export default function TelaReembolso() {
           )}
       <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderAccent, borderRadius: 10, padding: 12, marginBottom: 20 }}>
         <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 6 }}>{t('financeiro.reembolso.valorTotal')}</Text>
-        <Text style={{ color: COLORS.accent, fontSize: 22, fontWeight: '800' }}>{formatarValorPorIdioma(calcularTotal(reembolsoAtual.despesasVinculadas))}</Text>
+        <Text style={{ color: COLORS.accent, fontSize: 22, fontWeight: '800' }}>{formatarValorPorIdioma(obterValorExibicaoReembolso(reembolsoAtual))}</Text>
       </View>
     </>
   );
@@ -716,7 +1017,10 @@ export default function TelaReembolso() {
                 >
                   <Text style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' }}>{'<'}</Text>
                 </TouchableOpacity>
-                <Text style={{ color: COLORS.accent, fontSize: 16, fontWeight: '700' }}>{competenciaLabel}</Text>
+                <View style={{ backgroundColor: COLORS.bgTertiary, alignItems: 'center'}}>
+                  <Text style={{ color: COLORS.accent, fontSize: 14, fontWeight: '800', marginBottom: 2 }}>{competenciaLabel}</Text>
+                  <Text style={{ color: COLORS.accent, fontSize: 14, fontWeight: '800' }}>{formatarValorPorIdioma(totalListaPrincipal)}</Text>
+                </View>
                 <TouchableOpacity
                   onPress={() => setCompetencia((atual) => avancarCompetencia(atual, 1))}
                   style={{ backgroundColor: COLORS.bgSecondary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
@@ -725,67 +1029,22 @@ export default function TelaReembolso() {
                 </TouchableOpacity>
               </View>
             </View>
-            <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
-            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo='secundario' estilo={{ marginBottom: 12 }} disabled={carregando} />
-
-            <View style={{ gap: 10 }}>
-              {reembolsosFiltrados.length === 0 ? (
-                <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 20 }}>
-                  {carregando ? t('comum.carregando') : t('financeiro.reembolso.vazio')}
-                </Text>
-              ) : (
-                reembolsosFiltrados.map((reembolso) => (
-                  <View
-                    key={reembolso.id}
-                    style={{
-                      backgroundColor: COLORS.bgTertiary,
-                      borderWidth: 1,
-                      borderColor: COLORS.borderColor,
-                      borderRadius: 10,
-                      padding: 12,
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>
-                        #{reembolso.id} {reembolso.descricao}
-                      </Text>
-                      <Text style={{ color: corStatus(reembolso.status), fontSize: 12, fontWeight: '700' }}>
-                        {t(`financeiro.reembolso.statusLista.${reembolso.status}`)}
-                      </Text>
-                    </View>
-                    <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>
-                      {reembolso.solicitante || '-'} | {formatarDataPorIdioma(reembolso.dataLancamento)} | {formatarValorPorIdioma(calcularTotal(reembolso.despesasVinculadas))}
-                    </Text>
-                    <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
-                      {t('financeiro.reembolso.despesasSelecionadas', { count: String(reembolso.despesasVinculadas.length) })}
-                    </Text>
-                    <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                      {podeEditarReembolso(reembolso.status) ? (
-                        <TouchableOpacity onPress={() => abrirEdicao(reembolso.id)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
-                          <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                      {!podeEstornarReembolso(reembolso.status) ? (
-                        <TouchableOpacity onPress={() => abrirEfetivacao(reembolso.id)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
-                          <Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.reembolso.acoes.efetivar')}</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                      {podeEstornarReembolso(reembolso.status) ? (
-                        <TouchableOpacity onPress={() => abrirEstorno(reembolso.id)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
-                          <Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.reembolso.acoes.estornar')}</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                      <TouchableOpacity onPress={() => abrirVisualizacao(reembolso.id)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
-                        <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.visualizar')}</Text>
-                      </TouchableOpacity>
-                      {podeEditarReembolso(reembolso.status) ? <TouchableOpacity onPress={() => cancelar(reembolso)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
-                        <Text style={{ color: COLORS.error, fontSize: 12 }}>{t('comum.acoes.cancelar')}</Text>
-                      </TouchableOpacity> : null}
-                    </View>
-                  </View>
-                ))
-              )}
-            </View>
+	            <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
+	            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo='secundario' estilo={{ marginBottom: 12 }} disabled={carregando} />
+	            <View style={{ gap: 10 }}>
+	              {reembolsosListaPrincipal.length === 0 ? (
+	                <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 20 }}>
+	                  {carregando ? t('comum.carregando') : t('financeiro.reembolso.vazio')}
+	                </Text>
+	              ) : (
+	                reembolsosListaPrincipal.map((reembolso) => {
+	                  const grupoFatura = mapaGrupoPorFaturaId.get(reembolso.id);
+	                  if (!grupoFatura) return renderCartaoReembolso(reembolso);
+	                  const expandida = faturasExpandidas.includes(grupoFatura.fatura.id);
+			                  return <View key={grupoFatura.fatura.id}>{renderCartaoFaturaReembolso(grupoFatura, expandida)}</View>;
+		                })
+		              )}
+		            </View>
           </>
         ) : null}
 
@@ -812,8 +1071,8 @@ export default function TelaReembolso() {
           <>
             {renderCampoBloqueado(t('financeiro.reembolso.descricao'), reembolsoAtual.descricao)}
             {renderCampoBloqueado(t('financeiro.reembolso.solicitante'), reembolsoAtual.solicitante)}
-            {renderCampoBloqueado(t('financeiro.reembolso.valorTotal'), formatarValorPorIdioma(calcularTotal(reembolsoAtual.despesasVinculadas)))}
-            {renderCampoBloqueado(t('financeiro.reembolso.campos.valorEfetivacao'), formatarValorPorIdioma(calcularTotal(reembolsoAtual.despesasVinculadas)))}
+            {renderCampoBloqueado(t('financeiro.reembolso.valorTotal'), formatarValorPorIdioma(obterValorExibicaoReembolso(reembolsoAtual)))}
+            {renderCampoBloqueado(t('financeiro.reembolso.campos.valorEfetivacao'), formatarValorPorIdioma(obterValorExibicaoReembolso(reembolsoAtual)))}
 
             <CampoData
               label={t('financeiro.reembolso.campos.dataEfetivacao')}
@@ -863,8 +1122,8 @@ export default function TelaReembolso() {
           <>
             {renderCampoBloqueado(t('financeiro.reembolso.descricao'), reembolsoAtual.descricao)}
             {renderCampoBloqueado(t('financeiro.reembolso.solicitante'), reembolsoAtual.solicitante)}
-            {renderCampoBloqueado(t('financeiro.reembolso.valorTotal'), formatarValorPorIdioma(calcularTotal(reembolsoAtual.despesasVinculadas)))}
-            {renderCampoBloqueado(t('financeiro.reembolso.campos.valorEfetivacao'), formatarValorPorIdioma(calcularTotal(reembolsoAtual.despesasVinculadas)))}
+            {renderCampoBloqueado(t('financeiro.reembolso.valorTotal'), formatarValorPorIdioma(obterValorExibicaoReembolso(reembolsoAtual)))}
+            {renderCampoBloqueado(t('financeiro.reembolso.campos.valorEfetivacao'), formatarValorPorIdioma(obterValorExibicaoReembolso(reembolsoAtual)))}
             <CampoData
               label={t('financeiro.reembolso.campos.dataEstorno')}
               placeholder={t('financeiro.reembolso.placeholderData')}
