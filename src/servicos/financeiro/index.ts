@@ -58,8 +58,12 @@ interface OpcoesRequisicao {
   competencia?: string;
   competenciaMes?: number;
   competenciaAno?: number;
+  cartaoId?: number;
+  pagina?: number;
+  tamanhoPagina?: number;
   verificarUltimaRecorrencia?: boolean;
-  VerificarUltimaRecorrencia?: boolean;
+  desconsiderarVinculadosCartaoCredito?: boolean;
+  desconsiderarCancelados?: boolean;
 }
 
 interface OpcoesEscopoRecorrencia {
@@ -175,9 +179,18 @@ function montarConfigConsulta(opcoes?: OpcoesRequisicao): { signal?: AbortSignal
   if (opcoes?.id) params.id = opcoes.id;
   if (opcoes?.descricao) params.descricao = opcoes.descricao;
   if (competencia) params.competencia = competencia;
-  const verificarUltimaRecorrencia = opcoes?.verificarUltimaRecorrencia ?? opcoes?.VerificarUltimaRecorrencia;
+  const verificarUltimaRecorrencia = opcoes?.verificarUltimaRecorrencia ;
+
   if (verificarUltimaRecorrencia !== undefined) {
     params.verificarUltimaRecorrencia = verificarUltimaRecorrencia;
+  }
+
+  if (opcoes?.desconsiderarVinculadosCartaoCredito !== undefined) {
+    params.desconsiderarVinculadosCartaoCredito = opcoes.desconsiderarVinculadosCartaoCredito;
+  }
+  
+  if (opcoes?.desconsiderarCancelados !== undefined) {
+    params.desconsiderarCancelados = opcoes.desconsiderarCancelados;
   }
 
   return {
@@ -235,10 +248,133 @@ function extrairLista<T>(entrada: unknown): T[] {
   if (!entrada || typeof entrada !== 'object') return [];
 
   const registro = entrada as Record<string, unknown>;
-  for (const chave of ['dados', 'itens', 'amigos', 'areas', 'areaSubareas']) {
+  for (const chave of ['dados', 'itens', 'amigos', 'areas', 'areaSubareas', 'faturas', 'faturasCartao', 'transacoes', 'lancamentos']) {
     if (Array.isArray(registro[chave])) return registro[chave] as T[];
   }
   return [];
+}
+
+function obterNumeroPositivo(valor: unknown): number | undefined {
+  const numero = Number(valor ?? NaN);
+  return Number.isFinite(numero) && numero > 0 ? numero : undefined;
+}
+
+function validarCompetenciaObrigatoriaFaturaCartao(competencia: string): string {
+  const valor = normalizarTexto(competencia);
+  if (!valor) {
+    throw new Error('Parametro competencia obrigatorio para consulta de fatura de cartao.');
+  }
+  return valor;
+}
+
+function normalizarTipoTransacaoFaturaCartao(
+  tipoTransacao: TipoTransacaoFaturaCartaoApi | undefined,
+): TipoTransacaoFaturaCartaoApi | undefined {
+  if (!tipoTransacao) return undefined;
+  const valor = normalizarTexto(tipoTransacao).toLowerCase();
+  if (valor === 'despesa' || valor === 'receita' || valor === 'reembolso') {
+    return valor;
+  }
+  throw new Error('Parametro tipoTransacao invalido. Valores permitidos: despesa, receita ou reembolso.');
+}
+
+function montarConfigConsultaFaturaCartao(opcoes: OpcoesConsultaFaturaCartaoApi): {
+  signal?: AbortSignal;
+  params: Record<string, string | number>;
+} {
+  const competencia = validarCompetenciaObrigatoriaFaturaCartao(opcoes.competencia);
+  const tipoTransacao = normalizarTipoTransacaoFaturaCartao(opcoes.tipoTransacao);
+  const params: Record<string, string | number> = { competencia };
+
+  if (opcoes.cartaoId && opcoes.cartaoId > 0) params.cartaoId = opcoes.cartaoId;
+  if (opcoes.pagina && opcoes.pagina > 0) params.pagina = opcoes.pagina;
+  if (opcoes.tamanhoPagina && opcoes.tamanhoPagina > 0) params.tamanhoPagina = opcoes.tamanhoPagina;
+  if (tipoTransacao) params.tipoTransacao = tipoTransacao;
+
+  return {
+    signal: opcoes.signal,
+    params,
+  };
+}
+
+function normalizarFaturaCartaoResumoApi(item: RegistroFinanceiroApi): FaturaCartaoResumoApi {
+  const faturaRegistro = item.fatura && typeof item.fatura === 'object'
+    ? (item.fatura as Record<string, unknown>)
+    : (item as Record<string, unknown>);
+  const faturaCartaoId =
+    obterNumeroPositivo(item.faturaCartaoId)
+    ?? obterNumeroPositivo(faturaRegistro.faturaCartaoId)
+    ?? obterNumeroPositivo(item.id)
+    ?? obterNumeroPositivo(faturaRegistro.id)
+    ?? 0;
+  const valorTotal = Number(
+    item.valorTotal
+    ?? faturaRegistro.valorTotal
+    ?? item.total
+    ?? faturaRegistro.total
+    ?? 0,
+  );
+
+  return {
+    ...item,
+    faturaCartaoId,
+    cartaoId:
+      obterNumeroPositivo(item.cartaoId)
+      ?? obterNumeroPositivo(faturaRegistro.cartaoId),
+    competencia: normalizarTexto(item.competencia ?? faturaRegistro.competencia),
+    status: normalizarTexto(item.status ?? faturaRegistro.status) || undefined,
+    valorTotal,
+  };
+}
+
+function normalizarFaturaCartaoDetalheApi(item: RegistroFinanceiroApi): FaturaCartaoDetalheApi {
+  const faturaRegistro = item.fatura && typeof item.fatura === 'object'
+    ? (item.fatura as Record<string, unknown>)
+    : (item as Record<string, unknown>);
+  const transacoesEntrada =
+    (Array.isArray(item.transacoes) ? item.transacoes
+      : Array.isArray(item.lancamentos) ? item.lancamentos
+      : Array.isArray(item.itens) ? item.itens
+      : Array.isArray(faturaRegistro.transacoes) ? faturaRegistro.transacoes
+      : Array.isArray(faturaRegistro.lancamentos) ? faturaRegistro.lancamentos
+      : []) as RegistroFinanceiroApi[];
+  const faturaCartaoId =
+    obterNumeroPositivo(item.faturaCartaoId)
+    ?? obterNumeroPositivo(faturaRegistro.faturaCartaoId)
+    ?? obterNumeroPositivo(item.id)
+    ?? obterNumeroPositivo(faturaRegistro.id)
+    ?? 0;
+  const valorTotal = Number(
+    item.valorTotal
+    ?? faturaRegistro.valorTotal
+    ?? item.total
+    ?? faturaRegistro.total
+    ?? 0,
+  );
+  const valorTotalTransacoes = Number(
+    item.valorTotalTransacoes
+    ?? faturaRegistro.valorTotalTransacoes
+    ?? item.totalTransacoes
+    ?? faturaRegistro.totalTransacoes
+    ?? valorTotal,
+  );
+
+  return {
+    ...item,
+    faturaCartaoId,
+    cartaoId:
+      obterNumeroPositivo(item.cartaoId)
+      ?? obterNumeroPositivo(faturaRegistro.cartaoId),
+    competencia: normalizarTexto(item.competencia ?? faturaRegistro.competencia),
+    status: normalizarTexto(item.status ?? faturaRegistro.status) || undefined,
+    valorTotal,
+    valorTotalTransacoes,
+    transacoes: transacoesEntrada.map((transacao) => ({
+      ...transacao,
+      id: obterNumeroPositivo(transacao.id) ?? obterNumeroPositivo(transacao.transacaoId) ?? 0,
+      faturaCartaoId: obterNumeroPositivo(transacao.faturaCartaoId) ?? faturaCartaoId,
+    })),
+  };
 }
 
 async function obterListaComFallback<T>(rotas: string[], opcoes?: OpcoesRequisicao): Promise<T[]> {
@@ -625,6 +761,35 @@ export interface CartaoOpcaoApi {
   tipo?: string;
 }
 
+export type TipoTransacaoFaturaCartaoApi = 'despesa' | 'receita' | 'reembolso';
+
+export interface OpcoesConsultaFaturaCartaoApi {
+  signal?: AbortSignal;
+  competencia: string;
+  cartaoId?: number;
+  pagina?: number;
+  tamanhoPagina?: number;
+  tipoTransacao?: TipoTransacaoFaturaCartaoApi;
+}
+
+export interface FaturaCartaoResumoApi extends RegistroFinanceiroApi {
+  faturaCartaoId: number;
+  cartaoId?: number;
+  competencia: string;
+  status?: string;
+  valorTotal: number;
+}
+
+export interface FaturaCartaoDetalheApi extends RegistroFinanceiroApi {
+  faturaCartaoId: number;
+  cartaoId?: number;
+  competencia: string;
+  status?: string;
+  valorTotal: number;
+  valorTotalTransacoes: number;
+  transacoes: RegistroFinanceiroApi[];
+}
+
 export async function listarContasBancariasDetalheApi(opcoes?: OpcoesRequisicao): Promise<RegistroFinanceiroApi[]> {
   const { data } = await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>('/financeiro/contas-bancarias', montarConfigConsulta(opcoes));
   return extrairLista<RegistroFinanceiroApi>(extrairDados(data));
@@ -732,4 +897,47 @@ export async function listarLancamentosCartaoApi(id: number, opcoes?: OpcoesRequ
     ? await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>('/financeiro/cartoes/' + id + '/lancamentos', config)
     : await api.get<EnvelopeApi<RegistroFinanceiroApi[]> | RegistroFinanceiroApi[]>('/financeiro/cartoes/' + id + '/lancamentos');
   return extrairLista<RegistroFinanceiroApi>(extrairDados(data));
+}
+
+export async function listarFaturasCartaoApi(
+  opcoes: OpcoesConsultaFaturaCartaoApi,
+): Promise<FaturaCartaoResumoApi[]> {
+  const { data } = await api.get<EnvelopeApi<unknown> | unknown>(
+    '/financeiro/faturas-cartao',
+    montarConfigConsultaFaturaCartao(opcoes),
+  );
+  return extrairLista<RegistroFinanceiroApi>(extrairDados(data))
+    .map(normalizarFaturaCartaoResumoApi)
+    .filter((item) => item.faturaCartaoId > 0);
+}
+
+export async function listarDetalhesFaturasCartaoApi(
+  opcoes: OpcoesConsultaFaturaCartaoApi,
+): Promise<FaturaCartaoDetalheApi[]> {
+  // Contrato atual do endpoint de detalhes nao aceita filtro por cartaoId.
+  const { data } = await api.get<EnvelopeApi<unknown> | unknown>(
+    '/financeiro/faturas-cartao/detalhes',
+    montarConfigConsultaFaturaCartao({ ...opcoes, cartaoId: undefined }),
+  );
+  return extrairLista<RegistroFinanceiroApi>(extrairDados(data))
+    .map(normalizarFaturaCartaoDetalheApi)
+    .filter((item) => item.faturaCartaoId > 0);
+}
+
+export async function efetivarFaturaCartaoApi(
+  faturaCartaoId: number,
+): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
+    '/financeiro/faturas-cartao/' + faturaCartaoId + '/efetivar',
+  );
+  return extrairDados(data);
+}
+
+export async function estornarFaturaCartaoApi(
+  faturaCartaoId: number,
+): Promise<RegistroFinanceiroApi> {
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
+    '/financeiro/faturas-cartao/' + faturaCartaoId + '/estornar',
+  );
+  return extrairDados(data);
 }

@@ -1,6 +1,8 @@
 import {
   listarDespesasApi,
   listarHistoricoTransacoesApi,
+  listarDetalhesFaturasCartaoApi,
+  listarFaturasCartaoApi,
   listarResumoHistoricoTransacoesApi,
   listarReceitasApi,
   listarReembolsosApi,
@@ -143,5 +145,22 @@ describe('servico financeiro - filtros por competencia', () => {
         ano: 0,
       }),
     ).rejects.toThrow('Parametro ano invalido. O valor deve ser inteiro e maior que zero.');
+  });
+
+  it('deve exigir competencia ao consultar faturas de cartao', async () => {
+    await expect(
+      listarFaturasCartaoApi({
+        competencia: '',
+      }),
+    ).rejects.toThrow('Parametro competencia obrigatorio para consulta de fatura de cartao.');
+  });
+
+  it('deve validar tipoTransacao permitido no detalhe da fatura', async () => {
+    await expect(
+      listarDetalhesFaturasCartaoApi({
+        competencia: '2026-04',
+        tipoTransacao: 'investimento' as never,
+      }),
+    ).rejects.toThrow('Parametro tipoTransacao invalido. Valores permitidos: despesa, receita ou reembolso.');
   });
 });

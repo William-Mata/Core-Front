@@ -4,6 +4,10 @@ import {
   listarCartoesDetalheApi,
   listarContasBancariasDetalheApi,
   listarLancamentosCartaoApi,
+  listarFaturasCartaoApi,
+  listarDetalhesFaturasCartaoApi,
+  efetivarFaturaCartaoApi,
+  estornarFaturaCartaoApi,
   listarLancamentosContaBancariaApi,
   criarCartaoApi,
   atualizarCartaoApi,
@@ -98,6 +102,78 @@ describe('servico financeiro - detalhes de cartao e conta bancaria', () => {
       params: { competencia: '04/2026' },
     });
     expect(resultado).toEqual([{ id: 10, transacaoId: 99 }]);
+  });
+
+  it('deve listar faturas de cartao por competencia e cartaoId', async () => {
+    mockGet.mockResolvedValueOnce({
+      data: {
+        dados: [
+          { id: 201, cartaoId: 8, competencia: '2026-04', valorTotal: 350.75, status: 'Fechada' },
+        ],
+      },
+    });
+
+    const resultado = await listarFaturasCartaoApi({
+      competencia: '2026-04',
+      cartaoId: 8,
+    });
+
+    expect(mockGet).toHaveBeenCalledWith('/financeiro/faturas-cartao', {
+      signal: undefined,
+      params: {
+        competencia: '2026-04',
+        cartaoId: 8,
+      },
+    });
+    expect(resultado[0].faturaCartaoId).toBe(201);
+    expect(resultado[0].valorTotal).toBe(350.75);
+  });
+
+  it('deve listar detalhes da fatura com transacoes', async () => {
+    mockGet.mockResolvedValueOnce({
+      data: {
+        dados: [
+          {
+            faturaCartaoId: 301,
+            cartaoId: 8,
+            competencia: '2026-04',
+            valorTotal: 500,
+            valorTotalTransacoes: 200,
+            transacoes: [{ id: 91, descricao: 'Almoco', valorTotal: 50 }],
+          },
+        ],
+      },
+    });
+
+    const resultado = await listarDetalhesFaturasCartaoApi({
+      competencia: '2026-04',
+      cartaoId: 8,
+      tipoTransacao: 'despesa',
+    });
+
+    expect(mockGet).toHaveBeenCalledWith('/financeiro/faturas-cartao/detalhes', {
+      signal: undefined,
+      params: {
+        competencia: '2026-04',
+        tipoTransacao: 'despesa',
+      },
+    });
+    expect(resultado[0].faturaCartaoId).toBe(301);
+    expect(resultado[0].valorTotalTransacoes).toBe(200);
+    expect(resultado[0].transacoes[0].faturaCartaoId).toBe(301);
+  });
+
+  it('deve efetivar e estornar fatura de cartao', async () => {
+    mockPost.mockResolvedValueOnce({ data: { dados: { id: 301, status: 'Efetivada' } } });
+    mockPost.mockResolvedValueOnce({ data: { dados: { id: 301, status: 'Estornada' } } });
+
+    const efetivada = await efetivarFaturaCartaoApi(301);
+    const estornada = await estornarFaturaCartaoApi(301);
+
+    expect(mockPost).toHaveBeenNthCalledWith(1, '/financeiro/faturas-cartao/301/efetivar');
+    expect(mockPost).toHaveBeenNthCalledWith(2, '/financeiro/faturas-cartao/301/estornar');
+    expect(efetivada).toEqual({ id: 301, status: 'Efetivada' });
+    expect(estornada).toEqual({ id: 301, status: 'Estornada' });
   });
 
   it('deve obter conta bancaria por id quando resposta vier sem envelope', async () => {
