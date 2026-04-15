@@ -200,6 +200,7 @@
       "editar": "Edit User",
       "nomeCompleto": "Full Name",
       "nomePlaceholder": "Ex: John Doe",
+      "dataNascimento": "Birth date",
       "perfilAcesso": "Access Profile",
       "perfilUser": "User",
       "perfilAdmin": "Admin",
@@ -215,6 +216,7 @@
       "atualizado": "updated",
       "erros": {
         "nomeEmailObrigatorio": "Name and email are required",
+        "nomeEmailDataNascimentoObrigatorio": "Name, email and birth date are required",
         "emailInvalido": "Invalid email",
         "falhaSalvar": "Failed to save user"
       }

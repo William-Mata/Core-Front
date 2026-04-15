@@ -223,6 +223,16 @@ export default function Entrar() {
         </Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        onPress={() => router.push('/auth/cadastro' as any)}
+        disabled={carregando}
+        style={{ marginTop: 10, alignSelf: 'center' }}
+      >
+        <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700' }}>
+          {t('admin.usuarios.criar')}
+        </Text>
+      </TouchableOpacity>
+
     </View>
   );
 }

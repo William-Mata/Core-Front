@@ -200,6 +200,7 @@
       "editar": "Editar Usuário",
       "nomeCompleto": "Nome Completo",
       "nomePlaceholder": "Ex: João Silva",
+      "dataNascimento": "Data de nascimento",
       "perfilAcesso": "Perfil de Acesso",
       "perfilUser": "Usuário",
       "perfilAdmin": "Admin",
@@ -215,6 +216,7 @@
       "atualizado": "atualizado",
       "erros": {
         "nomeEmailObrigatorio": "Nome e email são obrigatórios",
+        "nomeEmailDataNascimentoObrigatorio": "Nome, email e data de nascimento são obrigatórios",
         "emailInvalido": "Email inválido",
         "falhaSalvar": "Falha ao salvar usuário"
       }

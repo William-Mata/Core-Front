@@ -31,6 +31,12 @@ interface PayloadCriarPrimeiraSenha {
   confirmarSenha: string;
 }
 
+interface PayloadCadastrarUsuario {
+  nome: string;
+  email: string;
+  dataNascimento: string;
+}
+
 interface RespostaMensagem {
   mensagem?: string;
 }
@@ -149,12 +155,76 @@ function normalizarUsuario(entrada: unknown): InterfaceUsuario {
   };
 }
 
+function criarModulosPadraoCadastroUsuario(): InterfaceModuloUsuario[] {
+  const funcionalidadesCrud = [
+    { id: '1', nome: 'Visualizar', status: true },
+    { id: '2', nome: 'Criar', status: true },
+    { id: '3', nome: 'Editar', status: true },
+    { id: '4', nome: 'Excluir', status: true },
+  ];
+  const funcionalidadesVisualizar = [{ id: '1', nome: 'Visualizar', status: true }];
+  const funcionalidadesInativas = funcionalidadesCrud.map((funcionalidade) => ({ ...funcionalidade, status: false }));
+  const funcionalidadesVisualizarInativas = funcionalidadesVisualizar.map((funcionalidade) => ({ ...funcionalidade, status: false }));
+
+  return [
+    {
+      id: '1',
+      nome: 'Geral',
+      status: true,
+      telas: [
+        { id: '1', nome: 'Dashboard', status: true, funcionalidades: funcionalidadesVisualizar },
+        { id: '2', nome: 'Painel do Usuario', status: true, funcionalidades: funcionalidadesVisualizar },
+        { id: '3', nome: 'Lista de Amigos', status: true, funcionalidades: funcionalidadesCrud },
+        { id: '4', nome: 'Convites', status: true, funcionalidades: funcionalidadesCrud },
+        { id: '5', nome: 'Documentacao Modulo Geral', status: true, funcionalidades: funcionalidadesVisualizar },
+      ],
+    },
+    {
+      id: '2',
+      nome: 'Administracao',
+      status: false,
+      telas: [
+        { id: '30', nome: 'Administracao', status: false, funcionalidades: funcionalidadesVisualizarInativas },
+        { id: '31', nome: 'Usuarios', status: false, funcionalidades: funcionalidadesInativas },
+        { id: '32', nome: 'Permissoes', status: false, funcionalidades: funcionalidadesInativas },
+        { id: '33', nome: 'Documentos', status: false, funcionalidades: funcionalidadesInativas },
+        { id: '34', nome: 'Avisos', status: false, funcionalidades: funcionalidadesInativas },
+        { id: '35', nome: 'Documentacao Modulo Administracao', status: false, funcionalidades: funcionalidadesVisualizarInativas },
+      ],
+    },
+    {
+      id: '3',
+      nome: 'Financeiro',
+      status: true,
+      telas: [
+        { id: '100', nome: 'Despesas', status: true, funcionalidades: funcionalidadesCrud },
+        { id: '101', nome: 'Receitas', status: true, funcionalidades: funcionalidadesCrud },
+        { id: '102', nome: 'Reembolso', status: true, funcionalidades: funcionalidadesCrud },
+        { id: '103', nome: 'Contas Bancarias', status: true, funcionalidades: funcionalidadesCrud },
+        { id: '104', nome: 'Cartoes de Credito', status: true, funcionalidades: funcionalidadesCrud },
+        { id: '105', nome: 'Documentacao Modulo Financeiro', status: true, funcionalidades: funcionalidadesVisualizar },
+      ],
+    },
+  ];
+}
+
 export async function autenticar(email: string, senha: string): Promise<RespostaLogin> {
   const { data } = await api.post<RespostaLoginApi>('/autenticacao/entrar', { email, senha });
   return {
     ...data,
     usuario: normalizarUsuario(data.usuario),
   };
+}
+
+export async function cadastrarUsuario(payload: PayloadCadastrarUsuario): Promise<void> {
+  await api.post('/usuarios', {
+    nome: payload.nome,
+    email: payload.email,
+    dataNascimento: payload.dataNascimento,
+    perfil: 'USER',
+    status: true,
+    modulosAtivos: criarModulosPadraoCadastroUsuario(),
+  });
 }
 
 export async function solicitarRecuperacaoSenha(payload: PayloadEsqueciSenha): Promise<void> {

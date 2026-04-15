@@ -200,6 +200,7 @@
       "editar": "Editar Usuario",
       "nomeCompleto": "Nombre Completo",
       "nomePlaceholder": "Ej: Juan Pérez",
+      "dataNascimento": "Fecha de nacimiento",
       "perfilAcesso": "Perfil de Acceso",
       "perfilUser": "Usuario",
       "perfilAdmin": "Admin",
@@ -215,6 +216,7 @@
       "atualizado": "actualizado",
       "erros": {
         "nomeEmailObrigatorio": "Nombre y correo son obligatorios",
+        "nomeEmailDataNascimentoObrigatorio": "Nombre, correo y fecha de nacimiento son obligatorios",
         "emailInvalido": "Correo inválido",
         "falhaSalvar": "Error al guardar usuario"
       }
