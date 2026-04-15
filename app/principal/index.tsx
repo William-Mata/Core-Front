@@ -1,7 +1,7 @@
 import { type ReactElement, useEffect, useMemo, useState } from 'react';
-import { Image, View, Text, ScrollView, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
+import { Image, View, Text, ScrollView, TouchableOpacity, Pressable, useWindowDimensions, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LineChart, PieChart } from 'react-native-gifted-charts';
+import { LineChart } from 'react-native-gifted-charts';
 import { Cabecalho } from '../../src/componentes/comuns/Cabecalho';
 import { EsqueletoCarregamento } from '../../src/componentes/comuns/EsqueletoCarregamento';
 import { usarTraducao } from '../../src/hooks/usarTraducao';
@@ -102,8 +102,6 @@ interface PieAreaItem {
   text: string;
   area: string;
   subarea: string;
-  tooltipText: string;
-  tooltipComponent?: () => ReactElement;
 }
 
 const CORES_RECEITA = [COLORS.success, COLORS.info, '#23c4a8', '#5dd39e', '#2dd4bf', '#14b8a6'];
@@ -374,8 +372,8 @@ export default function Dashboard() {
     'balancoGeral',
   ]);
   const [widgetArrastando, setWidgetArrastando] = useState<WidgetId | null>(null);
-  const [indiceReceitaSelecionada, setIndiceReceitaSelecionada] = useState(0);
-  const [indiceDespesaSelecionada, setIndiceDespesaSelecionada] = useState(0);
+  const [indiceReceitaSelecionada, setIndiceReceitaSelecionada] = useState(-1);
+  const [indiceDespesaSelecionada, setIndiceDespesaSelecionada] = useState(-1);
   const [seriesVisiveis, setSeriesVisiveis] = useState({
     receitas: true,
     despesas: true,
@@ -721,16 +719,6 @@ export default function Dashboard() {
           text: `${item.area} / ${item.subarea}`,
           area: item.area,
           subarea: item.subarea,
-          tooltipText: `${item.area} / ${item.subarea}\n${formatarValorPorIdioma(item.receitas)}`,
-          tooltipComponent: () => (
-            <View style={{ backgroundColor: COLORS.bgPrimary, borderWidth: 1, borderColor: COLORS.borderAccent, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 7, minWidth: 128, maxWidth: 150 }}>
-              <Text numberOfLines={1} style={{ color: COLORS.textSecondary, fontSize: 8 }}>{item.area}</Text>
-              <Text numberOfLines={1} style={{ color: COLORS.textPrimary, fontSize: 10, fontWeight: '700', marginTop: 1 }}>{item.subarea}</Text>
-              <Text style={{ color: CORES_RECEITA[indice % CORES_RECEITA.length], fontSize: 10, fontWeight: '700', marginTop: 3 }}>
-                {formatarValorPorIdioma(item.receitas)}
-              </Text>
-            </View>
-          ),
         })),
     [itensAreaSubarea],
   );
@@ -745,29 +733,19 @@ export default function Dashboard() {
           text: `${item.area} / ${item.subarea}`,
           area: item.area,
           subarea: item.subarea,
-          tooltipText: `${item.area} / ${item.subarea}\n${formatarValorPorIdioma(item.despesas)}`,
-          tooltipComponent: () => (
-            <View style={{ backgroundColor: COLORS.bgPrimary, borderWidth: 1, borderColor: COLORS.borderAccent, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 7, minWidth: 128, maxWidth: 150 }}>
-              <Text numberOfLines={1} style={{ color: COLORS.textSecondary, fontSize: 8 }}>{item.area}</Text>
-              <Text numberOfLines={1} style={{ color: COLORS.textPrimary, fontSize: 10, fontWeight: '700', marginTop: 1 }}>{item.subarea}</Text>
-              <Text style={{ color: CORES_DESPESA[indice % CORES_DESPESA.length], fontSize: 10, fontWeight: '700', marginTop: 3 }}>
-                {formatarValorPorIdioma(item.despesas)}
-              </Text>
-            </View>
-          ),
         })),
     [itensAreaSubarea],
   );
 
   useEffect(() => {
     if (indiceReceitaSelecionada >= dadosPieAreaSubareaReceitas.length) {
-      setIndiceReceitaSelecionada(0);
+      setIndiceReceitaSelecionada(-1);
     }
   }, [dadosPieAreaSubareaReceitas.length, indiceReceitaSelecionada]);
 
   useEffect(() => {
     if (indiceDespesaSelecionada >= dadosPieAreaSubareaDespesas.length) {
-      setIndiceDespesaSelecionada(0);
+      setIndiceDespesaSelecionada(-1);
     }
   }, [dadosPieAreaSubareaDespesas.length, indiceDespesaSelecionada]);
 
@@ -862,8 +840,11 @@ export default function Dashboard() {
     indiceSelecionado: number,
     aoSelecionar: (indice: number) => void,
   ) => {
-    const radius = width > 1280 ? 112 : width > 960 ? 102 : 92;
-    const innerRadius = width > 1280 ? 62 : width > 960 ? 56 : 50;
+    const itemSelecionadoValido = indiceSelecionado >= 0 && indiceSelecionado < dados.length;
+    const itemSelecionado = itemSelecionadoValido ? dados[indiceSelecionado] : null;
+    const valorTotal = dados.reduce((acumulador, item) => acumulador + item.value, 0);
+    const valorMaximo = dados.reduce((acumulador, item) => (item.value > acumulador ? item.value : acumulador), 0);
+    const percentualSelecionado = itemSelecionado && valorTotal > 0 ? (itemSelecionado.value / valorTotal) * 100 : 0;
 
     return (
       <View>
@@ -877,87 +858,111 @@ export default function Dashboard() {
             borderWidth: 1,
             borderColor: COLORS.borderColor,
             padding: 12,
-            flexDirection: width > 980 ? 'row' : 'column',
-            alignItems: width > 980 ? 'stretch' : 'center',
+            flexDirection: 'column',
+            alignItems: 'stretch',
             justifyContent: 'flex-start',
-            gap: width > 980 ? 28 : 12,
+            gap: 12,
           }}
         >
           {dados.length > 0 ? (
             <>
-              <View
-                style={{
-                  flex: width > 980 ? 1 : undefined,
-                  width: width > 980 ? undefined : '100%',
-                  minWidth: width > 980 ? 0 : undefined,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingLeft: 0,
-                }}
-              >
-                <PieChart
-                  data={dados}
-                  donut
-                  selectedIndex={indiceSelecionado}
-                  setSelectedIndex={aoSelecionar}
-                  focusedPieIndex={indiceSelecionado}
-                  onPress={(_: unknown, index: number) => aoSelecionar(index)}
-                  radius={radius}
-                  innerRadius={innerRadius}
-                  innerCircleColor={COLORS.bgTertiary}
-                  strokeColor={COLORS.bgSecondary}
-                  strokeWidth={2}
-                  focusOnPress
-                  toggleFocusOnPress={false}
-                  showTooltip
-                  persistTooltip
-                  tooltipDuration={999999}
-                  tooltipWidth={150}
-                  tooltipTextNoOfLines={2}
-                  tooltipBackgroundColor="transparent"
-                  tooltipBorderRadius={8}
-                  tooltipHorizontalShift={width > 980 ? -2 : 0}
-                  tooltipVerticalShift={8}
-                  paddingHorizontal={width > 980 ? 34 : 24}
-                  paddingVertical={28}
-                  isAnimated
-                  animationDuration={650}
-                />
-              </View>
-
+              {itemSelecionado ? (
+                <View
+                  style={{
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: COLORS.borderAccent,
+                    backgroundColor: COLORS.bgPrimary,
+                    paddingVertical: 8,
+                    paddingHorizontal: 10,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: itemSelecionado.color }} />
+                    <Text numberOfLines={1} style={{ color: COLORS.textPrimary, fontSize: 12, fontWeight: '700', flex: 1 }}>
+                      {itemSelecionado.subarea}
+                    </Text>
+                  </View>
+                  <Text numberOfLines={1} style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>
+                    {itemSelecionado.area}
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+                    <Text style={{ color: itemSelecionado.color, fontSize: 12, fontWeight: '700' }}>
+                      {formatarValorPorIdioma(itemSelecionado.value)}
+                    </Text>
+                    <Text style={{ color: COLORS.textSecondary, fontSize: 11, fontWeight: '600' }}>
+                      {`${percentualSelecionado.toFixed(percentualSelecionado < 10 ? 1 : 0)}%`}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
               <ScrollView
                 style={{
-                  width: width > 980 ? 280 : '100%',
-                  maxWidth: width > 980 ? 280 : 460,
-                  maxHeight: 260,
-                  marginLeft: width > 980 ? 'auto' : 0,
-                  alignSelf: width > 980 ? 'flex-start' : 'stretch',
+                  width: '100%',
+                  maxHeight: width > 980 ? 340 : 300,
                 }}
-                contentContainerStyle={{ gap: 6 }}
+                contentContainerStyle={{ gap: 8 }}
                 showsVerticalScrollIndicator
               >
                 {dados.map((item, indice) => (
-                  <View
+                  <Pressable
                     key={`${titulo}-${item.area}-${item.subarea}`}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      paddingVertical: 7,
-                      paddingHorizontal: 8,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: indice === indiceSelecionado ? item.color : COLORS.borderColor,
-                      backgroundColor: indice === indiceSelecionado ? COLORS.bgHover : COLORS.bgTertiary,
+                    onPress={() => aoSelecionar(indice)}
+                    onHoverIn={Platform.OS === 'web' ? () => aoSelecionar(indice) : undefined}
+                    hitSlop={8}
+                    style={({ pressed }) => {
+                      const itemSelecionadoAtual = indice === indiceSelecionado;
+                      const emDestaque = itemSelecionadoAtual || pressed;
+                      return {
+                        flexDirection: 'row',
+                        alignItems: 'stretch',
+                        justifyContent: 'flex-start',
+                        paddingVertical: 8,
+                        paddingHorizontal: 8,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: itemSelecionadoAtual ? item.color : emDestaque ? COLORS.borderAccent : COLORS.borderColor,
+                        backgroundColor: itemSelecionadoAtual ? COLORS.bgHover : emDestaque ? COLORS.bgSecondary : COLORS.bgTertiary,
+                      };
                     }}
                   >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                      <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: item.color }} />
-                      <Text numberOfLines={1} style={{ color: COLORS.textPrimary, fontSize: 10, fontWeight: indice === indiceSelecionado ? '700' : '500', flexShrink: 1 }}>
-                        {item.area} / {item.subarea}
-                      </Text>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                          <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: item.color }} />
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text numberOfLines={1} style={{ color: COLORS.textPrimary, fontSize: 11, fontWeight: indice === indiceSelecionado ? '700' : '600' }}>
+                              {item.subarea}
+                            </Text>
+                            <Text numberOfLines={1} style={{ color: COLORS.textSecondary, fontSize: 10, marginTop: 1 }}>
+                              {item.area}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={{ color: item.color, fontSize: 11, fontWeight: '700' }}>
+                          {formatarValorPorIdioma(item.value)}
+                        </Text>
+                      </View>
+                      <View style={{ marginTop: 7, height: 8, borderRadius: 999, backgroundColor: COLORS.bgPrimary, overflow: 'hidden' }}>
+                        <View
+                          style={{
+                            height: '100%',
+                            width: `${Math.min(Math.max(valorTotal > 0 ? (item.value / valorTotal) * 100 : 0, item.value > 0 ? 4 : 0), 100)}%`,
+                            backgroundColor: item.color,
+                            borderRadius: 999,
+                          }}
+                        />
+                      </View>
+                      <View style={{ alignItems: 'flex-end', marginTop: 4 }}>
+                        <Text style={{ color: COLORS.textSecondary, fontSize: 10 }}>
+                          {`${valorTotal > 0 ? ((item.value / valorTotal) * 100).toFixed(((item.value / valorTotal) * 100) < 10 ? 1 : 0) : '0'}%`}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
+                    {indice === indiceSelecionado ? (
+                      <View style={{ width: 2, borderRadius: 999, backgroundColor: item.color, marginLeft: 8 }} />
+                    ) : null}
+                  </Pressable>
                 ))}
               </ScrollView>
             </>
