@@ -11,6 +11,7 @@ export interface UsuarioAdminApi {
   id: number;
   nome: string;
   email: string;
+  dataNascimento: string;
   perfil: 'USER' | 'ADMIN';
   status: boolean;
   modulosAtivos: InterfaceModuloUsuario[];
@@ -74,6 +75,7 @@ function mapearUsuarioApi(item: Record<string, unknown>): UsuarioAdminApi {
     id: Number(item.id ?? 0),
     nome: String(item.nome ?? ''),
     email: String(item.email ?? ''),
+    dataNascimento: String(item.dataNascimento ?? item.data_nascimento ?? ''),
     perfil: perfilId.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'USER',
     status: parseStatus(item.status, true),
     modulosAtivos,
@@ -100,6 +102,7 @@ export async function obterUsuarioAdminApi(id: number, signal?: AbortSignal): Pr
 export async function criarUsuarioAdminApi(payload: {
   nome: string;
   email: string;
+  dataNascimento: string;
   perfil: 'USER' | 'ADMIN';
   status: boolean;
   modulosAtivos: InterfaceModuloUsuario[];
@@ -116,6 +119,7 @@ export async function atualizarUsuarioAdminApi(
   payload: {
     nome: string;
     email: string;
+    dataNascimento: string;
     perfil: 'USER' | 'ADMIN';
     status: boolean;
     modulosAtivos: InterfaceModuloUsuario[];

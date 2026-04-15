@@ -3,6 +3,7 @@ import { FlatList, ScrollView, Switch, Text, TouchableOpacity, View } from 'reac
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
+import { CampoData } from '../../../src/componentes/comuns/CampoData';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
@@ -166,6 +167,7 @@ export default function FormUsuario() {
   const [filtro, setFiltro] = useState<FiltroPadraoValor>({ id: '', descricao: '', dataInicio: '', dataFim: '' });
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
+  const [dataNascimento, setDataNascimento] = useState('');
   const [perfil, setPerfil] = useState<'USER' | 'ADMIN'>('USER');
   const [statusUsuario, setStatusUsuario] = useState(true);
   const [modulosAtivos, setModulosAtivos] = useState<InterfaceModuloUsuario[]>(criarModulosIniciais(catalogoModulos, 'USER'));
@@ -194,6 +196,7 @@ export default function FormUsuario() {
   const resetarFormulario = () => {
     setNome('');
     setEmail('');
+    setDataNascimento('');
     setPerfil('USER');
     setStatusUsuario(true);
     setModulosAtivos(criarModulosIniciais(catalogoModulos, 'USER'));
@@ -223,6 +226,7 @@ export default function FormUsuario() {
       setUsuarioSelecionado(usuario);
       setNome(usuario.nome);
       setEmail(usuario.email);
+      setDataNascimento(usuario.dataNascimento);
       setPerfil(usuario.perfil);
       setStatusUsuario(usuario.status !== false);
       setModulosAtivos(normalizarModulosUsuario(catalogoModulos, usuario.modulosAtivos, usuario.perfil));
@@ -339,9 +343,9 @@ export default function FormUsuario() {
   };
 
   const handleSalvar = async () => {
-    if (!nome.trim() || !email.trim()) {
-      setCamposInvalidos((atual) => ({ ...atual, nome: !nome.trim(), email: !email.trim() }));
-      notificarErro(t('admin.usuario.erros.nomeEmailObrigatorio'));
+    if (!nome.trim() || !email.trim() || !dataNascimento) {
+      setCamposInvalidos((atual) => ({ ...atual, nome: !nome.trim(), email: !email.trim(), dataNascimento: !dataNascimento }));
+      notificarErro(t('admin.usuario.erros.nomeEmailDataNascimentoObrigatorio'));
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -353,7 +357,7 @@ export default function FormUsuario() {
 
     setCarregando(true);
     try {
-      const payload = { nome: nome.trim(), email: email.trim(), perfil, status: statusUsuario, modulosAtivos };
+      const payload = { nome: nome.trim(), email: email.trim(), dataNascimento, perfil, status: statusUsuario, modulosAtivos };
       if (emEdicao && usuarioId) await atualizarUsuarioAdminApi(usuarioId, payload);
       else await criarUsuarioAdminApi(payload);
 
@@ -440,6 +444,7 @@ export default function FormUsuario() {
         {carregandoDetalhe ? <Text style={{ color: COLORS.textSecondary, marginBottom: 12 }}>{t('comum.carregando')}</Text> : null}
         <CampoTexto label={t('admin.usuario.nomeCompleto')} placeholder={t('admin.usuario.nomePlaceholder')} value={nome} onChangeText={(v) => { setCamposInvalidos((a) => ({ ...a, nome: false })); setNome(v); }} error={camposInvalidos.nome} estilo={{ marginBottom: 16 }} />
         <CampoTexto label={t('comum.email')} placeholder="usuario@example.com" value={email} onChangeText={(v) => { setCamposInvalidos((a) => ({ ...a, email: false })); setEmail(v); }} error={camposInvalidos.email} keyboardType="email-address" estilo={{ marginBottom: 16 }} />
+        <CampoData label={t('admin.usuario.dataNascimento')} value={dataNascimento} onChange={(valor) => { setCamposInvalidos((a) => ({ ...a, dataNascimento: false })); setDataNascimento(valor); }} error={camposInvalidos.dataNascimento} estilo={{ marginBottom: 16 }} />
 
         <CampoSelect
           label={t('admin.usuario.perfilAcesso')}

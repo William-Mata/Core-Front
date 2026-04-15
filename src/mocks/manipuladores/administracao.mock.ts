@@ -5,6 +5,7 @@ let usuariosAdmin = [
     id: 1,
     nome: 'Admin User',
     email: 'admin@example.com',
+    data_nascimento: '1990-01-10',
     perfil: 'ADMIN',
     status: true,
     modulosAtivos: [
@@ -53,6 +54,7 @@ let usuariosAdmin = [
     id: 2,
     nome: 'User Normal',
     email: 'user@example.com',
+    data_nascimento: '1995-07-21',
     perfil: 'USER',
     status: true,
     modulosAtivos: [
@@ -286,6 +288,7 @@ export const manipuladorAdministracao = [
       id: novoId,
       nome: String(data.nome ?? ''),
       email: String(data.email ?? ''),
+      data_nascimento: String(data.dataNascimento ?? data.data_nascimento ?? ''),
       perfil: String(data.perfil ?? 'USER').toUpperCase() === 'ADMIN' ? 'ADMIN' : 'USER',
       status: data.status === undefined ? true : Boolean(data.status),
       modulosAtivos: Array.isArray(data.modulosAtivos) ? data.modulosAtivos : [],
@@ -326,6 +329,7 @@ export const manipuladorAdministracao = [
       ...atual,
       nome: String(data.nome ?? atual.nome),
       email: String(data.email ?? atual.email),
+      data_nascimento: String(data.dataNascimento ?? data.data_nascimento ?? atual.data_nascimento ?? ''),
       perfil: String(data.perfil ?? atual.perfil).toUpperCase() === 'ADMIN' ? 'ADMIN' : 'USER',
       status: data.status === undefined ? atual.status : Boolean(data.status),
       modulosAtivos: Array.isArray(data.modulosAtivos) ? data.modulosAtivos : atual.modulosAtivos,
