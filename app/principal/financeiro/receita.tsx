@@ -17,6 +17,7 @@ import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
 import { aplicarMascaraCompetencia, avancarCompetencia, desserializarCompetencia, formatarCompetencia, formatarCompetenciaParaEntrada, obterCompetenciaAtual, obterCompetenciaPorData, serializarCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
+import { podeAlterarTransacaoVinculadaAFatura, resolverStatusOperacionalTransacaoFatura } from '../../../src/utils/acoesFaturaCartao';
 import { rateioConfereValorTotalExato, rateioNaoUltrapassaValorTotal } from '../../../src/utils/rateioValidacao';
 import { obterIconeBanco, obterIconeBandeiraCartao, obterImagemBanco, obterImagemBandeiraCartao } from '../../../src/utils/icones';
 import {
@@ -58,7 +59,7 @@ import {
   type RegistroFinanceiroApi,
 } from '../../../src/servicos/financeiro';
 
-type StatusReceita = 'pendente' | 'efetivada' | 'cancelada' | 'pendenteAprovacao' | 'rejeitada';
+type StatusReceita = 'pendente' | 'efetivada' | 'estornada' | 'cancelada' | 'pendenteAprovacao' | 'rejeitada';
 type StatusFaturaCartao = 'aberta' | 'fechada' | 'efetivada' | 'estornada';
 type ModoTela = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao' | 'estorno';
 type EscopoAcaoRecorrencia = 'apenasEsta' | 'estaEProximas' | 'todasPendentes';
@@ -272,10 +273,14 @@ function normalizarTipoRateioAmigos(valor: unknown): TipoRateioAmigos {
 
 function normalizarStatusReceita(status: unknown): StatusReceita {
   const valor = String(status ?? '').toLowerCase();
+  if (valor === '2') return 'efetivada';
+  if (valor === '3') return 'estornada';
   if (valor.includes('aprov') || valor.includes('pendente_aprovacao') || valor.includes('pendenteaprovacao')) return 'pendenteAprovacao';
   if (valor.includes('rejeit')) return 'rejeitada';
+  if (valor.includes('estorn') || valor.includes('revers')) return 'estornada';
   if (valor.includes('efetiv')) return 'efetivada';
   if (valor.includes('cancel')) return 'cancelada';
+  if (valor.includes('pago') || valor.includes('liquid') || valor.includes('conclu')) return 'efetivada';
   return 'pendente';
 }
 
@@ -467,7 +472,7 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
     || tipoReceitaBruto.includes('fatura')
     || receitasVinculadasIds.length > 0;
   const faturaId = faturaIdDireta ?? faturaIdRelacionada;
-  const statusFaturaCartao = ehFatura
+  const statusFaturaCartao = (ehFatura || Boolean(faturaCartaoId))
     ? normalizarStatusFaturaCartao(item.statusFaturaCartao ?? item.statusFatura ?? item.status)
     : undefined;
 
@@ -858,16 +863,27 @@ export default function TelaReceita() {
   };
 
   const gruposFaturaApi = useMemo<GrupoFaturaReceita[]>(() => {
+    const mapaStatusPorReceitaId = new Map(receitas.map((receita) => [receita.id, receita.status]));
     return detalhesFaturasCartao
       .map((detalhe) => {
+        const statusFaturaCartao = normalizarStatusFaturaCartao(detalhe.status);
         const receitasVinculadas = detalhe.transacoes
-          .map((transacao) => mapearReceitaApi({ ...transacao, faturaCartaoId: detalhe.faturaCartaoId, faturaId: detalhe.faturaCartaoId }))
+          .map((transacao) => {
+            const transacaoId = Number((transacao as Record<string, unknown>).id ?? (transacao as Record<string, unknown>).transacaoId ?? 0);
+            const statusTransacaoLista = mapaStatusPorReceitaId.get(transacaoId);
+            return mapearReceitaApi({
+            ...transacao,
+            faturaCartaoId: detalhe.faturaCartaoId,
+            faturaId: detalhe.faturaCartaoId,
+            statusFaturaCartao,
+              status: statusTransacaoLista ?? resolverStatusOperacionalTransacaoFatura(transacao as Record<string, unknown>, statusFaturaCartao),
+            });
+          })
           .filter(receitaBateFiltroLista)
           .sort((a, b) => a.id - b.id);
         const dataBase = detalhe.competencia ? `${detalhe.competencia}-01` : new Date().toISOString().slice(0, 10);
         const valorTotalTransacoes = Number.isFinite(detalhe.valorTotalTransacoes) ? detalhe.valorTotalTransacoes : receitasVinculadas.reduce((total, item) => total + item.valorLiquido, 0);
         const valorTotalFatura = Number.isFinite(detalhe.valorTotal) ? detalhe.valorTotal : valorTotalTransacoes;
-        const statusFaturaCartao = normalizarStatusFaturaCartao(detalhe.status);
         const fatura = mapearReceitaApi({
           id: detalhe.faturaCartaoId * -1,
           faturaCartaoId: detalhe.faturaCartaoId,
@@ -897,7 +913,7 @@ export default function TelaReceita() {
         };
       })
       .sort((a, b) => a.fatura.id - b.fatura.id);
-  }, [detalhesFaturasCartao, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, t]);
+  }, [detalhesFaturasCartao, receitas, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, t]);
   const gruposFatura = gruposFaturaApi;
   const mapaGrupoPorFaturaId = useMemo(
     () => new Map(gruposFatura.map((grupo) => [grupo.fatura.id, grupo])),
@@ -1048,6 +1064,9 @@ export default function TelaReceita() {
   };
 
   const abrirEdicao = (receita: ReceitaRegistro) => {
+    if (!podeAlterarTransacaoVinculadaAFatura(receita.faturaCartaoId, receita.id, receita.statusFaturaCartao)) {
+      return;
+    }
     if (receita.status !== 'pendente') {
       notificarErro( t('financeiro.receita.mensagens.edicaoSomentePendente'));
       return;
@@ -1057,6 +1076,9 @@ export default function TelaReceita() {
   };
 
   const abrirEfetivacao = (receita: ReceitaRegistro) => {
+    if (!podeAlterarTransacaoVinculadaAFatura(receita.faturaCartaoId, receita.id, receita.statusFaturaCartao)) {
+      return;
+    }
     if (receita.status !== 'pendente') {
       notificarErro( t('financeiro.receita.mensagens.efetivacaoSomentePendente'));
       return;
@@ -1066,6 +1088,9 @@ export default function TelaReceita() {
   };
 
   const abrirEstorno = (receita: ReceitaRegistro) => {
+    if (!podeAlterarTransacaoVinculadaAFatura(receita.faturaCartaoId, receita.id, receita.statusFaturaCartao)) {
+      return;
+    }
     if (receita.status !== 'efetivada') {
       notificarErro( t('financeiro.receita.mensagens.estornoSomenteEfetivada'));
       return;
@@ -1428,6 +1453,9 @@ export default function TelaReceita() {
 
   const efetivarReceita = async () => {
     if (!receitaSelecionada) return;
+    if (!podeAlterarTransacaoVinculadaAFatura(receitaSelecionada.faturaCartaoId, receitaSelecionada.id, receitaSelecionada.statusFaturaCartao)) {
+      return;
+    }
     if (receitaSelecionada.status !== 'pendente') {
       notificarErro(t('financeiro.receita.mensagens.efetivacaoSomentePendente'));
       return;
@@ -1476,6 +1504,9 @@ export default function TelaReceita() {
   };
 
   const cancelarReceita = (receita: ReceitaRegistro) => {
+    if (!podeAlterarTransacaoVinculadaAFatura(receita.faturaCartaoId, receita.id, receita.statusFaturaCartao)) {
+      return;
+    }
     if (receita.status !== 'pendente') {
       notificarErro( t('financeiro.receita.mensagens.cancelamentoSomentePendente'));
       return;
@@ -1495,7 +1526,7 @@ export default function TelaReceita() {
         escopoRecorrencia,
       });
       await carregarReceitasApi();
-      notificarSucesso(t('financeiro.receita.acoes.cancelarReceita'));
+      notificarSucesso(t('comum.acoes.cancelar'));
       setReceitaPendenteCancelamento(null);
     } catch {
       return;
@@ -1506,6 +1537,9 @@ export default function TelaReceita() {
 
   const estornarReceita = async () => {
     if (!receitaSelecionada) return;
+    if (!podeAlterarTransacaoVinculadaAFatura(receitaSelecionada.faturaCartaoId, receitaSelecionada.id, receitaSelecionada.statusFaturaCartao)) {
+      return;
+    }
     if (receitaSelecionada.status !== 'efetivada') {
       notificarErro( t('financeiro.receita.mensagens.estornoSomenteEfetivada'));
       return;
@@ -1606,23 +1640,26 @@ export default function TelaReceita() {
   const renderAcoesReceita = (
     receita: ReceitaRegistro,
     opcoes?: { ocultarAcoesOperacionais?: boolean; podeEfetivar?: boolean; ocultarTodasAcoes?: boolean; ocultarEfetivacaoEstorno?: boolean },
-  ) => (
+  ) => {
+    const podeAlterar = podeAlterarTransacaoVinculadaAFatura(receita.faturaCartaoId, receita.id, receita.statusFaturaCartao);
+    return (
     opcoes?.ocultarTodasAcoes ? null : (
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
-        {receita.ehFatura ? null : (
+        {receita.ehFatura && !receita.faturaCartaoId ? null : (
           <>
             <TouchableOpacity onPress={() => abrirVisualizacao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('financeiro.receita.acoes.visualizar')}</Text></TouchableOpacity>
-            {receita.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais ? <TouchableOpacity onPress={() => abrirEdicao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
-            {receita.status === 'pendente' && (opcoes?.podeEfetivar ?? true) && !opcoes?.ocultarEfetivacaoEstorno ? <TouchableOpacity onPress={() => abrirEfetivacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.receita.acoes.efetivar')}</Text></TouchableOpacity> : null}
-            {receita.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais ? <TouchableOpacity onPress={() => cancelarReceita(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.receita.acoes.cancelarReceita')}</Text></TouchableOpacity> : null}
-            {receita.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => aceitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
-            {receita.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => rejeitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
-            {receita.status === 'efetivada' && !opcoes?.ocultarEfetivacaoEstorno ? <TouchableOpacity onPress={() => abrirEstorno(receita)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.receita.acoes.estornar')}</Text></TouchableOpacity> : null}
+            {receita.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar ? <TouchableOpacity onPress={() => abrirEdicao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
+            {receita.status === 'pendente' && (opcoes?.podeEfetivar ?? true) && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar ? <TouchableOpacity onPress={() => abrirEfetivacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.receita.acoes.efetivar')}</Text></TouchableOpacity> : null}
+            {receita.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar ? <TouchableOpacity onPress={() => cancelarReceita(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('comum.acoes.cancelar')}</Text></TouchableOpacity> : null}
+            {receita.status === 'pendenteAprovacao' && !receita.faturaCartaoId ? <TouchableOpacity onPress={() => aceitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
+            {receita.status === 'pendenteAprovacao' && !receita.faturaCartaoId ? <TouchableOpacity onPress={() => rejeitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
+            {receita.status === 'efetivada' && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar ? <TouchableOpacity onPress={() => abrirEstorno(receita)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.receita.acoes.estornar')}</Text></TouchableOpacity> : null}
           </>
         )}
       </View>
     )
-  );
+    );
+  };
 
   const renderCartaoReceita = (
     receita: ReceitaRegistro,
@@ -1696,7 +1733,7 @@ export default function TelaReceita() {
         </View>
         {expandida ? (
           <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10 }}>
-            {grupo.receitasVinculadas.map((receitaVinculada) => renderCartaoReceita(receitaVinculada, { margemInferior: 8, ocultarEfetivacaoEstorno: true }))}
+            {grupo.receitasVinculadas.map((receitaVinculada) => renderCartaoReceita(receitaVinculada, { margemInferior: 8 }))}
           </View>
         ) : null}
       </View>
@@ -1730,6 +1767,13 @@ export default function TelaReceita() {
       </View>
     );
   };
+
+  const renderCampoBloqueadoStatus = (label: string, rotulo: string, estilo: { corTexto: string; corBorda: string; corFundo: string }) => (
+    <View style={{ marginBottom: 12 }}>
+      <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
+      <DistintivoStatus rotulo={rotulo} corTexto={estilo.corTexto} corBorda={estilo.corBorda} corFundo={estilo.corFundo} />
+    </View>
+  );
   const renderTabelaRateioAmigos = (somenteLeitura: boolean) => {
     const linhas = formulario.amigosRateio.map((amigo) => ({
       amigo,
@@ -2026,7 +2070,7 @@ export default function TelaReceita() {
         {modoTela === 'visualizacao' && receitaSelecionada ? (
           <>
             {renderFormularioBase(true)}
-            {renderCampoBloqueado(t('financeiro.receita.campos.status'), obterRotuloStatusReceita(receitaSelecionada.status, t))}
+            {renderCampoBloqueadoStatus(t('financeiro.receita.campos.status'), obterRotuloStatusReceita(receitaSelecionada.status, t), obterEstiloBadgeStatusReceita(receitaSelecionada.status))}
             {renderCampoBloqueado(t('financeiro.receita.campos.dataEfetivacao'), receitaSelecionada.dataEfetivacao ? formatarDataPorIdioma(receitaSelecionada.dataEfetivacao) : '')}
             <View style={{ marginBottom: 16 }}>
               <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{t('financeiro.receita.logs.titulo')}</Text>
@@ -2081,14 +2125,6 @@ export default function TelaReceita() {
     </View>
   );
 }
-
-
-
-
-
-
-
-
 
 
 

@@ -1,8 +1,11 @@
-﻿export type StatusReembolso = 'pendente' | 'efetivada' | 'cancelada';
+export type StatusReembolso = 'pendente' | 'efetivada' | 'estornada' | 'cancelada';
 
 export function parseStatusReembolso(valor: unknown): StatusReembolso {
   const texto = String(valor ?? '').trim().toLowerCase();
+  if (texto === '2') return 'efetivada';
+  if (texto === '3') return 'estornada';
   if (texto.includes('cancel')) return 'cancelada';
+  if (texto.includes('estorn') || texto.includes('revers')) return 'estornada';
   if (['efetivada', 'efetivado', 'aprovado', 'approved', 'pago', 'paid', 'pago_parcial'].includes(texto)) {
     return 'efetivada';
   }

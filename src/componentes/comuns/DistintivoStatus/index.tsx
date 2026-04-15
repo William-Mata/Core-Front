@@ -79,7 +79,7 @@ export function DistintivoStatus({ rotulo, corTexto, corBorda, corFundo, testID 
 
   return (
     <View
-      testID={testID}
+      testID={testID ?? 'badge-tipo-transacao'}
       onLayout={Platform.OS === 'web' ? undefined : (evento) => setLargura(evento.nativeEvent.layout.width)}
       style={[estilos.container, { borderColor: corBorda, backgroundColor: corFundo }]}
     >

@@ -18,6 +18,7 @@ import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { erroApiJaNotificado, extrairMensagemErroApi } from '../../../src/utils/erroApi';
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
+import { podeAlterarTransacaoVinculadaAFatura, resolverStatusOperacionalTransacaoFatura } from '../../../src/utils/acoesFaturaCartao';
 import { montarDocumentosPayload, normalizarDocumentosApi, type DocumentoFinanceiro } from '../../../src/utils/documentoUpload';
 import {
   listarDespesasApi,
@@ -128,8 +129,8 @@ function normalizarReembolsoApi(item: RegistroFinanceiroApi): Reembolso {
       return NaN;
     })
     .filter((id): id is number => Number.isFinite(id));
-  const ehFaturaCartao = Boolean(item.ehFatura) || String(item.tipo ?? item.tipoLancamento ?? '').toLowerCase().includes('fatura');
-  const statusFaturaCartao = ehFaturaCartao
+  const ehFaturaCartao = Boolean(item.ehFatura) || faturaCartaoIdBruto > 0 || String(item.tipo ?? item.tipoLancamento ?? '').toLowerCase().includes('fatura');
+  const statusFaturaCartao = (ehFaturaCartao || faturaCartaoIdBruto > 0)
     ? normalizarStatusFaturaCartao(item.statusFaturaCartao ?? item.statusFatura ?? item.status)
     : undefined;
 
@@ -315,16 +316,26 @@ export default function TelaReembolso() {
   };
 
   const gruposFaturaReembolso = useMemo<GrupoFaturaReembolso[]>(() => {
+    const mapaStatusPorReembolsoId = new Map(reembolsos.map((reembolso) => [reembolso.id, reembolso.status]));
     return detalhesFaturasCartao
       .map((detalhe) => {
+        const statusFaturaCartao = normalizarStatusFaturaCartao(detalhe.status);
         const reembolsosVinculados = detalhe.transacoes
-          .map((transacao) => normalizarReembolsoApi({ ...transacao, faturaCartaoId: detalhe.faturaCartaoId }))
+          .map((transacao) => {
+            const transacaoId = Number((transacao as Record<string, unknown>).id ?? (transacao as Record<string, unknown>).transacaoId ?? 0);
+            const statusTransacaoLista = mapaStatusPorReembolsoId.get(transacaoId);
+            return normalizarReembolsoApi({
+            ...transacao,
+            faturaCartaoId: detalhe.faturaCartaoId,
+            statusFaturaCartao,
+              status: statusTransacaoLista ?? resolverStatusOperacionalTransacaoFatura(transacao as Record<string, unknown>, statusFaturaCartao),
+            });
+          })
           .filter(reembolsoBateFiltroLista)
           .sort((a, b) => a.id - b.id);
         const dataBase = detalhe.competencia ? `${detalhe.competencia}-01` : new Date().toISOString().slice(0, 10);
         const valorTotalTransacoes = Number.isFinite(detalhe.valorTotalTransacoes) ? detalhe.valorTotalTransacoes : reembolsosVinculados.reduce((total, item) => total + item.valorTotal, 0);
         const valorTotalFatura = Number.isFinite(detalhe.valorTotal) ? detalhe.valorTotal : valorTotalTransacoes;
-        const statusFaturaCartao = normalizarStatusFaturaCartao(detalhe.status);
         const fatura = normalizarReembolsoApi({
           id: detalhe.faturaCartaoId * -1,
           faturaCartaoId: detalhe.faturaCartaoId,
@@ -351,7 +362,7 @@ export default function TelaReembolso() {
         };
       })
       .sort((a, b) => a.fatura.id - b.fatura.id);
-  }, [detalhesFaturasCartao, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, t]);
+  }, [detalhesFaturasCartao, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, reembolsos, t]);
 
   const mapaGrupoPorFaturaId = useMemo(
     () => new Map(gruposFaturaReembolso.map((grupo) => [grupo.fatura.id, grupo])),
@@ -450,6 +461,9 @@ export default function TelaReembolso() {
   const abrirEdicao = (id: number) => {
     const encontrado = reembolsos.find((reembolso) => reembolso.id === id);
     if (!encontrado) return;
+    if (!podeAlterarTransacaoVinculadaAFatura(encontrado.faturaCartaoId, encontrado.id, encontrado.statusFaturaCartao)) {
+      return;
+    }
     if (!podeEditarReembolso(encontrado.status)) {
       notificarErro(t('financeiro.reembolso.mensagens.edicaoSomentePendente'));
       return;
@@ -466,6 +480,9 @@ export default function TelaReembolso() {
   const abrirEfetivacao = (id: number) => {
     const encontrado = reembolsos.find((reembolso) => reembolso.id === id);
     if (!encontrado) return;
+    if (!podeAlterarTransacaoVinculadaAFatura(encontrado.faturaCartaoId, encontrado.id, encontrado.statusFaturaCartao)) {
+      return;
+    }
     if (podeEstornarReembolso(encontrado.status)) {
       notificarErro(t('financeiro.reembolso.mensagens.efetivacaoSomentePendente'));
       return;
@@ -477,6 +494,9 @@ export default function TelaReembolso() {
   const abrirEstorno = (id: number) => {
     const encontrado = reembolsos.find((reembolso) => reembolso.id === id);
     if (!encontrado) return;
+    if (!podeAlterarTransacaoVinculadaAFatura(encontrado.faturaCartaoId, encontrado.id, encontrado.statusFaturaCartao)) {
+      return;
+    }
     if (!podeEstornarReembolso(encontrado.status)) {
       notificarErro(t('financeiro.reembolso.mensagens.estornoSomenteEfetivado'));
       return;
@@ -560,6 +580,9 @@ export default function TelaReembolso() {
 
   const efetivar = async () => {
     if (!reembolsoAtual.id) return;
+    if (!podeAlterarTransacaoVinculadaAFatura(reembolsoAtual.faturaCartaoId, reembolsoAtual.id, reembolsoAtual.statusFaturaCartao)) {
+      return;
+    }
     if (podeEstornarReembolso(reembolsoAtual.status)) {
       notificarErro(t('financeiro.reembolso.mensagens.efetivacaoSomentePendente'));
       return;
@@ -598,6 +621,9 @@ export default function TelaReembolso() {
 
   const estornar = async () => {
     if (!reembolsoAtual.id) return;
+    if (!podeAlterarTransacaoVinculadaAFatura(reembolsoAtual.faturaCartaoId, reembolsoAtual.id, reembolsoAtual.statusFaturaCartao)) {
+      return;
+    }
     if (!podeEstornarReembolso(reembolsoAtual.status)) {
       notificarErro(t('financeiro.reembolso.mensagens.estornoSomenteEfetivado'));
       return;
@@ -635,6 +661,9 @@ export default function TelaReembolso() {
   };
 
   const cancelar = (reembolso: Reembolso) => {
+    if (!podeAlterarTransacaoVinculadaAFatura(reembolso.faturaCartaoId, reembolso.id, reembolso.statusFaturaCartao)) {
+      return;
+    }
     if (!podeEditarReembolso(reembolso.status)) {
       notificarErro(t('financeiro.reembolso.mensagens.edicaoSomentePendente'));
       return;
@@ -690,6 +719,7 @@ export default function TelaReembolso() {
     const estiloBadge = reembolso.ehFaturaCartao
       ? obterEstiloBadgeStatusFaturaCartao(reembolso.statusFaturaCartao)
       : obterEstiloBadgeStatusReembolso(reembolso.status);
+    const podeAlterar = podeAlterarTransacaoVinculadaAFatura(reembolso.faturaCartaoId, reembolso.id, reembolso.statusFaturaCartao);
 
     return (
     <View
@@ -722,19 +752,19 @@ export default function TelaReembolso() {
       </Text>
       {opcoes?.ocultarAcoes ? null : (
         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-          {reembolso.ehFaturaCartao ? null : (
+          {reembolso.ehFaturaCartao && !reembolso.faturaCartaoId ? null : (
             <>
-              {podeEditarReembolso(reembolso.status) ? (
+              {podeEditarReembolso(reembolso.status) && podeAlterar ? (
                 <TouchableOpacity onPress={() => abrirEdicao(reembolso.id)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
                   <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text>
                 </TouchableOpacity>
               ) : null}
-              {!podeEstornarReembolso(reembolso.status) && !opcoes?.ocultarEfetivacaoEstorno ? (
+              {!podeEstornarReembolso(reembolso.status) && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar ? (
                 <TouchableOpacity onPress={() => abrirEfetivacao(reembolso.id)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
                   <Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.reembolso.acoes.efetivar')}</Text>
                 </TouchableOpacity>
               ) : null}
-              {podeEstornarReembolso(reembolso.status) && !opcoes?.ocultarEfetivacaoEstorno ? (
+              {podeEstornarReembolso(reembolso.status) && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar ? (
                 <TouchableOpacity onPress={() => abrirEstorno(reembolso.id)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
                   <Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.reembolso.acoes.estornar')}</Text>
                 </TouchableOpacity>
@@ -742,7 +772,7 @@ export default function TelaReembolso() {
               <TouchableOpacity onPress={() => abrirVisualizacao(reembolso.id)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
                 <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.visualizar')}</Text>
               </TouchableOpacity>
-              {podeEditarReembolso(reembolso.status) ? <TouchableOpacity onPress={() => cancelar(reembolso)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
+              {podeEditarReembolso(reembolso.status) && podeAlterar ? <TouchableOpacity onPress={() => cancelar(reembolso)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
                 <Text style={{ color: COLORS.error, fontSize: 12 }}>{t('comum.acoes.cancelar')}</Text>
               </TouchableOpacity> : null}
             </>
@@ -781,6 +811,13 @@ export default function TelaReembolso() {
       </View>
     );
   };
+
+  const renderCampoBloqueadoStatus = (label: string, rotulo: string, estilo: { corTexto: string; corBorda: string; corFundo: string }) => (
+    <View style={{ marginBottom: 12 }}>
+      <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
+      <DistintivoStatus rotulo={rotulo} corTexto={estilo.corTexto} corBorda={estilo.corBorda} corFundo={estilo.corFundo} />
+    </View>
+  );
 
   const corStatus = (status: StatusReembolso) => {
     if (status === 'efetivada') return COLORS.success;
@@ -854,10 +891,10 @@ export default function TelaReembolso() {
 	        </View>
 	        {expandida ? (
 	          <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10 }}>
-	            {grupo.reembolsosVinculados.map((reembolsoVinculado) => renderCartaoReembolso(reembolsoVinculado, { margemInferior: 8, ocultarEfetivacaoEstorno: true }))}
-	          </View>
-	        ) : null}
-	      </View>
+		            {grupo.reembolsosVinculados.map((reembolsoVinculado) => renderCartaoReembolso(reembolsoVinculado, { margemInferior: 8 }))}
+		          </View>
+		        ) : null}
+		      </View>
 	    );
 	  };
 
@@ -1061,7 +1098,7 @@ export default function TelaReembolso() {
         {modoFormulario === 'visualizacao' && reembolsoSelecionado ? (
           <>
             {renderFormularioBase(true)}
-            {renderCampoBloqueado(t('financeiro.reembolso.statusLista.pendente'), t(`financeiro.reembolso.statusLista.${reembolsoSelecionado.status}`))}
+            {renderCampoBloqueadoStatus(t('financeiro.reembolso.statusLista.pendente'), t(`financeiro.reembolso.statusLista.${reembolsoSelecionado.status}`), obterEstiloBadgeStatusReembolso(reembolsoSelecionado.status))}
             {renderCampoBloqueado(t('financeiro.reembolso.campos.dataEfetivacao'), reembolsoSelecionado.dataEfetivacao ? formatarDataPorIdioma(reembolsoSelecionado.dataEfetivacao) : '')}
             <Botao titulo={t('comum.acoes.cancelar')} onPress={() => setModoFormulario('lista')} tipo="secundario" disabled={carregando} />
           </>

@@ -17,6 +17,7 @@ import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
 import { aplicarMascaraCompetencia, avancarCompetencia, desserializarCompetencia, formatarCompetencia, formatarCompetenciaParaEntrada, obterCompetenciaAtual, obterCompetenciaPorData, serializarCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
+import { podeAlterarTransacaoVinculadaAFatura, resolverStatusOperacionalTransacaoFatura } from '../../../src/utils/acoesFaturaCartao';
 import { rateioConfereValorTotalExato, rateioNaoUltrapassaValorTotal } from '../../../src/utils/rateioValidacao';
 import { obterIconeBanco, obterIconeBandeiraCartao, obterImagemBanco, obterImagemBandeiraCartao } from '../../../src/utils/icones';
 import {
@@ -59,7 +60,7 @@ import {
   type RegistroFinanceiroApi,
 } from '../../../src/servicos/financeiro';
 
-type StatusDespesa = 'pendente' | 'efetivada' | 'cancelada' | 'pendenteAprovacao' | 'rejeitada';
+type StatusDespesa = 'pendente' | 'efetivada' | 'estornada' | 'cancelada' | 'pendenteAprovacao' | 'rejeitada';
 type StatusFaturaCartao = 'aberta' | 'fechada' | 'efetivada' | 'estornada';
 type ModoTela = 'lista' | 'novo' | 'edicao' | 'visualizacao' | 'efetivacao' | 'estorno';
 type EscopoAcaoRecorrencia = 'apenasEsta' | 'estaEProximas' | 'todasPendentes';
@@ -274,10 +275,14 @@ function normalizarTipoRateioAmigos(valor: unknown): TipoRateioAmigos {
 
 function normalizarStatusDespesa(status: unknown): StatusDespesa {
   const valor = String(status ?? '').toLowerCase();
+  if (valor === '2') return 'efetivada';
+  if (valor === '3') return 'estornada';
   if (valor.includes('aprov') || valor.includes('pendente_aprovacao') || valor.includes('pendenteaprovacao')) return 'pendenteAprovacao';
   if (valor.includes('rejeit')) return 'rejeitada';
+  if (valor.includes('estorn') || valor.includes('revers')) return 'estornada';
   if (valor.includes('efetiv')) return 'efetivada';
   if (valor.includes('cancel')) return 'cancelada';
+  if (valor.includes('pago') || valor.includes('liquid') || valor.includes('conclu')) return 'efetivada';
   return 'pendente';
 }
 
@@ -482,7 +487,7 @@ function mapearDespesaApi(item: RegistroFinanceiroApi): DespesaRegistro {
     || tipoDespesaBruto.includes('fatura')
     || despesasVinculadasIds.length > 0;
   const faturaId = faturaIdDireta ?? faturaIdRelacionada;
-  const statusFaturaCartao = ehFatura
+  const statusFaturaCartao = (ehFatura || Boolean(faturaCartaoId))
     ? normalizarStatusFaturaCartao(item.statusFaturaCartao ?? item.statusFatura ?? item.status)
     : undefined;
 
@@ -877,16 +882,27 @@ export default function TelaDespesa() {
   };
 
   const gruposFaturaApi = useMemo<GrupoFaturaDespesa[]>(() => {
+    const mapaStatusPorDespesaId = new Map(despesas.map((despesa) => [despesa.id, despesa.status]));
     return detalhesFaturasCartao
       .map((detalhe) => {
+        const statusFaturaCartao = normalizarStatusFaturaCartao(detalhe.status);
         const despesasVinculadas = detalhe.transacoes
-          .map((transacao) => mapearDespesaApi({ ...transacao, faturaCartaoId: detalhe.faturaCartaoId, faturaId: detalhe.faturaCartaoId }))
+          .map((transacao) => {
+            const transacaoId = Number((transacao as Record<string, unknown>).id ?? (transacao as Record<string, unknown>).transacaoId ?? 0);
+            const statusTransacaoLista = mapaStatusPorDespesaId.get(transacaoId);
+            return mapearDespesaApi({
+            ...transacao,
+            faturaCartaoId: detalhe.faturaCartaoId,
+            faturaId: detalhe.faturaCartaoId,
+            statusFaturaCartao,
+              status: statusTransacaoLista ?? resolverStatusOperacionalTransacaoFatura(transacao as Record<string, unknown>, statusFaturaCartao),
+            });
+          })
           .filter(despesaBateFiltroLista)
           .sort((a, b) => a.id - b.id);
         const dataBase = detalhe.competencia ? `${detalhe.competencia}-01` : new Date().toISOString().slice(0, 10);
         const valorTotalTransacoes = Number.isFinite(detalhe.valorTotalTransacoes) ? detalhe.valorTotalTransacoes : despesasVinculadas.reduce((total, item) => total + item.valorLiquido, 0);
         const valorTotalFatura = Number.isFinite(detalhe.valorTotal) ? detalhe.valorTotal : valorTotalTransacoes;
-        const statusFaturaCartao = normalizarStatusFaturaCartao(detalhe.status);
         const fatura = mapearDespesaApi({
           id: detalhe.faturaCartaoId * -1,
           faturaCartaoId: detalhe.faturaCartaoId,
@@ -916,7 +932,7 @@ export default function TelaDespesa() {
         };
       })
       .sort((a, b) => a.fatura.id - b.fatura.id);
-  }, [detalhesFaturasCartao, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, t]);
+  }, [detalhesFaturasCartao, despesas, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, t]);
   const gruposFatura = gruposFaturaApi;
 
   const mapaGrupoPorFaturaId = useMemo(
@@ -1050,6 +1066,9 @@ export default function TelaDespesa() {
   };
 
   const abrirEdicao = (despesa: DespesaRegistro) => {
+    if (!podeAlterarTransacaoVinculadaAFatura(despesa.faturaCartaoId, despesa.id, despesa.statusFaturaCartao)) {
+      return;
+    }
     if (despesa.status !== 'pendente') {
       notificarErro( t('financeiro.despesa.mensagens.edicaoSomentePendente'));
       return;
@@ -1059,6 +1078,9 @@ export default function TelaDespesa() {
   };
 
   const abrirEfetivacao = (despesa: DespesaRegistro) => {
+    if (!podeAlterarTransacaoVinculadaAFatura(despesa.faturaCartaoId, despesa.id, despesa.statusFaturaCartao)) {
+      return;
+    }
     if (despesa.status !== 'pendente') {
       notificarErro( t('financeiro.despesa.mensagens.efetivacaoSomentePendente'));
       return;
@@ -1068,6 +1090,9 @@ export default function TelaDespesa() {
   };
 
   const abrirEstorno = (despesa: DespesaRegistro) => {
+    if (!podeAlterarTransacaoVinculadaAFatura(despesa.faturaCartaoId, despesa.id, despesa.statusFaturaCartao)) {
+      return;
+    }
     if (despesa.status !== 'efetivada') {
       notificarErro(t('financeiro.despesa.mensagens.estornoSomenteEfetivada'));
       return;
@@ -1493,6 +1518,9 @@ export default function TelaDespesa() {
 
   const efetivarDespesa = async () => {
     if (!despesaSelecionada) return;
+    if (!podeAlterarTransacaoVinculadaAFatura(despesaSelecionada.faturaCartaoId, despesaSelecionada.id, despesaSelecionada.statusFaturaCartao)) {
+      return;
+    }
     if (despesaSelecionada.status !== 'pendente') {
       notificarErro(t('financeiro.despesa.mensagens.efetivacaoSomentePendente'));
       return;
@@ -1526,6 +1554,9 @@ export default function TelaDespesa() {
   };
 
   const cancelarDespesa = (despesa: DespesaRegistro) => {
+    if (!podeAlterarTransacaoVinculadaAFatura(despesa.faturaCartaoId, despesa.id, despesa.statusFaturaCartao)) {
+      return;
+    }
     if (despesa.status !== 'pendente') {
       notificarErro( t('financeiro.despesa.mensagens.cancelamentoSomentePendente'));
       return;
@@ -1545,7 +1576,7 @@ export default function TelaDespesa() {
         escopoRecorrencia,
       });
       await carregarDespesasApi();
-      notificarSucesso(t('financeiro.despesa.acoes.cancelarDespesa'));
+      notificarSucesso(t('comum.acoes.cancelar'));
       setDespesaPendenteCancelamento(null);
     } catch {
       return;
@@ -1556,6 +1587,9 @@ export default function TelaDespesa() {
 
   const estornarDespesa = async () => {
     if (!despesaSelecionada) return;
+    if (!podeAlterarTransacaoVinculadaAFatura(despesaSelecionada.faturaCartaoId, despesaSelecionada.id, despesaSelecionada.statusFaturaCartao)) {
+      return;
+    }
     if (despesaSelecionada.status !== 'efetivada') {
       notificarErro( t('financeiro.despesa.mensagens.estornoSomenteEfetivada'));
       return;
@@ -1656,23 +1690,26 @@ export default function TelaDespesa() {
   const renderAcoesDespesa = (
     despesa: DespesaRegistro,
     opcoes?: { ocultarAcoesOperacionais?: boolean; podeEfetivar?: boolean; ocultarTodasAcoes?: boolean; ocultarEfetivacaoEstorno?: boolean },
-  ) => (
+  ) => {
+    const podeAlterar = podeAlterarTransacaoVinculadaAFatura(despesa.faturaCartaoId, despesa.id, despesa.statusFaturaCartao);
+    return (
     opcoes?.ocultarTodasAcoes ? null : (
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
-        {despesa.ehFatura ? null : (
+        {despesa.ehFatura && !despesa.faturaCartaoId ? null : (
           <>
             <TouchableOpacity onPress={() => abrirVisualizacao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('financeiro.despesa.acoes.visualizar')}</Text></TouchableOpacity>
-            {despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais ? <TouchableOpacity onPress={() => abrirEdicao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
-            {despesa.status === 'pendente' && (opcoes?.podeEfetivar ?? true) && !opcoes?.ocultarEfetivacaoEstorno ? <TouchableOpacity onPress={() => abrirEfetivacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.despesa.acoes.efetivar')}</Text></TouchableOpacity> : null}
-            {despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais ? <TouchableOpacity onPress={() => cancelarDespesa(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.despesa.acoes.cancelarDespesa')}</Text></TouchableOpacity> : null}
-            {despesa.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => aceitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
-            {despesa.status === 'pendenteAprovacao' ? <TouchableOpacity onPress={() => rejeitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
-            {despesa.status === 'efetivada' && !opcoes?.ocultarEfetivacaoEstorno ? <TouchableOpacity onPress={() => abrirEstorno(despesa)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.despesa.acoes.estornar')}</Text></TouchableOpacity> : null}
+            {despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar ? <TouchableOpacity onPress={() => abrirEdicao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
+            {despesa.status === 'pendente' && (opcoes?.podeEfetivar ?? true) && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar ? <TouchableOpacity onPress={() => abrirEfetivacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.despesa.acoes.efetivar')}</Text></TouchableOpacity> : null}
+            {despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar ? <TouchableOpacity onPress={() => cancelarDespesa(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('comum.acoes.cancelar')}</Text></TouchableOpacity> : null}
+            {despesa.status === 'pendenteAprovacao' && !despesa.faturaCartaoId ? <TouchableOpacity onPress={() => aceitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
+            {despesa.status === 'pendenteAprovacao' && !despesa.faturaCartaoId ? <TouchableOpacity onPress={() => rejeitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
+            {despesa.status === 'efetivada' && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar ? <TouchableOpacity onPress={() => abrirEstorno(despesa)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.despesa.acoes.estornar')}</Text></TouchableOpacity> : null}
           </>
         )}
       </View>
     )
-  );
+    );
+  };
 
   const renderCartaoDespesa = (
     despesa: DespesaRegistro,
@@ -1742,7 +1779,7 @@ export default function TelaDespesa() {
         
         {expandida ? (
           <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10}}>
-            {grupo.despesasVinculadas.map((despesaVinculada) => renderCartaoDespesa(despesaVinculada, { margemInferior: 8, ocultarEfetivacaoEstorno: true }))}
+            {grupo.despesasVinculadas.map((despesaVinculada) => renderCartaoDespesa(despesaVinculada, { margemInferior: 8 }))}
           </View>
         ) : null}
       </View>
@@ -1777,6 +1814,13 @@ export default function TelaDespesa() {
       </View>
     );
   };
+
+  const renderCampoBloqueadoStatus = (label: string, rotulo: string, estilo: { corTexto: string; corBorda: string; corFundo: string }) => (
+    <View style={{ marginBottom: 12 }}>
+      <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
+      <DistintivoStatus rotulo={rotulo} corTexto={estilo.corTexto} corBorda={estilo.corBorda} corFundo={estilo.corFundo} />
+    </View>
+  );
 
   const renderTabelaRateioAmigos = (somenteLeitura: boolean) => {
     const linhas = formulario.amigosRateio.map((amigo) => ({
@@ -2080,7 +2124,7 @@ export default function TelaDespesa() {
         {modoTela === 'visualizacao' && despesaSelecionada ? (
           <>
             {renderFormularioBase(true)}
-            {renderCampoBloqueado(t('financeiro.despesa.campos.status'), obterRotuloStatusDespesa(despesaSelecionada.status, t))}
+            {renderCampoBloqueadoStatus(t('financeiro.despesa.campos.status'), obterRotuloStatusDespesa(despesaSelecionada.status, t), obterEstiloBadgeStatusDespesa(despesaSelecionada.status))}
             {renderCampoBloqueado(t('financeiro.despesa.campos.dataEfetivacao'), despesaSelecionada.dataEfetivacao ? formatarDataPorIdioma(despesaSelecionada.dataEfetivacao) : '')}
             <View style={{ marginBottom: 16 }}>
               <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{t('financeiro.despesa.logs.titulo')}</Text>
@@ -2135,14 +2179,6 @@ export default function TelaDespesa() {
     </View>
   );
 }
-
-
-
-
-
-
-
-
 
 
 
