@@ -205,6 +205,7 @@
     "faturaTitulo": "Fatura do CartÃ£o",
     "faturaVazia": "Nenhum lanÃ§amento de fatura para este cartÃ£o.",
     "totalFatura": "Total da Fatura",
+    "statusFaturaVencida": "VENCIDA",
     "limiteDisponivel": "Limite",
     "campos": {
       "nome": "Nome do CartÃ£o",

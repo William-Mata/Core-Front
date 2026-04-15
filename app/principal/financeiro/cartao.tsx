@@ -31,6 +31,7 @@ import { calcularTotalLancamentos } from '../../../src/utils/calcularTotalLancam
 
 type TipoCartao = 'credito' | 'debito';
 type StatusCartao = 'ativo' | 'inativo';
+type StatusFaturaCartao = 'aberta' | 'fechada' | 'efetivada' | 'estornada';
 type ModoTela = 'lista' | 'novo' | 'edicao' | 'visualizacao';
 
 interface LogCartao {
@@ -66,7 +67,7 @@ interface Cartao {
   status: StatusCartao;
   lancamentos: LancamentoCartao[];
   faturaCartaoId?: number;
-  statusFatura?: string;
+  statusFatura?: StatusFaturaCartao;
   valorTotalFatura?: number;
   logs: LogCartao[];
 }
@@ -561,6 +562,49 @@ export default function TelaCartao() {
       ? cartao.valorTotalFatura
       : calcularTotalLancamentos(obterLancamentosDoMes(cartao));
 
+  const obterDataAtualIso = () => {
+    const hoje = new Date();
+    const ano = String(hoje.getFullYear());
+    const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+    const dia = String(hoje.getDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}`;
+  };
+
+  const faturaEstaVencida = (cartao: Cartao) => {
+    if (cartao.tipo !== 'credito') return false;
+    if (cartao.statusFatura !== 'fechada' && cartao.statusFatura !== 'estornada') return false;
+    const dataVencimento = String(cartao.dataVencimentoCartao ?? '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataVencimento)) return false;
+    return dataVencimento < obterDataAtualIso();
+  };
+
+  const obterRotuloStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => String(status ?? 'aberta').toUpperCase();
+  const obterEstiloBadgeStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => {
+    if (status === 'efetivada') return { corTexto: COLORS.success, corBorda: '#86efac', corFundo: '#14532d' };
+    if (status === 'estornada') return { corTexto: COLORS.error, corBorda: '#fca5a5', corFundo: '#7f1d1d' };
+    if (status === 'fechada') return { corTexto: COLORS.info, corBorda: '#93c5fd', corFundo: '#1e3a8a' };
+    return { corTexto: COLORS.warning, corBorda: '#fde68a', corFundo: '#78350f' };
+  };
+  const renderBadgeStatusFaturaCartao = (status: StatusFaturaCartao | undefined) => {
+    const estilo = obterEstiloBadgeStatusFaturaCartao(status);
+    return (
+      <DistintivoStatus
+        rotulo={obterRotuloStatusFaturaCartao(status)}
+        corTexto={estilo.corTexto}
+        corBorda={estilo.corBorda}
+        corFundo={estilo.corFundo}
+      />
+    );
+  };
+  const renderBadgeAlertaFaturaVencida = () => (
+    <DistintivoStatus
+      rotulo={t('financeiro.cartao.statusFaturaVencida')}
+      corTexto={COLORS.error}
+      corBorda="#fca5a5"
+      corFundo="#7f1d1d"
+    />
+  );
+
   const renderIconeBandeira = (bandeira: string) => {
     const imagemBandeira = obterImagemBandeiraCartao(bandeira);
     if (imagemBandeira) {
@@ -666,18 +710,25 @@ export default function TelaCartao() {
                             <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{'\u2192'}</Text>
                           </TouchableOpacity>
                         </View>
-	                        <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 8, padding: 10, marginBottom: 8 }}>
-	                          <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>{cartao.tipo === 'credito' ? t('financeiro.cartao.totalFatura') : t('financeiro.cartao.totalExtrato')}</Text>
-	                          <Text style={{ color: COLORS.accent, fontSize: 20, fontWeight: '800' }}>{formatarValorPorIdioma(totalPeriodo(cartao))}</Text>
-	                        </View>
-	                        {cartao.tipo === 'credito' && cartao.statusFatura ? (
-	                          <View style={{ marginBottom: 8 }}>
-	                            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 6 }}>{t('financeiro.cartao.campos.status')}: {String(cartao.statusFatura).toUpperCase()}</Text>
-	                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
-	                              {(cartao.statusFatura === 'aberta' || cartao.statusFatura === 'fechada') && cartao.faturaCartaoId ? (
-	                                <TouchableOpacity onPress={() => void efetivarFaturaCartao(cartao)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}>
-	                                  <Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.despesa.acoes.efetivar')}</Text>
-	                                </TouchableOpacity>
+		                        <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 8, padding: 10, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <View style={{ flex: 1, paddingRight: 8 }}>
+		                            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>{cartao.tipo === 'credito' ? t('financeiro.cartao.totalFatura') : t('financeiro.cartao.totalExtrato')}</Text>
+		                            <Text style={{ color: COLORS.accent, fontSize: 20, fontWeight: '800' }}>{formatarValorPorIdioma(totalPeriodo(cartao))}</Text>
+                              </View>
+                              {cartao.tipo === 'credito' && cartao.statusFatura ? (
+                                <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                                  {renderBadgeStatusFaturaCartao(cartao.statusFatura)}
+                                  {faturaEstaVencida(cartao) ? renderBadgeAlertaFaturaVencida() : null}
+                                </View>
+                              ) : null}
+		                        </View>
+		                        {cartao.tipo === 'credito' && cartao.statusFatura ? (
+		                          <View style={{ marginBottom: 8 }}>
+		                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
+		                              {(cartao.statusFatura === 'aberta' || cartao.statusFatura === 'fechada' || cartao.statusFatura === 'estornada') && cartao.faturaCartaoId ? (
+		                                <TouchableOpacity onPress={() => void efetivarFaturaCartao(cartao)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}>
+		                                  <Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.despesa.acoes.efetivar')}</Text>
+		                                </TouchableOpacity>
 	                              ) : null}
 	                              {cartao.statusFatura === 'efetivada' && cartao.faturaCartaoId ? (
 	                                <TouchableOpacity onPress={() => void estornarFaturaCartao(cartao)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}>
@@ -720,7 +771,9 @@ export default function TelaCartao() {
           <>
             <CampoTexto label={t('financeiro.cartao.campos.descricao')} placeholder={t('financeiro.cartao.placeholders.descricao')} value={formulario.descricao} onChangeText={(descricao) => { setCamposInvalidos((atual) => ({ ...atual, descricao: false })); setFormulario((atual) => ({ ...atual, descricao })); }} error={camposInvalidos.descricao} estilo={{ marginBottom: 12 }} />
             <CampoSelect label={t('financeiro.cartao.campos.bandeira')} placeholder={t('comum.acoes.selecionar')} options={opcoesBandeiras.map((bandeira) => ({ value: bandeira, label: bandeira, icone: obterIconeBandeiraCartao(bandeira), imagem: obterImagemBandeiraCartao(bandeira) }))} value={formulario.bandeira} onChange={(bandeira) => { setCamposInvalidos((atual) => ({ ...atual, bandeira: false })); setFormulario((atual) => ({ ...atual, bandeira })); }} error={camposInvalidos.bandeira} />
-            <CampoSelect label={t('financeiro.cartao.campos.tipo')} placeholder={t('comum.acoes.selecionar')} options={tiposCartao.map((tipo) => ({ value: tipo, label: t(`financeiro.cartao.tipos.${tipo}`) }))} value={formulario.tipo} onChange={(tipo) => atualizarTipoFormulario(tipo as TipoCartao)} error={camposInvalidos.tipo} />
+            {modoTela === 'novo'
+              ? <CampoSelect label={t('financeiro.cartao.campos.tipo')} placeholder={t('comum.acoes.selecionar')} options={tiposCartao.map((tipo) => ({ value: tipo, label: t(`financeiro.cartao.tipos.${tipo}`) }))} value={formulario.tipo} onChange={(tipo) => atualizarTipoFormulario(tipo as TipoCartao)} error={camposInvalidos.tipo} />
+              : renderCampoBloqueado(t('financeiro.cartao.campos.tipo'), t(`financeiro.cartao.tipos.${formulario.tipo}`))}
             {tipoExigeVencimento(formulario.tipo) ? <CampoTexto label={t('financeiro.cartao.campos.limite')} placeholder={t('financeiro.cartao.placeholders.valor')} value={formulario.limite} onChangeText={(limite) => { setCamposInvalidos((atual) => ({ ...atual, limite: false })); setFormulario((atual) => ({ ...atual, limite: aplicarMascaraMoeda(limite, locale) })); }} error={camposInvalidos.limite} keyboardType="numeric" estilo={{ marginBottom: 12 }} /> : null}
             {modoTela === 'novo'
               ? <CampoTexto label={t('financeiro.cartao.campos.saldoDisponivel')} placeholder={t('financeiro.cartao.placeholders.valor')} value={formulario.saldoDisponivel} onChangeText={(saldoDisponivel) => { setCamposInvalidos((atual) => ({ ...atual, saldoDisponivel: false })); setFormulario((atual) => ({ ...atual, saldoDisponivel: aplicarMascaraMoeda(saldoDisponivel, locale) })); }} error={camposInvalidos.saldoDisponivel} keyboardType="numeric" estilo={{ marginBottom: 12 }} />

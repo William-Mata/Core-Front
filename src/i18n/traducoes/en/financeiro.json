@@ -206,6 +206,7 @@
     "faturaTitulo": "Card Bill",
     "faturaVazia": "No bill transactions for this card.",
     "totalFatura": "Bill Total",
+    "statusFaturaVencida": "OVERDUE",
     "limiteDisponivel": "Limit",
     "campos": {
       "nome": "Card Name",

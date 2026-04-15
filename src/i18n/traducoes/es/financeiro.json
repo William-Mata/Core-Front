@@ -200,6 +200,7 @@
     "faturaTitulo": "Factura de la Tarjeta",
     "faturaVazia": "No hay movimientos de factura para esta tarjeta.",
     "totalFatura": "Total de la Factura",
+    "statusFaturaVencida": "VENCIDA",
     "limiteDisponivel": "Límite",
     "campos": {
       "nome": "Nombre de la Tarjeta",
