@@ -97,6 +97,10 @@ function paraNumero(valor: unknown, padrao = 0): number {
   return Number.isFinite(numero) ? numero : padrao;
 }
 
+function normalizarDescricaoMaiuscula(descricao: string, locale: string) {
+  return descricao.toLocaleUpperCase(locale);
+}
+
 function normalizarStatusFaturaCartao(status: unknown): StatusFaturaCartao {
   const valor = String(status ?? '').toLowerCase();
   if (valor.includes('estorn')) return 'estornada';
@@ -230,6 +234,7 @@ export default function TelaReembolso() {
   const competenciaConsulta = useMemo(() => serializarCompetencia(competencia), [competencia]);
   const exibeContaBancaria = reembolsoAtual.tipoRecebimento === 'pix' || reembolsoAtual.tipoRecebimento === 'transferencia' || reembolsoAtual.tipoRecebimento === 'contaCorrente';
   const exibeCartao = reembolsoAtual.tipoRecebimento === 'cartaoCredito' || reembolsoAtual.tipoRecebimento === 'cartaoDebito';
+  const ocultarDataVencimentoCartaoCredito = reembolsoAtual.tipoRecebimento === 'cartaoCredito';
   const opcoesContaBancaria = useMemo(
     () =>
       opcoesContasBancariasApi.map((item) => {
@@ -435,6 +440,7 @@ export default function TelaReembolso() {
       setReembolsoSelecionadoId(completo.id);
       setReembolsoAtual({
         ...completo,
+        descricao: normalizarDescricaoMaiuscula(completo.descricao, locale),
         dataEfetivacao: completo.dataEfetivacao || new Date().toISOString().split('T')[0],
         dataEstorno: completo.dataEstorno || new Date().toISOString().split('T')[0],
         valorEfetivacao: completo.valorEfetivacao ?? completo.valorTotal ?? calcularTotal(completo.despesasVinculadas),
@@ -545,7 +551,7 @@ export default function TelaReembolso() {
 
     const valorTotal = calcularTotal(reembolsoAtual.despesasVinculadas);
     const payload: Record<string, unknown> = {
-      descricao: reembolsoAtual.descricao.trim(),
+      descricao: normalizarDescricaoMaiuscula(reembolsoAtual.descricao.trim(), locale),
       solicitante: reembolsoAtual.solicitante.trim(),
       dataLancamento: reembolsoAtual.dataLancamento,
       competencia: serializarCompetencia(desserializarCompetencia(reembolsoAtual.competencia) ?? obterCompetenciaPorData(reembolsoAtual.dataLancamento)),
@@ -890,10 +896,12 @@ export default function TelaReembolso() {
 	          </TouchableOpacity>
 	        </View>
 	        {expandida ? (
-	          <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10 }}>
+	          <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10, maxHeight: 320 }}>
+	            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
 		            {grupo.reembolsosVinculados.map((reembolsoVinculado) => renderCartaoReembolso(reembolsoVinculado, { margemInferior: 8 }))}
-		          </View>
-		        ) : null}
+	            </ScrollView>
+	          </View>
+	        ) : null}
 		      </View>
 	    );
 	  };
@@ -920,14 +928,16 @@ export default function TelaReembolso() {
               {somenteLeitura
                 ? renderCampoBloqueado(t('financeiro.reembolso.despesasVinculadas'), despesasSelecionadas || '-')
                 : (
-                    <CampoSelect
-                      label={t('financeiro.reembolso.despesasVinculadas')}
-                      placeholder={t('comum.acoes.selecionar')}
-                      multiple
-                      options={despesasDisponiveis.map((despesa) => ({
-                        value: String(despesa.id),
-                        label: `${despesa.titulo} - ${formatarValorPorIdioma(despesa.valor)} - ${formatarDataPorIdioma(despesa.data)}`,
-                      }))}
+	                    <CampoSelect
+	                      label={t('financeiro.reembolso.despesasVinculadas')}
+	                      placeholder={t('comum.acoes.selecionar')}
+	                      multiple
+	                      options={despesasDisponiveis.map((despesa) => ({
+	                        value: String(despesa.id),
+	                        label: ocultarDataVencimentoCartaoCredito
+	                          ? `${despesa.titulo} - ${formatarValorPorIdioma(despesa.valor)}`
+	                          : `${despesa.titulo} - ${formatarValorPorIdioma(despesa.valor)} - ${formatarDataPorIdioma(despesa.data)}`,
+	                      }))}
                       values={reembolsoAtual.despesasVinculadas.map(String)}
                       onChangeMultiple={(values) =>
                         setReembolsoAtual((atual) => ({
@@ -953,7 +963,7 @@ export default function TelaReembolso() {
               label={t('financeiro.reembolso.descricao')}
               placeholder={t('financeiro.reembolso.placeholderDescricao')}
               value={reembolsoAtual.descricao}
-              onChangeText={(descricao) => setReembolsoAtual((atual) => ({ ...atual, descricao }))}
+              onChangeText={(descricao) => setReembolsoAtual((atual) => ({ ...atual, descricao: normalizarDescricaoMaiuscula(descricao, locale) }))}
               obrigatorio
               multiline
               numberOfLines={3}

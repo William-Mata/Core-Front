@@ -204,6 +204,10 @@ function converterTextoParaNumero(valor: string, locale: string) {
   return Number.isFinite(numero) ? numero : 0;
 }
 
+function normalizarDescricaoMaiuscula(descricao: string, locale: string) {
+  return descricao.toLocaleUpperCase(locale);
+}
+
 function criarFormularioVazio(locale: string): DespesaForm {
   const hoje = new Date().toISOString().split('T')[0];
   return {
@@ -687,6 +691,7 @@ export default function TelaDespesa() {
   const tipoPagamentoPermiteContaDestino = formulario.tipoPagamento === 'transferencia' || formulario.tipoPagamento === 'pix';
   const tipoPagamentoExigeContaBancaria = formulario.tipoPagamento === 'pix' || formulario.tipoPagamento === 'transferencia';
   const tipoPagamentoExigeCartao = formulario.tipoPagamento === 'cartaoCredito' || formulario.tipoPagamento === 'cartaoDebito';
+  const ocultarDataVencimentoCartaoCredito = formulario.tipoPagamento === 'cartaoCredito';
   const contaBancariaIdSelecionada = useMemo(() => {
     const valorSelecionado = formulario.contaBancaria.trim();
     if (!valorSelecionado) return undefined;
@@ -984,7 +989,7 @@ export default function TelaDespesa() {
   const preencherFormulario = (despesa: DespesaRegistro) => {
     definirTipoRateioAmigos(despesa.tipoRateioAmigos);
     setFormulario({
-      descricao: despesa.descricao,
+      descricao: normalizarDescricaoMaiuscula(despesa.descricao, locale),
       observacao: despesa.observacao,
       dataLancamento: despesa.dataLancamento,
       competencia: formatarCompetenciaParaEntrada(desserializarCompetencia(despesa.competencia) ?? obterCompetenciaPorData(despesa.dataLancamento), locale),
@@ -1249,12 +1254,12 @@ export default function TelaDespesa() {
   const validarFormularioBase = () => {
     const invalidos: Record<string, boolean> = {};
     const dataLancamento = formulario.dataLancamento;
-    const dataVencimento = formulario.dataVencimento;
+    const dataVencimento = ocultarDataVencimentoCartaoCredito ? '' : formulario.dataVencimento;
     const quantidadeRecorrencia = normalizarQuantidadeRecorrencia(formulario.quantidadeRecorrencia);
 
     if (!formulario.descricao.trim()) invalidos.descricao = true;
     if (!dataLancamento) invalidos.dataLancamento = true;
-    if (!dataVencimento) invalidos.dataVencimento = true;
+    if (!ocultarDataVencimentoCartaoCredito && !dataVencimento) invalidos.dataVencimento = true;
     if (!formulario.tipoDespesa) invalidos.tipoDespesa = true;
     if (!formulario.tipoPagamento) invalidos.tipoPagamento = true;
     if (tipoPagamentoExigeContaBancaria && !contaBancariaIdSelecionada) invalidos.contaBancaria = true;
@@ -1283,7 +1288,7 @@ export default function TelaDespesa() {
     }
 
 
-    if (dataIsoMaiorQue(dataLancamento, dataVencimento)) {
+    if (!ocultarDataVencimentoCartaoCredito && dataIsoMaiorQue(dataLancamento, dataVencimento)) {
       setCamposInvalidos((atual) => ({ ...atual, dataVencimento: true }));
       notificarErro(t('financeiro.despesa.mensagens.dataVencimentoMaiorQueLancamento'));
       return null;
@@ -1337,7 +1342,7 @@ export default function TelaDespesa() {
     return {
       dataLancamento,
       competencia: formulario.competencia.trim() || serializarCompetencia(obterCompetenciaPorData(dataLancamento)),
-      dataVencimento,
+      dataVencimento: ocultarDataVencimentoCartaoCredito ? undefined : dataVencimento,
       valorTotal,
       valorLiquido,
       desconto: converterTextoParaNumero(formulario.desconto, locale),
@@ -1400,7 +1405,7 @@ export default function TelaDespesa() {
     }
 
     const payloadBase = {
-      descricao: formulario.descricao,
+      descricao: normalizarDescricaoMaiuscula(formulario.descricao, locale),
       observacao: formulario.observacao,
       dataLancamento: base.dataLancamento,
       competencia: base.competencia,
@@ -1736,7 +1741,9 @@ export default function TelaDespesa() {
             corFundo={estiloBadge.corFundo}
           />
         </View>
-        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>{t(`financeiro.despesa.tipoDespesa.${despesa.tipoDespesa}`)} | {formatarDataPorIdioma(despesa.dataVencimento)} | {formatarValorPorIdioma(despesa.valorLiquido)}</Text>
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>
+          {[t(`financeiro.despesa.tipoDespesa.${despesa.tipoDespesa}`), despesa.tipoPagamento === 'cartaoCredito' ? null : formatarDataPorIdioma(despesa.dataVencimento), formatarValorPorIdioma(despesa.valorLiquido)].filter(Boolean).join(' | ')}
+        </Text>
         <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>{despesa.observacao || t('financeiro.despesa.mensagens.semObservacao')}</Text>
         {renderAcoesDespesa(despesa, { ocultarAcoesOperacionais: opcoes?.ocultarAcoesOperacionais, podeEfetivar: opcoes?.podeEfetivar, ocultarTodasAcoes: opcoes?.ocultarTodasAcoes, ocultarEfetivacaoEstorno: opcoes?.ocultarEfetivacaoEstorno })}
       </View>
@@ -1777,11 +1784,13 @@ export default function TelaDespesa() {
           </TouchableOpacity>
         </View>
         
-        {expandida ? (
-          <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10}}>
-            {grupo.despesasVinculadas.map((despesaVinculada) => renderCartaoDespesa(despesaVinculada, { margemInferior: 8 }))}
-          </View>
-        ) : null}
+	        {expandida ? (
+	          <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10, maxHeight: 320 }}>
+	            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+	              {grupo.despesasVinculadas.map((despesaVinculada) => renderCartaoDespesa(despesaVinculada, { margemInferior: 8 }))}
+	            </ScrollView>
+	          </View>
+	        ) : null}
       </View>
     );
   };
@@ -1960,11 +1969,11 @@ export default function TelaDespesa() {
 
   const renderFormularioBase = (somenteLeitura: boolean) => (
     <>
-      {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.descricao'), formulario.descricao) : <CampoTexto label={t('financeiro.despesa.campos.descricao')} placeholder={t('financeiro.despesa.placeholders.descricao')} value={formulario.descricao} onChangeText={(descricao) => { setCamposInvalidos((atual) => ({ ...atual, descricao: false })); setFormulario((atual) => ({ ...atual, descricao })); }} error={camposInvalidos.descricao} estilo={{ marginBottom: 12 }} />}
+      {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.descricao'), formulario.descricao) : <CampoTexto label={t('financeiro.despesa.campos.descricao')} placeholder={t('financeiro.despesa.placeholders.descricao')} value={formulario.descricao} onChangeText={(descricao) => { setCamposInvalidos((atual) => ({ ...atual, descricao: false })); setFormulario((atual) => ({ ...atual, descricao: normalizarDescricaoMaiuscula(descricao, locale) })); }} error={camposInvalidos.descricao} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.observacao'), formulario.observacao) : <CampoTexto label={t('financeiro.despesa.campos.observacao')} placeholder={t('financeiro.despesa.placeholders.observacao')} value={formulario.observacao} onChangeText={(observacao) => setFormulario((atual) => ({ ...atual, observacao }))} multiline numberOfLines={4} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.dataLancamento'), formulario.dataLancamento ? formatarDataPorIdioma(formulario.dataLancamento) : '') : <CampoData label={t('financeiro.despesa.campos.dataLancamento')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataLancamento} onChange={(dataLancamento) => { setCamposInvalidos((atual) => ({ ...atual, dataLancamento: false })); setFormulario((atual) => ({ ...atual, dataLancamento })); }} error={camposInvalidos.dataLancamento} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.competencia'), formulario.competencia) : <CampoTexto label={t('financeiro.despesa.campos.competencia')} placeholder={t('financeiro.despesa.placeholders.competencia')} value={formulario.competencia} onChangeText={(competencia) => setFormulario((atual) => ({ ...atual, competencia: aplicarMascaraCompetencia(competencia, locale) }))} obrigatorio estilo={{ marginBottom: 12 }} />}
-      {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.dataVencimento'), formulario.dataVencimento ? formatarDataPorIdioma(formulario.dataVencimento) : '') : <CampoData label={t('financeiro.despesa.campos.dataVencimento')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataVencimento} onChange={(dataVencimento) => { setCamposInvalidos((atual) => ({ ...atual, dataVencimento: false })); setFormulario((atual) => ({ ...atual, dataVencimento })); }} error={camposInvalidos.dataVencimento} estilo={{ marginBottom: 12 }} />}
+      {ocultarDataVencimentoCartaoCredito ? null : (somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.dataVencimento'), formulario.dataVencimento ? formatarDataPorIdioma(formulario.dataVencimento) : '') : <CampoData label={t('financeiro.despesa.campos.dataVencimento')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataVencimento} onChange={(dataVencimento) => { setCamposInvalidos((atual) => ({ ...atual, dataVencimento: false })); setFormulario((atual) => ({ ...atual, dataVencimento })); }} error={camposInvalidos.dataVencimento} estilo={{ marginBottom: 12 }} />)}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoDespesa'), formulario.tipoDespesa ? t(`financeiro.despesa.tipoDespesa.${formulario.tipoDespesa}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoDespesa')} placeholder={t('comum.acoes.selecionar')} options={tiposDespesa.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoDespesa.${tipo}`) }))} value={formulario.tipoDespesa} onChange={(tipoDespesa) => { setCamposInvalidos((atual) => ({ ...atual, tipoDespesa: false })); setFormulario((atual) => ({ ...atual, tipoDespesa })); }} error={camposInvalidos.tipoDespesa} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.despesa.campos.tipoPagamento'), formulario.tipoPagamento ? t(`financeiro.despesa.tipoPagamento.${formulario.tipoPagamento}`) : '') : <CampoSelect label={t('financeiro.despesa.campos.tipoPagamento')} placeholder={t('comum.acoes.selecionar')} options={tiposPagamento.map((tipo) => ({ value: tipo, label: t(`financeiro.despesa.tipoPagamento.${tipo}`) }))} value={formulario.tipoPagamento} onChange={(tipoPagamento) => { setCamposInvalidos((atual) => ({ ...atual, tipoPagamento: false, quantidadeRecorrencia: false, contaBancaria: false, contaDestino: false, cartao: false })); setFormulario((atual) => { const exigeContaBancaria = tipoPagamento === 'pix' || tipoPagamento === 'transferencia'; const exigeCartao = tipoPagamento === 'cartaoCredito' || tipoPagamento === 'cartaoDebito'; const contaOuCartaoOpcional = !exigeContaBancaria && !exigeCartao; return { ...atual, tipoPagamento, recorrenciaBase: ehPagamentoParcelado(tipoPagamento) ? 'mensal' : atual.recorrenciaBase, contaBancaria: exigeContaBancaria || contaOuCartaoOpcional ? atual.contaBancaria : '', contaDestino: tipoPagamento === 'transferencia' || tipoPagamento === 'pix' ? atual.contaDestino : '', cartao: exigeCartao || contaOuCartaoOpcional ? atual.cartao : '' }; }); }} error={camposInvalidos.tipoPagamento} />}
       {exibeContaBancariaPagamento ? (somenteLeitura ? renderCampoBloqueadoContaCartao(t('financeiro.despesa.campos.contaBancaria'), formulario.contaBancaria, 'conta', referenciaContaBancariaSelecionada) : <CampoSelect label={t('financeiro.despesa.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancariaSelect} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false, cartao: false })); setFormulario((atual) => ({ ...atual, contaBancaria, contaDestino: atual.contaDestino === contaBancaria ? '' : atual.contaDestino, cartao: contaBancaria ? '' : atual.cartao })); }} error={camposInvalidos.contaBancaria} obrigatorio={tipoPagamentoExigeContaBancaria} />) : null}
@@ -2179,6 +2188,3 @@ export default function TelaDespesa() {
     </View>
   );
 }
-
-
-
