@@ -176,7 +176,7 @@
     "usuarios": {
       "lista": "System Users",
       "vazio": "No users found with filters",
-      "criar": "Create New User"
+      "criar": "Register"
     },
     "simulacao": {
       "titulo": "Simulate User",
@@ -217,6 +217,7 @@
       "erros": {
         "nomeEmailObrigatorio": "Name and email are required",
         "nomeEmailDataNascimentoObrigatorio": "Name, email and birth date are required",
+        "dataNascimentoMinimo15Anos": "Birth date must indicate a minimum age of 15 years",
         "emailInvalido": "Invalid email",
         "falhaSalvar": "Failed to save user"
       }

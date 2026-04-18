@@ -7,6 +7,7 @@ import { COLORS } from '../../src/styles/variables';
 import { cadastrarUsuario } from '../../src/servicos/autenticacao';
 import { notificarErro, notificarSucesso } from '../../src/utils/notificacao';
 import { erroApiJaNotificado, extrairMensagemErroApi } from '../../src/utils/erroApi';
+import { idadeMinimaAtingida } from '../../src/utils/validacaoDataNascimento';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -30,6 +31,11 @@ export default function CadastroUsuario() {
 
     if (!emailValido(email)) {
       notificarErro(t('admin.usuario.erros.emailInvalido'));
+      return;
+    }
+
+    if (!idadeMinimaAtingida(dataNascimento, 15)) {
+      notificarErro(t('admin.usuario.erros.dataNascimentoMinimo15Anos'));
       return;
     }
 

@@ -12,6 +12,7 @@ import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { formatarDataPorIdioma } from '../../../src/utils/formatacaoLocale';
 import { erroApiJaNotificado, extrairMensagemErroApi } from '../../../src/utils/erroApi';
+import { idadeMinimaAtingida } from '../../../src/utils/validacaoDataNascimento';
 import {
   atualizarUsuarioAdminApi,
   criarUsuarioAdminApi,
@@ -352,6 +353,12 @@ export default function FormUsuario() {
     if (!emailRegex.test(email.trim())) {
       setCamposInvalidos((atual) => ({ ...atual, email: true }));
       notificarErro(t('admin.usuario.erros.emailInvalido'));
+      return;
+    }
+
+    if (!idadeMinimaAtingida(dataNascimento, 15)) {
+      setCamposInvalidos((atual) => ({ ...atual, dataNascimento: true }));
+      notificarErro(t('admin.usuario.erros.dataNascimentoMinimo15Anos'));
       return;
     }
 

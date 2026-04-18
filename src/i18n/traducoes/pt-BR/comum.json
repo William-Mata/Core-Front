@@ -176,7 +176,7 @@
     "usuarios": {
       "lista": "Usuários do Sistema",
       "vazio": "Nenhum usuário encontrado com os filtros",
-      "criar": "Criar Novo Usuário"
+      "criar": "Cadastrar"
     },
     "simulacao": {
       "titulo": "Simular Usuário",
@@ -217,6 +217,7 @@
       "erros": {
         "nomeEmailObrigatorio": "Nome e email são obrigatórios",
         "nomeEmailDataNascimentoObrigatorio": "Nome, email e data de nascimento são obrigatórios",
+        "dataNascimentoMinimo15Anos": "A data de nascimento deve indicar idade mínima de 15 anos",
         "emailInvalido": "Email inválido",
         "falhaSalvar": "Falha ao salvar usuário"
       }
