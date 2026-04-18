@@ -216,7 +216,7 @@ export default function Entrar() {
       <TouchableOpacity
         onPress={() => setModoRecuperacao((atual) => !atual)}
         disabled={carregando}
-        style={{ marginTop: 12, alignSelf: 'flex-end' }}
+        style={{ marginTop: 12, alignSelf: 'center' }}
       >
         <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700' }}>
           {modoRecuperacao ? t('comum.entrar') : t('comum.login.esqueciSenha')}
