@@ -243,7 +243,8 @@
       "participanteRateioPadrao": "Yo",
       "valorTotalRateioAmigos": "Valor total prorrateo amigos",
       "tipoRateio": "Tipo de prorrateo",
-      "amigo": "Amigo"
+      "amigo": "Amigo",
+      "interpretacaoValorParcelado": "El valor informado representa"
     },
     "acoes": {
       "rateioIgualitario": "Prorrateo igualitario",
@@ -268,6 +269,10 @@
     "opcoesTipoRateio": {
       "comum": "Comun",
       "igualitario": "Igualitario"
+    },
+    "opcoesInterpretacaoValorParcelado": {
+      "valorParcela": "Valor de la cuota",
+      "valorTotalTransacao": "Valor total de la transaccion"
     },
     "mensagens": {
       "recorrenciaApenasPendentes": "Observacion: en lanzamientos recurrentes, solo los elementos con estado pendiente se pueden cancelar o editar.",

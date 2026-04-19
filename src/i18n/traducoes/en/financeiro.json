@@ -249,7 +249,8 @@
       "participanteRateioPadrao": "Me",
       "valorTotalRateioAmigos": "Friends split total amount",
       "tipoRateio": "Split type",
-      "amigo": "Friend"
+      "amigo": "Friend",
+      "interpretacaoValorParcelado": "Entered amount means"
     },
     "acoes": {
       "rateioIgualitario": "Equal split",
@@ -274,6 +275,10 @@
     "opcoesTipoRateio": {
       "comum": "Common",
       "igualitario": "Equal"
+    },
+    "opcoesInterpretacaoValorParcelado": {
+      "valorParcela": "Installment amount",
+      "valorTotalTransacao": "Total transaction amount"
     },
     "mensagens": {
       "recorrenciaApenasPendentes": "Note: for recurring entries, only items with pending status can be canceled or edited.",

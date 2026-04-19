@@ -248,7 +248,8 @@
       "participanteRateioPadrao": "Eu",
       "valorTotalRateioAmigos": "Valor total rateio amigos",
       "tipoRateio": "Tipo de rateio",
-      "amigo": "Amigo"
+      "amigo": "Amigo",
+      "interpretacaoValorParcelado": "Valor informado representa"
     },
     "acoes": {
       "rateioIgualitario": "Rateio igualitÃ¡rio",
@@ -273,6 +274,10 @@
     "opcoesTipoRateio": {
       "comum": "Comum",
       "igualitario": "Igualitario"
+    },
+    "opcoesInterpretacaoValorParcelado": {
+      "valorParcela": "Valor da parcela",
+      "valorTotalTransacao": "Valor total da transacao"
     },
     "mensagens": {
       "recorrenciaApenasPendentes": "Observacao: em lancamentos recorrentes, apenas itens com status pendente podem ser cancelados ou editados.",
