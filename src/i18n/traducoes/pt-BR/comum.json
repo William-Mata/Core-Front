@@ -87,7 +87,7 @@
       "dataEfetivacao": "Data Efetivação",
       "tipoPagamento": "Tipo Pagamento/Recebimento",
       "contaBancaria": "Conta Bancária",
-      "areaSubarea": "Tipo Despesa/Receita"
+      "areaSubarea": "Área"
     },
     "tipos": {
       "despesa": "Despesa",
