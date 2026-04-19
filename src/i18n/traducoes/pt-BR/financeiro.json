@@ -54,7 +54,7 @@
       "outros": "Outros"
     },
     "mensagens": {
-      "obrigatorio": "TÃ­tulo, categoria e valor sÃ£o obrigatÃ³rios.",
+      "obrigatorio": "Preencha os campos obrigatorios.",
       "confirmarRemocao": "Deseja remover esta despesa?",
       "semDescricao": "Sem descriÃ§Ã£o",
       "criada": "Despesa criada com sucesso.",
@@ -88,7 +88,8 @@
       "observacao": "Digite observacoes adicionais"
     },
     "mensagens": {
-      "obrigatorio": "TÃ­tulo, categoria e valor sÃ£o obrigatÃ³rios.",
+      "obrigatorio": "Preencha os campos obrigatorios.",
+      "contaObrigatoria": "Selecione uma conta bancaria.",
       "obrigatorioEstorno": "Data de estorno e obrigatoria.",
       "estornada": "Receita estornada com sucesso."
     },
@@ -125,6 +126,8 @@
     },
     "mensagens": {
       "descricaoObrigatoria": "DescriÃ§Ã£o Ã© obrigatÃ³ria",
+      "contaObrigatoria": "Selecione uma conta bancaria.",
+      "cartaoObrigatorio": "Selecione um cartao.",
       "adicionarDespesa": "Adicione pelo menos uma despesa",
       "despesaJaVinculada": "A despesa {{despesa}} jÃ¡ estÃ¡ vinculada a outro reembolso.",
       "confirmarRemocao": "Deseja remover este reembolso?",

@@ -14,12 +14,13 @@ import { usarAutenticacaoStore } from '../../../src/store/usarAutenticacaoStore'
 import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
-import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
+import { formatarDataHoraPorIdioma, formatarDataPorIdioma, formatarValorPorIdioma, normalizarIsoDataHora, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
 import { aplicarMascaraCompetencia, avancarCompetencia, desserializarCompetencia, formatarCompetencia, formatarCompetenciaParaEntrada, obterCompetenciaAtual, obterCompetenciaPorData, serializarCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
 import { podeAlterarTransacaoVinculadaAFatura, resolverStatusOperacionalTransacaoFatura } from '../../../src/utils/acoesFaturaCartao';
 import { rateioConfereValorTotalExato, rateioNaoUltrapassaValorTotal } from '../../../src/utils/rateioValidacao';
 import { obterIconeBanco, obterIconeBandeiraCartao, obterImagemBanco, obterImagemBandeiraCartao } from '../../../src/utils/icones';
+import { compararPorLancamentoEfetivacaoDecrescente } from '../../../src/utils/ordenacaoLancamentoFinanceiro';
 import {
   RECORRENCIAS_FINANCEIRAS_BASE,
   LIMITE_RECORRENCIA_NORMAL,
@@ -208,15 +209,16 @@ function normalizarDescricaoMaiuscula(descricao: string, locale: string) {
 
 function criarFormularioVazio(locale: string): ReceitaForm {
   const hoje = new Date().toISOString().split('T')[0];
+  const hojeComHoraZerada = `${hoje}T00:00`;
   return {
     descricao: '',
     observacao: '',
     observacaoEfetivacao: '',
     observacaoEstorno: '',
-    dataLancamento: hoje,
+    dataLancamento: hojeComHoraZerada,
     competencia: formatarCompetenciaParaEntrada(obterCompetenciaAtual(), locale),
     dataVencimento: '',
-    dataEfetivacao: hoje,
+    dataEfetivacao: hojeComHoraZerada,
     dataEstorno: hoje,
     tipoReceita: '',
     tipoRecebimento: '',
@@ -318,6 +320,11 @@ function normalizarTipoRecebimento(valor: unknown): (typeof tiposRecebimento)[nu
   return tipoEncontrado ?? 'dinheiro';
 }
 
+function normalizarTipoCartaoOpcao(valor: unknown): 'credito' | 'debito' {
+  const tipo = String(valor ?? '').trim().toLowerCase();
+  return tipo.includes('debi') ? 'debito' : 'credito';
+}
+
 
 function obterRotuloStatusReceita(status: StatusReceita, t: (chave: string) => string): string {
   const chave = `financeiro.receita.status.${status}`;
@@ -339,6 +346,7 @@ function obterRotuloStatusReceita(status: StatusReceita, t: (chave: string) => s
 }
 
 function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
+  const itemRegistro = item as Record<string, unknown>;
   const paraNumeroOpcional = (valor: unknown): number | undefined => {
     const numero = Number(valor ?? NaN);
     return Number.isFinite(numero) && numero > 0 ? numero : undefined;
@@ -356,7 +364,7 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
       })
       .filter((numero): numero is number => Number.isFinite(numero) && numero > 0);
   };
-  const dataBase = String(item.dataLancamento ?? item.data ?? new Date().toISOString().slice(0, 10)).slice(0, 10);
+  const dataBase = normalizarIsoDataHora(String(item.dataLancamento ?? item.data ?? new Date().toISOString().slice(0, 10)), '00:00');
   const competenciaBase = String(item.competencia ?? serializarCompetencia(obterCompetenciaPorData(dataBase))).slice(0, 7);
   const valorBase = Number(item.valor ?? item.valorTotal ?? item.valorLiquido ?? 0);
   const desconto = Number(item.desconto ?? 0);
@@ -366,22 +374,87 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
   const valorLiquido = Number(item.valorLiquido ?? Math.max(0, valorBase - desconto + acrescimo + imposto + juros));
   const tipoRateioAmigos = normalizarTipoRateioAmigos(item.tipoRateioAmigos ?? item.TipoRateioAmigos);
   const valorTotalRateioAmigos = Number(item.valorTotalRateioAmigos ?? item.ValorTotalRateioAmigos ?? 0);
+  const amigosRateioEntrada =
+    Array.isArray(item.amigosRateio)
+      ? (item.amigosRateio as unknown[])
+      : (Array.isArray(itemRegistro.AmigosRateio) ? (itemRegistro.AmigosRateio as unknown[]) : []);
+  const rateiosAmigosEntrada =
+    Array.isArray(item.rateiosAmigos)
+      ? (item.rateiosAmigos as unknown[])
+      : (Array.isArray(itemRegistro.RateiosAmigos) ? (itemRegistro.RateiosAmigos as unknown[]) : []);
+  const areasSubAreasRateioEntrada =
+    Array.isArray(item.areasSubAreasRateio)
+      ? (item.areasSubAreasRateio as unknown[])
+      : (Array.isArray(itemRegistro.AreasSubAreasRateio) ? (itemRegistro.AreasSubAreasRateio as unknown[]) : []);
+  const rateiosAreaSubareaEntrada =
+    Array.isArray(item.rateiosAreaSubarea)
+      ? (item.rateiosAreaSubarea as unknown[])
+      : (Array.isArray(itemRegistro.RateiosAreaSubarea) ? (itemRegistro.RateiosAreaSubarea as unknown[]) : []);
 
-  const amigosRateioContratoAtual = Array.isArray(item.amigosRateio)
-    ? (item.amigosRateio as Array<Record<string, unknown>>)
+  const extrairNomeAmigoRateio = (rateio: Record<string, unknown>) => {
+    const amigoRegistro = rateio.amigo && typeof rateio.amigo === 'object'
+      ? (rateio.amigo as Record<string, unknown>)
+      : null;
+    const amigoValor = typeof rateio.amigo === 'string' || typeof rateio.amigo === 'number' ? rateio.amigo : '';
+    const amigoId = Number(rateio.amigoId ?? rateio.AmigoId ?? amigoRegistro?.id ?? amigoRegistro?.Id ?? NaN);
+    return String(
+      rateio.nome
+      ?? rateio.amigoNome
+      ?? amigoRegistro?.nome
+      ?? amigoRegistro?.Nome
+      ?? amigoValor
+      ?? (Number.isFinite(amigoId) && amigoId > 0 ? `#${String(amigoId)}` : ''),
+    ).trim();
+  };
+  const extrairAreaSubareaRateio = (rateio: Record<string, unknown>) => {
+    const areaRegistro = rateio.area && typeof rateio.area === 'object'
+      ? (rateio.area as Record<string, unknown>)
+      : null;
+    const subAreaRegistro = rateio.subArea && typeof rateio.subArea === 'object'
+      ? (rateio.subArea as Record<string, unknown>)
+      : (rateio.subarea && typeof rateio.subarea === 'object'
+        ? (rateio.subarea as Record<string, unknown>)
+        : null);
+    const areaValor = typeof rateio.area === 'string' || typeof rateio.area === 'number' ? rateio.area : '';
+    const subareaValor = typeof rateio.subarea === 'string' || typeof rateio.subarea === 'number' ? rateio.subarea : '';
+    const areaId = Number(rateio.areaId ?? rateio.AreaId ?? areaRegistro?.id ?? areaRegistro?.Id ?? NaN);
+    const subareaId = Number(rateio.subAreaId ?? rateio.subareaId ?? rateio.SubAreaId ?? rateio.SubareaId ?? subAreaRegistro?.id ?? subAreaRegistro?.Id ?? NaN);
+    return {
+      area: String(
+        rateio.areaNome
+        ?? rateio.AreaNome
+        ?? areaRegistro?.nome
+        ?? areaRegistro?.Nome
+        ?? areaValor
+        ?? (Number.isFinite(areaId) && areaId > 0 ? `#${String(areaId)}` : ''),
+      ).trim(),
+      subarea: String(
+        rateio.subAreaNome
+        ?? rateio.SubAreaNome
+        ?? subAreaRegistro?.nome
+        ?? subAreaRegistro?.Nome
+        ?? subareaValor
+        ?? (Number.isFinite(subareaId) && subareaId > 0 ? `#${String(subareaId)}` : ''),
+      ).trim(),
+    };
+  };
+
+  const amigosRateioContratoAtual = amigosRateioEntrada.length > 0
+    ? (amigosRateioEntrada as Array<Record<string, unknown>>)
         .map((rateio) => ({
-          amigo: String(rateio.nome ?? rateio.amigoNome ?? (rateio.amigoId ? `#${String(rateio.amigoId)}` : '')).trim(),
+          amigo: extrairNomeAmigoRateio(rateio),
           valor: Number(rateio.valor ?? 0),
         }))
         .filter((rateio) => Boolean(rateio.amigo))
     : [];
-  const amigosRateioLegado = Array.isArray(item.amigosRateio)
-    ? (item.amigosRateio as unknown[]).filter((entrada): entrada is string => typeof entrada === 'string')
+  const amigosRateioLegado = amigosRateioEntrada.length > 0
+    ? amigosRateioEntrada.filter((entrada): entrada is string => typeof entrada === 'string')
     : [];
-  const rateioAmigosValoresLegado = (item.rateioAmigosValores as Record<string, number>) || {};
-  const rateiosAmigosApi = Array.isArray(item.rateiosAmigos)
-    ? (item.rateiosAmigos as Array<Record<string, unknown>>)
-        .map((rateio) => ({ amigo: String(rateio.amigo ?? rateio.nome ?? rateio.amigoNome ?? (rateio.amigoId ? `#${String(rateio.amigoId)}` : '')).trim(), valor: Number(rateio.valor ?? 0) }))
+  const rateioAmigosValoresLegado =
+    ((item.rateioAmigosValores as Record<string, number>) || (itemRegistro.RateioAmigosValores as Record<string, number>) || {});
+  const rateiosAmigosApi = rateiosAmigosEntrada.length > 0
+    ? (rateiosAmigosEntrada as Array<Record<string, unknown>>)
+        .map((rateio) => ({ amigo: extrairNomeAmigoRateio(rateio), valor: Number(rateio.valor ?? 0) }))
         .filter((rateio) => Boolean(rateio.amigo))
     : [];
   const rateiosAmigosConsolidados =
@@ -396,24 +469,35 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
       ? Object.fromEntries(rateiosAmigosConsolidados.map((rateio) => [rateio.amigo, rateio.valor]))
       : Object.fromEntries(amigosRateio.map((amigo) => [amigo, Number(rateioAmigosValoresLegado[amigo] ?? 0)]));
 
-  const areasSubAreasRateioContratoAtual = Array.isArray(item.areasSubAreasRateio)
-    ? (item.areasSubAreasRateio as Array<Record<string, unknown>>)
-        .map((rateio) => ({
-          area: String(rateio.areaNome ?? rateio.area ?? '').trim(),
-          subarea: String(rateio.subAreaNome ?? rateio.subarea ?? '').trim(),
-          valor: Number(rateio.valor ?? 0),
-        }))
+  const areasSubAreasRateioContratoAtual = areasSubAreasRateioEntrada.length > 0
+    ? (areasSubAreasRateioEntrada as Array<Record<string, unknown>>)
+        .map((rateio) => {
+          const { area, subarea } = extrairAreaSubareaRateio(rateio);
+          return {
+            area,
+            subarea,
+            valor: Number(rateio.valor ?? 0),
+          };
+        })
         .filter((rateio) => Boolean(rateio.area) && Boolean(rateio.subarea))
     : [];
-  const areasRateioLegadoBase = Array.isArray(item.areasRateio) ? (item.areasRateio as string[]) : [];
-  const rateioAreasValoresLegado = (item.rateioAreasValores as Record<string, number>) || {};
-  const rateiosAreaSubareaApi = Array.isArray(item.rateiosAreaSubarea)
-    ? (item.rateiosAreaSubarea as Array<Record<string, unknown>>)
-        .map((rateio) => ({
-          area: String(rateio.area ?? '').trim(),
-          subarea: String(rateio.subarea ?? '').trim(),
-          valor: Number(rateio.valor ?? 0),
-        }))
+  const areasRateioLegadoBase = Array.isArray(item.areasRateio)
+    ? (item.areasRateio as string[])
+    : Array.isArray(itemRegistro.AreasRateio)
+      ? (itemRegistro.AreasRateio as string[])
+      : [];
+  const rateioAreasValoresLegado =
+    ((item.rateioAreasValores as Record<string, number>) || (itemRegistro.RateioAreasValores as Record<string, number>) || {});
+  const rateiosAreaSubareaApi = rateiosAreaSubareaEntrada.length > 0
+    ? (rateiosAreaSubareaEntrada as Array<Record<string, unknown>>)
+        .map((rateio) => {
+          const { area, subarea } = extrairAreaSubareaRateio(rateio);
+          return {
+            area,
+            subarea,
+            valor: Number(rateio.valor ?? 0),
+          };
+        })
         .filter((rateio) => Boolean(rateio.area) && Boolean(rateio.subarea))
     : [];
   const rateiosAreaSubareaConsolidados =
@@ -487,7 +571,7 @@ function mapearReceitaApi(item: RegistroFinanceiroApi): ReceitaRegistro {
     dataLancamento: dataBase,
     competencia: competenciaBase,
     dataVencimento: String(item.dataVencimento ?? dataBase).slice(0, 10),
-    dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : (faturaCartaoId ? dataBase : undefined),
+    dataEfetivacao: item.dataEfetivacao ? normalizarIsoDataHora(String(item.dataEfetivacao), '00:00') : (faturaCartaoId ? dataBase : undefined),
     tipoReceita: normalizarTipoReceita(item.tipoReceita ?? item.categoria),
     tipoRecebimento: normalizarTipoRecebimento(item.tipoRecebimento ?? item.tipoPagamento),
     recorrencia: normalizarRecorrenciaFinanceira(item.recorrencia),
@@ -592,6 +676,18 @@ export default function TelaReceita() {
   const tipoRecebimentoPermiteContaDestino = formulario.tipoRecebimento === 'transferencia' || formulario.tipoRecebimento === 'pix';
   const tipoRecebimentoExigeContaBancaria = formulario.tipoRecebimento === 'pix' || formulario.tipoRecebimento === 'transferencia';
   const tipoRecebimentoExigeCartao = formulario.tipoRecebimento === 'cartaoCredito' || formulario.tipoRecebimento === 'cartaoDebito';
+  const tipoCartaoFiltrado = useMemo<'credito' | 'debito' | null>(() => {
+    if (formulario.tipoRecebimento === 'cartaoDebito') return 'debito';
+    if (formulario.tipoRecebimento === 'cartaoCredito') return 'credito';
+    return null;
+  }, [formulario.tipoRecebimento]);
+  const opcoesCartoesApiCompativeis = useMemo(
+    () =>
+      opcoesCartoesApi.filter(
+        (item) => !tipoCartaoFiltrado || normalizarTipoCartaoOpcao(item.tipo) === tipoCartaoFiltrado,
+      ),
+    [opcoesCartoesApi, tipoCartaoFiltrado],
+  );
   const ocultarDataVencimentoCartaoCredito = formulario.tipoRecebimento === 'cartaoCredito';
   const contaBancariaIdSelecionada = useMemo(() => {
     const valorSelecionado = formulario.contaBancaria.trim();
@@ -606,9 +702,9 @@ export default function TelaReceita() {
     if (!valorSelecionado) return undefined;
     const idDireto = Number(valorSelecionado);
     if (Number.isFinite(idDireto) && idDireto > 0) return idDireto;
-    const cartao = opcoesCartoesApi.find((item) => item.nome === valorSelecionado);
+    const cartao = opcoesCartoesApiCompativeis.find((item) => item.nome === valorSelecionado);
     return cartao?.id;
-  }, [formulario.cartao, opcoesCartoesApi]);
+  }, [formulario.cartao, opcoesCartoesApiCompativeis]);
   const contaDestinoIdSelecionada = useMemo(() => {
     const valorSelecionado = formulario.contaDestino.trim();
     if (!valorSelecionado) return undefined;
@@ -706,16 +802,18 @@ export default function TelaReceita() {
     () =>
       Array.from(
         new Set([
-          ...opcoesCartoesApi.map((item) => item.nome),
-          ...receitas.map((receita) => {
-            const nomeCartao = receita.cartao?.trim();
-            if (nomeCartao) return nomeCartao;
-            if (!receita.cartaoId) return '';
-            return mapaCartoesPorId.get(receita.cartaoId) ?? '';
-          }),
+          ...opcoesCartoesApiCompativeis.map((item) => item.nome),
+          ...(tipoCartaoFiltrado
+            ? []
+            : receitas.map((receita) => {
+              const nomeCartao = receita.cartao?.trim();
+              if (nomeCartao) return nomeCartao;
+              if (!receita.cartaoId) return '';
+              return mapaCartoesPorId.get(receita.cartaoId) ?? '';
+            })),
         ].filter((cartao) => Boolean(cartao.trim()))),
       ).sort(),
-    [opcoesCartoesApi, receitas, mapaCartoesPorId],
+    [opcoesCartoesApiCompativeis, tipoCartaoFiltrado, receitas, mapaCartoesPorId],
   );
   const opcoesContaBancariaSelect = useMemo(
     () =>
@@ -737,6 +835,13 @@ export default function TelaReceita() {
       }),
     [opcoesCartao, mapaReferenciaCartaoPorNome],
   );
+  useEffect(() => {
+    const cartaoSelecionado = formulario.cartao.trim();
+    if (!cartaoSelecionado) return;
+    const cartaoCompativel = opcoesCartaoSelect.some((opcao) => opcao.value === cartaoSelecionado);
+    if (cartaoCompativel) return;
+    setFormulario((atual) => (atual.cartao ? { ...atual, cartao: '' } : atual));
+  }, [formulario.cartao, opcoesCartaoSelect]);
   const quantidadeRecorrenciaObrigatoria = !formulario.recorrenciaFixa && recorrenciaExigeQuantidade(formulario.recorrenciaBase);
   const exibirQuantidadeRecorrencia = !formulario.recorrenciaFixa && recorrenciaAceitaQuantidade(formulario.recorrenciaBase);
   const rotuloQuantidadeRecorrencia = t('financeiro.comum.campos.quantidadeRecorrencia');
@@ -885,8 +990,10 @@ export default function TelaReceita() {
             });
           })
           .filter(receitaBateFiltroLista)
-          .sort((a, b) => a.id - b.id);
-        const dataBase = detalhe.competencia ? `${detalhe.competencia}-01` : new Date().toISOString().slice(0, 10);
+          .sort(compararPorLancamentoEfetivacaoDecrescente);
+        const dataBase = detalhe.competencia
+          ? normalizarIsoDataHora(`${detalhe.competencia}-01`, '00:00')
+          : normalizarIsoDataHora(new Date().toISOString().slice(0, 10), '00:00');
         const valorTotalTransacoes = Number.isFinite(detalhe.valorTotalTransacoes) ? detalhe.valorTotalTransacoes : receitasVinculadas.reduce((total, item) => total + item.valorLiquido, 0);
         const valorTotalFatura = Number.isFinite(detalhe.valorTotal) ? detalhe.valorTotal : valorTotalTransacoes;
         const fatura = mapearReceitaApi({
@@ -917,7 +1024,7 @@ export default function TelaReceita() {
           statusFaturaCartao,
         };
       })
-      .sort((a, b) => a.fatura.id - b.fatura.id);
+      .sort((a, b) => compararPorLancamentoEfetivacaoDecrescente(a.fatura, b.fatura));
   }, [detalhesFaturasCartao, receitas, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, t]);
   const gruposFatura = gruposFaturaApi;
   const mapaGrupoPorFaturaId = useMemo(
@@ -939,9 +1046,13 @@ export default function TelaReceita() {
     const receitasNaoVinculadas = receitasFiltradas.filter(
       (receita) => !idsReceitasVinculadasAFatura.has(receita.id) && !receita.faturaCartaoId,
     );
+    const faturasOrdenadas = [...gruposFatura.map((grupo) => grupo.fatura)].sort(compararPorLancamentoEfetivacaoDecrescente);
+    const receitasOrdenadas = receitasNaoVinculadas
+      .filter((receita) => !idsPaisFaturas.has(receita.id))
+      .sort(compararPorLancamentoEfetivacaoDecrescente);
     return [
-      ...gruposFatura.map((grupo) => grupo.fatura),
-      ...receitasNaoVinculadas.filter((receita) => !idsPaisFaturas.has(receita.id)),
+      ...faturasOrdenadas,
+      ...receitasOrdenadas,
     ];
   }, [gruposFatura, idsReceitasVinculadasAFatura, receitasFiltradas]);
   const totalListaPrincipal = useMemo(() => {
@@ -966,7 +1077,74 @@ export default function TelaReceita() {
     });
   };
 
+  const mapaNomeAmigoRateioPorId = useMemo(
+    () => new Map(opcoesAmigosRateioApi.map((item) => [item.id, item.nome])),
+    [opcoesAmigosRateioApi],
+  );
+  const mapaNomeAreaRateioPorId = useMemo(
+    () => new Map(areasCatalogo.map((item) => [item.id, item.nome])),
+    [areasCatalogo],
+  );
+  const mapaNomeSubareaRateioPorAreaIdEId = useMemo(
+    () =>
+      new Map(
+        areasCatalogo.flatMap((item) => item.subAreas.map((subArea) => [`${item.id}:${subArea.id}`, subArea.nome] as const)),
+      ),
+    [areasCatalogo],
+  );
+  const extrairIdRateioPorTexto = (valor: string): number | null => {
+    const texto = String(valor ?? '').trim();
+    if (!texto) return null;
+    const textoSemPrefixo = texto.startsWith('#') ? texto.slice(1) : texto;
+    const numero = Number(textoSemPrefixo);
+    return Number.isFinite(numero) && numero > 0 ? numero : null;
+  };
+
   const preencherFormulario = (receita: ReceitaRegistro) => {
+    const resolverNomeAmigoRateio = (valor: string) => {
+      const amigoId = extrairIdRateioPorTexto(valor);
+      if (!amigoId) return valor;
+      return mapaNomeAmigoRateioPorId.get(amigoId) ?? valor;
+    };
+    const resolverChaveAreaSubareaRateio = (chave: string) => {
+      const { area, subarea } = separarAreaSubarea(chave);
+      const areaId = extrairIdRateioPorTexto(area);
+      const subareaId = extrairIdRateioPorTexto(subarea);
+      const areaNormalizada = areaId ? (mapaNomeAreaRateioPorId.get(areaId) ?? area) : area;
+      if (!subareaId) return montarChaveAreaSubarea(areaNormalizada, subarea);
+      if (areaId) {
+        const subareaNormalizada = mapaNomeSubareaRateioPorAreaIdEId.get(`${areaId}:${subareaId}`) ?? subarea;
+        return montarChaveAreaSubarea(areaNormalizada, subareaNormalizada);
+      }
+      const entradaSubarea = Array.from(mapaNomeSubareaRateioPorAreaIdEId.entries())
+        .find(([chaveSubarea]) => chaveSubarea.endsWith(`:${subareaId}`));
+      return montarChaveAreaSubarea(areaNormalizada, entradaSubarea?.[1] ?? subarea);
+    };
+    const amigosRateioNormalizado = Array.from(
+      new Set(receita.amigosRateio.map(resolverNomeAmigoRateio).filter((valor) => Boolean(String(valor).trim()))),
+    );
+    const rateioAmigosValoresNormalizado = Object.entries(receita.rateioAmigosValores).reduce<Record<string, number>>(
+      (acumulado, [chave, valor]) => {
+        const chaveNormalizada = resolverNomeAmigoRateio(chave);
+        if (!chaveNormalizada) return acumulado;
+        acumulado[chaveNormalizada] = Number(acumulado[chaveNormalizada] ?? 0) + Number(valor ?? 0);
+        return acumulado;
+      },
+      {},
+    );
+    const areasRateioNormalizado = Array.from(
+      new Set(receita.areasRateio.map(resolverChaveAreaSubareaRateio).filter((valor) => Boolean(String(valor).trim()))),
+    );
+    const rateioAreasValoresNormalizado = Object.entries(receita.rateioAreasValores).reduce<Record<string, number>>(
+      (acumulado, [chave, valor]) => {
+        const chaveNormalizada = resolverChaveAreaSubareaRateio(chave);
+        if (!chaveNormalizada) return acumulado;
+        acumulado[chaveNormalizada] = Number(acumulado[chaveNormalizada] ?? 0) + Number(valor ?? 0);
+        return acumulado;
+      },
+      {},
+    );
+
     definirTipoRateioAmigos(receita.tipoRateioAmigos);
     setFormulario({
       descricao: normalizarDescricaoMaiuscula(receita.descricao, locale),
@@ -974,7 +1152,7 @@ export default function TelaReceita() {
       dataLancamento: receita.dataLancamento,
       competencia: formatarCompetenciaParaEntrada(desserializarCompetencia(receita.competencia) ?? obterCompetenciaPorData(receita.dataLancamento), locale),
       dataVencimento: receita.dataVencimento,
-      dataEfetivacao: receita.dataEfetivacao || new Date().toISOString().split('T')[0],
+      dataEfetivacao: receita.dataEfetivacao || `${new Date().toISOString().split('T')[0]}T00:00`,
       dataEstorno: new Date().toISOString().split('T')[0],
       tipoReceita: receita.tipoReceita,
       tipoRecebimento: receita.tipoRecebimento,
@@ -988,11 +1166,11 @@ export default function TelaReceita() {
       imposto: formatarMoedaParaInput(receita.imposto, locale),
       juros: formatarMoedaParaInput(receita.juros, locale),
       valorEfetivacao: formatarMoedaParaInput(receita.valorEfetivacao ?? receita.valorLiquido, locale),
-      amigosRateio: receita.amigosRateio,
+      amigosRateio: amigosRateioNormalizado,
       valorTotalRateioAmigos: formatarMoedaParaInput(receita.valorTotalRateioAmigos, locale),
-      rateioAmigosValores: Object.fromEntries(Object.entries(receita.rateioAmigosValores).map(([chave, valor]) => [chave, formatarMoedaParaInput(valor, locale)])),
-      areasRateio: receita.areasRateio,
-      rateioAreasValores: Object.fromEntries(Object.entries(receita.rateioAreasValores).map(([chave, valor]) => [chave, formatarMoedaParaInput(valor, locale)])),
+      rateioAmigosValores: Object.fromEntries(Object.entries(rateioAmigosValoresNormalizado).map(([chave, valor]) => [chave, formatarMoedaParaInput(valor, locale)])),
+      areasRateio: areasRateioNormalizado,
+      rateioAreasValores: Object.fromEntries(Object.entries(rateioAreasValoresNormalizado).map(([chave, valor]) => [chave, formatarMoedaParaInput(valor, locale)])),
       contaBancaria: receita.contaBancaria?.trim()
         ? receita.contaBancaria
         : (receita.contaBancariaId ? (mapaContasBancariasPorId.get(receita.contaBancariaId) ?? '') : ''),
@@ -1078,6 +1256,44 @@ export default function TelaReceita() {
     }
     setModoTela('edicao');
     void carregarReceitaPorId(receita.id);
+  };
+
+  const combinarRateiosParaDuplicacao = (receitaDetalhada: ReceitaRegistro, receitaOrigem: ReceitaRegistro): ReceitaRegistro => {
+    const preservarRateioAmigosOrigem = receitaDetalhada.amigosRateio.length === 0 && receitaOrigem.amigosRateio.length > 0;
+    const preservarRateioAreasOrigem = receitaDetalhada.areasRateio.length === 0 && receitaOrigem.areasRateio.length > 0;
+    if (!preservarRateioAmigosOrigem && !preservarRateioAreasOrigem) return receitaDetalhada;
+
+    const amigosRateio = preservarRateioAmigosOrigem ? [...receitaOrigem.amigosRateio] : receitaDetalhada.amigosRateio;
+    const rateioAmigosValores = preservarRateioAmigosOrigem
+      ? { ...receitaOrigem.rateioAmigosValores }
+      : receitaDetalhada.rateioAmigosValores;
+    const areasRateio = preservarRateioAreasOrigem ? [...receitaOrigem.areasRateio] : receitaDetalhada.areasRateio;
+    const rateioAreasValores = preservarRateioAreasOrigem
+      ? { ...receitaOrigem.rateioAreasValores }
+      : receitaDetalhada.rateioAreasValores;
+
+    return {
+      ...receitaDetalhada,
+      tipoRateioAmigos: preservarRateioAmigosOrigem ? receitaOrigem.tipoRateioAmigos : receitaDetalhada.tipoRateioAmigos,
+      valorTotalRateioAmigos: preservarRateioAmigosOrigem ? receitaOrigem.valorTotalRateioAmigos : receitaDetalhada.valorTotalRateioAmigos,
+      amigosRateio,
+      rateioAmigosValores,
+      areasRateio,
+      rateioAreasValores,
+      rateiosAmigos: amigosRateio.map((amigo) => ({ amigo, valor: Number(rateioAmigosValores[amigo] ?? 0) })),
+      rateiosAreaSubarea: areasRateio.map((chave) => {
+        const { area, subarea } = separarAreaSubarea(chave);
+        return { area, subarea, valor: Number(rateioAreasValores[chave] ?? 0) };
+      }),
+    };
+  };
+
+  const abrirDuplicacao = async (receita: ReceitaRegistro) => {
+    const receitaCompleta = await carregarReceitaPorId(receita.id);
+    if (!receitaCompleta) return;
+    preencherFormulario(combinarRateiosParaDuplicacao(receitaCompleta, receita));
+    setReceitaSelecionadaId(null);
+    setModoTela('novo');
   };
 
   const abrirEfetivacao = (receita: ReceitaRegistro) => {
@@ -1654,6 +1870,7 @@ export default function TelaReceita() {
         {receita.ehFatura && !receita.faturaCartaoId ? null : (
           <>
             <TouchableOpacity onPress={() => abrirVisualizacao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('financeiro.receita.acoes.visualizar')}</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => abrirDuplicacao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.duplicar')}</Text></TouchableOpacity>
             {receita.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar ? <TouchableOpacity onPress={() => abrirEdicao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
             {receita.status === 'pendente' && (opcoes?.podeEfetivar ?? true) && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar ? <TouchableOpacity onPress={() => abrirEfetivacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.receita.acoes.efetivar')}</Text></TouchableOpacity> : null}
             {receita.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar ? <TouchableOpacity onPress={() => cancelarReceita(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('comum.acoes.cancelar')}</Text></TouchableOpacity> : null}
@@ -1742,7 +1959,9 @@ export default function TelaReceita() {
         {expandida ? (
           <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10, maxHeight: 320 }}>
             <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
-              {grupo.receitasVinculadas.map((receitaVinculada) => renderCartaoReceita(receitaVinculada, { margemInferior: 8 }))}
+              {[...grupo.receitasVinculadas]
+                .sort(compararPorLancamentoEfetivacaoDecrescente)
+                .map((receitaVinculada) => renderCartaoReceita(receitaVinculada, { margemInferior: 8 }))}
             </ScrollView>
           </View>
         ) : null}
@@ -1922,11 +2141,8 @@ export default function TelaReceita() {
 
   const renderFormularioBase = (somenteLeitura: boolean) => (
     <>
-      {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.descricao'), formulario.descricao) : <CampoTexto label={t('financeiro.receita.campos.descricao')} placeholder={t('financeiro.receita.placeholders.descricao')} value={formulario.descricao} onChangeText={(descricao) => { setCamposInvalidos((atual) => ({ ...atual, descricao: false })); setFormulario((atual) => ({ ...atual, descricao: normalizarDescricaoMaiuscula(descricao, locale) })); }} error={camposInvalidos.descricao} estilo={{ marginBottom: 12 }} />}
+      {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.descricao'), formulario.descricao) : <CampoTexto label={t('financeiro.receita.campos.descricao')} placeholder={t('financeiro.receita.placeholders.descricao')} value={formulario.descricao} onChangeText={(descricao) => { setCamposInvalidos((atual) => ({ ...atual, descricao: false })); setFormulario((atual) => ({ ...atual, descricao })); }} error={camposInvalidos.descricao} forcarMaiusculo estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.observacao'), formulario.observacao) : <CampoTexto label={t('financeiro.receita.campos.observacao')} placeholder={t('financeiro.receita.placeholders.observacao')} value={formulario.observacao} onChangeText={(observacao) => setFormulario((atual) => ({ ...atual, observacao }))} multiline numberOfLines={4} estilo={{ marginBottom: 12 }} />}
-      {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.dataLancamento'), formulario.dataLancamento ? formatarDataPorIdioma(formulario.dataLancamento) : '') : <CampoData label={t('financeiro.receita.campos.dataLancamento')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataLancamento} onChange={(dataLancamento) => { setCamposInvalidos((atual) => ({ ...atual, dataLancamento: false })); setFormulario((atual) => ({ ...atual, dataLancamento })); }} error={camposInvalidos.dataLancamento} estilo={{ marginBottom: 12 }} />}
-      {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.competencia'), formulario.competencia) : <CampoTexto label={t('financeiro.receita.campos.competencia')} placeholder={t('financeiro.receita.placeholders.competencia')} value={formulario.competencia} onChangeText={(competencia) => setFormulario((atual) => ({ ...atual, competencia: aplicarMascaraCompetencia(competencia, locale) }))} obrigatorio estilo={{ marginBottom: 12 }} />}
-      {ocultarDataVencimentoCartaoCredito ? null : (somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.dataVencimento'), formulario.dataVencimento ? formatarDataPorIdioma(formulario.dataVencimento) : '') : <CampoData label={t('financeiro.receita.campos.dataVencimento')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataVencimento} onChange={(dataVencimento) => { setCamposInvalidos((atual) => ({ ...atual, dataVencimento: false })); setFormulario((atual) => ({ ...atual, dataVencimento })); }} error={camposInvalidos.dataVencimento} estilo={{ marginBottom: 12 }} />)}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.tipoReceita'), formulario.tipoReceita ? t(`financeiro.receita.tipoReceita.${formulario.tipoReceita}`) : '') : <CampoSelect label={t('financeiro.receita.campos.tipoReceita')} placeholder={t('comum.acoes.selecionar')} options={tiposReceita.map((tipo) => ({ value: tipo, label: t(`financeiro.receita.tipoReceita.${tipo}`) }))} value={formulario.tipoReceita} onChange={(tipoReceita) => { setCamposInvalidos((atual) => ({ ...atual, tipoReceita: false })); setFormulario((atual) => ({ ...atual, tipoReceita })); }} error={camposInvalidos.tipoReceita} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.tipoRecebimento'), formulario.tipoRecebimento ? t(`financeiro.receita.tipoRecebimento.${formulario.tipoRecebimento}`) : '') : <CampoSelect label={t('financeiro.receita.campos.tipoRecebimento')} placeholder={t('comum.acoes.selecionar')} options={tiposRecebimento.map((tipo) => ({ value: tipo, label: t(`financeiro.receita.tipoRecebimento.${tipo}`) }))} value={formulario.tipoRecebimento} onChange={(tipoRecebimento) => { setCamposInvalidos((atual) => ({ ...atual, tipoRecebimento: false, contaBancaria: false, contaDestino: false, cartao: false })); setFormulario((atual) => { const exigeContaBancaria = tipoRecebimento === 'pix' || tipoRecebimento === 'transferencia'; const exigeCartao = tipoRecebimento === 'cartaoCredito' || tipoRecebimento === 'cartaoDebito'; const contaOuCartaoOpcional = !exigeContaBancaria && !exigeCartao; return { ...atual, tipoRecebimento, contaBancaria: exigeContaBancaria || contaOuCartaoOpcional ? atual.contaBancaria : '', contaDestino: tipoRecebimento === 'transferencia' || tipoRecebimento === 'pix' ? atual.contaDestino : '', cartao: exigeCartao || contaOuCartaoOpcional ? atual.cartao : '' }; }); }} error={camposInvalidos.tipoRecebimento} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.recorrencia'), obterRotuloRecorrencia(formulario.recorrenciaBase, locale)) : <CampoSelect label={t('financeiro.receita.campos.recorrencia')} placeholder={t('comum.acoes.selecionar')} options={RECORRENCIAS_FINANCEIRAS_BASE.map((item) => ({ value: item.chave, label: obterRotuloRecorrencia(item.chave, locale) }))} value={formulario.recorrenciaBase} onChange={(recorrenciaBase) => setFormulario((atual) => ({ ...atual, recorrenciaBase: recorrenciaBase as RecorrenciaFinanceiraBaseChave, recorrenciaFixa: recorrenciaBase === 'unica' ? false : atual.recorrenciaFixa, quantidadeRecorrencia: recorrenciaBase === 'unica' ? '' : atual.quantidadeRecorrencia }))} />}
@@ -1935,6 +2151,9 @@ export default function TelaReceita() {
       {exibeContaBancaria ? somenteLeitura ? renderCampoBloqueadoContaCartao(t('financeiro.receita.campos.contaBancaria'), formulario.contaBancaria, 'conta', referenciaContaBancariaSelecionada) : <CampoSelect label={t('financeiro.receita.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancariaSelect} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false, cartao: false })); setFormulario((atual) => ({ ...atual, contaBancaria, contaDestino: atual.contaDestino === contaBancaria ? '' : atual.contaDestino, cartao: contaBancaria ? '' : atual.cartao })); }} error={camposInvalidos.contaBancaria} obrigatorio={tipoRecebimentoExigeContaBancaria} /> : null}
       {exibeContaDestinoRecebimento ? (somenteLeitura ? renderCampoBloqueadoContaCartao(t('financeiro.receita.campos.contaDestino'), formulario.contaDestino, 'conta', referenciaContaDestinoSelecionada) : <CampoSelect label={t('financeiro.receita.campos.contaDestino')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaDestinoSelect} value={formulario.contaDestino} onChange={(contaDestino) => { setCamposInvalidos((atual) => ({ ...atual, contaDestino: false })); setFormulario((atual) => ({ ...atual, contaDestino })); }} error={camposInvalidos.contaDestino} obrigatorio={false} />) : null}
       {exibeCartaoRecebimento ? (somenteLeitura ? renderCampoBloqueadoContaCartao(t('financeiro.receita.campos.cartao'), formulario.cartao, 'cartao', referenciaCartaoSelecionado) : <CampoSelect label={t('financeiro.receita.campos.cartao')} placeholder={t('comum.acoes.selecionar')} options={opcoesCartaoSelect} value={formulario.cartao} onChange={(cartao) => { setCamposInvalidos((atual) => ({ ...atual, cartao: false, contaBancaria: false })); setFormulario((atual) => ({ ...atual, cartao, contaBancaria: cartao ? '' : atual.contaBancaria })); }} error={camposInvalidos.cartao} obrigatorio={tipoRecebimentoExigeCartao} />) : null}
+      {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.dataLancamento'), formulario.dataLancamento ? formatarDataHoraPorIdioma(formulario.dataLancamento) : '') : <CampoData label={t('financeiro.receita.campos.dataLancamento')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataLancamento} onChange={(dataLancamento) => { setCamposInvalidos((atual) => ({ ...atual, dataLancamento: false })); setFormulario((atual) => ({ ...atual, dataLancamento })); }} error={camposInvalidos.dataLancamento} comHora estilo={{ marginBottom: 12 }} />}
+      {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.competencia'), formulario.competencia) : <CampoTexto label={t('financeiro.receita.campos.competencia')} placeholder={t('financeiro.receita.placeholders.competencia')} value={formulario.competencia} onChangeText={(competencia) => setFormulario((atual) => ({ ...atual, competencia: aplicarMascaraCompetencia(competencia, locale) }))} obrigatorio estilo={{ marginBottom: 12 }} />}
+      {ocultarDataVencimentoCartaoCredito ? null : (somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.dataVencimento'), formulario.dataVencimento ? formatarDataPorIdioma(formulario.dataVencimento) : '') : <CampoData label={t('financeiro.receita.campos.dataVencimento')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataVencimento} onChange={(dataVencimento) => { setCamposInvalidos((atual) => ({ ...atual, dataVencimento: false })); setFormulario((atual) => ({ ...atual, dataVencimento })); }} error={camposInvalidos.dataVencimento} estilo={{ marginBottom: 12 }} />)}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.valorTotal'), formulario.valorTotal) : <CampoTexto label={t('financeiro.receita.campos.valorTotal')} placeholder={t('financeiro.receita.placeholders.valor')} value={formulario.valorTotal} onChangeText={(valor) => { setCamposInvalidos((atual) => ({ ...atual, valorTotal: false })); atualizarCampoMoeda('valorTotal', valor); }} error={camposInvalidos.valorTotal} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.desconto'), formulario.desconto) : <CampoTexto label={t('financeiro.receita.campos.desconto')} placeholder={t('financeiro.receita.placeholders.valor')} value={formulario.desconto} onChangeText={(valor) => atualizarCampoMoeda('desconto', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
       {somenteLeitura ? renderCampoBloqueado(t('financeiro.receita.campos.acrescimo'), formulario.acrescimo) : <CampoTexto label={t('financeiro.receita.campos.acrescimo')} placeholder={t('financeiro.receita.placeholders.valor')} value={formulario.acrescimo} onChangeText={(valor) => atualizarCampoMoeda('acrescimo', valor)} keyboardType="numeric" estilo={{ marginBottom: 12 }} />}
@@ -2034,7 +2253,7 @@ export default function TelaReceita() {
           <>
             {renderCampoBloqueado(t('financeiro.receita.campos.valorLiquido'), formulario.valorLiquido)}
             {renderCampoBloqueado(t('financeiro.receita.campos.valorEfetivacao'), formulario.valorEfetivacao)}
-            <CampoData label={t('financeiro.receita.campos.dataEfetivacao')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataEfetivacao} onChange={(dataEfetivacao) => { setCamposInvalidos((atual) => ({ ...atual, dataEfetivacao: false })); setFormulario((atual) => ({ ...atual, dataEfetivacao })); }} error={camposInvalidos.dataEfetivacao} estilo={{ marginBottom: 12 }} />
+            <CampoData label={t('financeiro.receita.campos.dataEfetivacao')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataEfetivacao} onChange={(dataEfetivacao) => { setCamposInvalidos((atual) => ({ ...atual, dataEfetivacao: false })); setFormulario((atual) => ({ ...atual, dataEfetivacao })); }} error={camposInvalidos.dataEfetivacao} comHora estilo={{ marginBottom: 12 }} />
             <CampoSelect label={t('financeiro.receita.campos.tipoRecebimento')} placeholder={t('comum.acoes.selecionar')} options={tiposRecebimento.map((tipo) => ({ value: tipo, label: t(`financeiro.receita.tipoRecebimento.${tipo}`) }))} value={formulario.tipoRecebimento} onChange={(tipoRecebimento) => { setCamposInvalidos((atual) => ({ ...atual, tipoRecebimento: false, contaBancaria: false, contaDestino: false, cartao: false })); setFormulario((atual) => { const exigeContaBancaria = tipoRecebimento === 'pix' || tipoRecebimento === 'transferencia'; const exigeCartao = tipoRecebimento === 'cartaoCredito' || tipoRecebimento === 'cartaoDebito'; const contaOuCartaoOpcional = !exigeContaBancaria && !exigeCartao; return { ...atual, tipoRecebimento, contaBancaria: exigeContaBancaria || contaOuCartaoOpcional ? atual.contaBancaria : '', contaDestino: tipoRecebimento === 'transferencia' || tipoRecebimento === 'pix' ? atual.contaDestino : '', cartao: exigeCartao || contaOuCartaoOpcional ? atual.cartao : '' }; }); }} error={camposInvalidos.tipoRecebimento} />
             {exibeContaBancaria ? <CampoSelect label={t('financeiro.receita.campos.contaBancaria')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaBancariaSelect} value={formulario.contaBancaria} onChange={(contaBancaria) => { setCamposInvalidos((atual) => ({ ...atual, contaBancaria: false, cartao: false })); setFormulario((atual) => ({ ...atual, contaBancaria, contaDestino: atual.contaDestino === contaBancaria ? '' : atual.contaDestino, cartao: contaBancaria ? '' : atual.cartao })); }} error={camposInvalidos.contaBancaria} obrigatorio={tipoRecebimentoExigeContaBancaria} /> : null}
             {exibeContaDestinoRecebimento ? <CampoSelect label={t('financeiro.receita.campos.contaDestino')} placeholder={t('comum.acoes.selecionar')} options={opcoesContaDestinoSelect} value={formulario.contaDestino} onChange={(contaDestino) => { setCamposInvalidos((atual) => ({ ...atual, contaDestino: false })); setFormulario((atual) => ({ ...atual, contaDestino })); }} error={camposInvalidos.contaDestino} obrigatorio={false} /> : null}
@@ -2081,7 +2300,7 @@ export default function TelaReceita() {
           <>
             {renderFormularioBase(true)}
             {renderCampoBloqueadoStatus(t('financeiro.receita.campos.status'), obterRotuloStatusReceita(receitaSelecionada.status, t), obterEstiloBadgeStatusReceita(receitaSelecionada.status))}
-            {renderCampoBloqueado(t('financeiro.receita.campos.dataEfetivacao'), receitaSelecionada.dataEfetivacao ? formatarDataPorIdioma(receitaSelecionada.dataEfetivacao) : '')}
+            {renderCampoBloqueado(t('financeiro.receita.campos.dataEfetivacao'), receitaSelecionada.dataEfetivacao ? formatarDataHoraPorIdioma(receitaSelecionada.dataEfetivacao) : '')}
             <View style={{ marginBottom: 16 }}>
               <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>{t('financeiro.receita.logs.titulo')}</Text>
               <View>

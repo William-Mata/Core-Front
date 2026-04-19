@@ -52,7 +52,7 @@
       "outros": "Otros"
     },
     "mensagens": {
-      "obrigatorio": "Título, categoría y valor son obligatorios.",
+      "obrigatorio": "Complete los campos obligatorios.",
       "confirmarRemocao": "¿Desea eliminar este gasto?",
       "semDescricao": "Sin descripción",
       "criada": "Gasto creado con éxito.",
@@ -85,7 +85,8 @@
       "observacao": "Ingrese observaciones adicionales"
     },
     "mensagens": {
-      "obrigatorio": "Título, categoría y valor son obligatorios.",
+      "obrigatorio": "Complete los campos obligatorios.",
+      "contaObrigatoria": "Seleccione una cuenta bancaria.",
       "obrigatorioEstorno": "La fecha de reversion es obligatoria.",
       "estornada": "Ingreso revertido con exito."
     },
@@ -122,6 +123,8 @@
     },
     "mensagens": {
       "descricaoObrigatoria": "La descripción es obligatoria",
+      "contaObrigatoria": "Seleccione una cuenta bancaria.",
+      "cartaoObrigatorio": "Seleccione una tarjeta.",
       "adicionarDespesa": "Agregue al menos un gasto",
       "despesaJaVinculada": "El gasto {{despesa}} ya está vinculado a otro reembolso.",
       "confirmarRemocao": "¿Desea eliminar este reembolso?",

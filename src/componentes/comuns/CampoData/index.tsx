@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import DateTimePicker from '@amjed-bouhouch/react-native-ui-datepicker';
 import { usarTraducao } from '../../../hooks/usarTraducao';
 import { COLORS } from '../../../styles/variables';
-import { converterDateParaIso, converterIsoParaDate, formatarDataPorIdioma, obterLocaleAtivo } from '../../../utils/formatacaoLocale';
+import { converterDateParaIso, converterDateParaIsoComHora, converterIsoParaDate, formatarDataHoraPorIdioma, formatarDataPorIdioma, obterLocaleAtivo } from '../../../utils/formatacaoLocale';
 
 interface CampoDataProps {
   label: string;
@@ -14,6 +14,7 @@ interface CampoDataProps {
   estilo?: ViewStyle;
   error?: string | boolean;
   obrigatorio?: boolean;
+  comHora?: boolean;
 }
 
 interface CampoDataIntervaloProps {
@@ -103,7 +104,7 @@ function usePopoverData(aberto: boolean, aoFechar: () => void) {
 }
 
 export function CampoData(props: CampoDataProps) {
-  const { label, value, onChange, placeholder, estilo, error, obrigatorio } = props;
+  const { label, value, onChange, placeholder, estilo, error, obrigatorio, comHora } = props;
   const [aberto, setAberto] = useState(false);
   const { t } = usarTraducao();
   const { focadoWeb, setFocadoWeb, posicaoPopover, containerRef, portalRef } = usePopoverData(aberto, () => setAberto(false));
@@ -129,11 +130,15 @@ export function CampoData(props: CampoDataProps) {
         displayFullDays
         firstDayOfWeek={1}
         height={290}
+        timePicker={Boolean(comHora)}
         onChange={(params) => {
           if (!params.date) return;
-          onChange(converterDateParaIso(new Date(params.date as any)));
-          setAberto(false);
-          setFocadoWeb(false);
+          const dataSelecionadaNova = new Date(params.date as any);
+          onChange(comHora ? converterDateParaIsoComHora(dataSelecionadaNova) : converterDateParaIso(dataSelecionadaNova));
+          if (!comHora) {
+            setAberto(false);
+            setFocadoWeb(false);
+          }
         }}
         selectedItemColor={COLORS.accent}
         headerButtonsPosition="around"
@@ -205,7 +210,32 @@ export function CampoData(props: CampoDataProps) {
           color: COLORS.textPrimary,
           fontWeight: '700',
         }}
+        timePickerTextStyle={{
+          color: COLORS.textPrimary,
+          fontSize: 12,
+          fontWeight: '600',
+        }}
       />
+      {comHora ? (
+        <TouchableOpacity
+          onPress={() => {
+            setAberto(false);
+            setFocadoWeb(false);
+          }}
+          style={{
+            alignSelf: 'flex-end',
+            marginTop: 8,
+            borderWidth: 1,
+            borderColor: COLORS.borderColor,
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            backgroundColor: COLORS.bgTertiary,
+          }}
+        >
+          <Text style={{ color: COLORS.accent, fontSize: 13, fontWeight: '600' }}>{t('comum.acoes.confirmar')}</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 
@@ -264,7 +294,7 @@ export function CampoData(props: CampoDataProps) {
               textOverflow: 'ellipsis',
             }}
           >
-            {value ? formatarDataPorIdioma(value) : placeholder || t('comum.acoes.selecionar')}
+            {value ? (comHora ? formatarDataHoraPorIdioma(value) : formatarDataPorIdioma(value)) : placeholder || t('comum.acoes.selecionar')}
           </span>
           <span
             style={{
@@ -321,7 +351,7 @@ export function CampoData(props: CampoDataProps) {
         }}
       >
         <Text style={{ color: value ? COLORS.textPrimary : COLORS.textSecondary, fontSize: 14, flex: 1 }}>
-          {value ? formatarDataPorIdioma(value) : placeholder || t('comum.acoes.selecionar')}
+          {value ? (comHora ? formatarDataHoraPorIdioma(value) : formatarDataPorIdioma(value)) : placeholder || t('comum.acoes.selecionar')}
         </Text>
         <Text style={{ color: value ? COLORS.accent : COLORS.textSecondary, fontSize: 16, marginLeft: 8 }}>{'\uD83D\uDCC5'}</Text>
       </TouchableOpacity>

@@ -54,7 +54,7 @@
       "outros": "Others"
     },
     "mensagens": {
-      "obrigatorio": "Title, category and amount are required.",
+      "obrigatorio": "Fill in the required fields.",
       "confirmarRemocao": "Do you want to remove this expense?",
       "semDescricao": "No description",
       "criada": "Expense created successfully.",
@@ -89,7 +89,8 @@
       "observacao": "Enter additional notes"
     },
     "mensagens": {
-      "obrigatorio": "Title, category and amount are required.",
+      "obrigatorio": "Fill in the required fields.",
+      "contaObrigatoria": "Select a bank account.",
       "obrigatorioEstorno": "Reversal date is required.",
       "estornada": "Income reversed successfully."
     },
@@ -127,6 +128,8 @@
     },
     "mensagens": {
       "descricaoObrigatoria": "Description is required",
+      "contaObrigatoria": "Select a bank account.",
+      "cartaoObrigatorio": "Select a card.",
       "adicionarDespesa": "Add at least one expense",
       "despesaJaVinculada": "Expense {{despesa}} is already linked to another reimbursement.",
       "confirmarRemocao": "Do you want to remove this reimbursement?",

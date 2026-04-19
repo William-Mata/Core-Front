@@ -11,7 +11,7 @@ import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStat
 import { ModalConfirmacao } from '../../../src/componentes/comuns/ModalConfirmacao';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
-import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
+import { formatarDataHoraPorIdioma, formatarDataPorIdioma, formatarValorPorIdioma, normalizarIsoDataHora, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
 import { aplicarMascaraCompetencia, avancarCompetencia, desserializarCompetencia, formatarCompetencia, formatarCompetenciaParaEntrada, obterCompetenciaAtual, obterCompetenciaPorData, serializarCompetencia, type CompetenciaFinanceira } from '../../../src/utils/competenciaFinanceira';
 import { obterIconeBanco, obterIconeBandeiraCartao, obterImagemBanco, obterImagemBandeiraCartao } from '../../../src/utils/icones';
 import { COLORS } from '../../../src/styles/variables';
@@ -20,6 +20,7 @@ import { erroApiJaNotificado, extrairMensagemErroApi } from '../../../src/utils/
 import { dataIsoMaiorQue } from '../../../src/utils/validacaoDataFinanceira';
 import { podeAlterarTransacaoVinculadaAFatura, resolverStatusOperacionalTransacaoFatura } from '../../../src/utils/acoesFaturaCartao';
 import { montarDocumentosPayload, normalizarDocumentosApi, type DocumentoFinanceiro } from '../../../src/utils/documentoUpload';
+import { compararPorLancamentoEfetivacaoDecrescente } from '../../../src/utils/ordenacaoLancamentoFinanceiro';
 import {
   listarDespesasApi,
   listarCartoesApi,
@@ -109,6 +110,11 @@ function normalizarStatusFaturaCartao(status: unknown): StatusFaturaCartao {
   return 'aberta';
 }
 
+function normalizarTipoCartaoOpcao(valor: unknown): 'credito' | 'debito' {
+  const tipo = String(valor ?? '').trim().toLowerCase();
+  return tipo.includes('debi') ? 'debito' : 'credito';
+}
+
 function normalizarReembolsoApi(item: RegistroFinanceiroApi): Reembolso {
   const vinculo = (item.vinculo && typeof item.vinculo === 'object')
     ? (item.vinculo as Record<string, unknown>)
@@ -145,9 +151,11 @@ function normalizarReembolsoApi(item: RegistroFinanceiroApi): Reembolso {
     statusFaturaCartao,
     descricao: String(item.descricao ?? item.titulo ?? ''),
     solicitante: String(item.solicitante ?? item.solicitanteName ?? ''),
-    dataLancamento: String(item.dataLancamento ?? item.data ?? '').slice(0, 10),
+    dataLancamento: normalizarIsoDataHora(String(item.dataLancamento ?? item.data ?? ''), '00:00'),
     competencia: formatarCompetenciaParaEntrada(desserializarCompetencia(String(item.competencia ?? '')) ?? obterCompetenciaPorData(String(item.dataLancamento ?? item.data ?? '')), obterLocaleAtivo()),
-    dataEfetivacao: item.dataEfetivacao ? String(item.dataEfetivacao).slice(0, 10) : (faturaCartaoIdBruto > 0 ? String(item.dataLancamento ?? item.data ?? '').slice(0, 10) : undefined),
+    dataEfetivacao: item.dataEfetivacao
+      ? normalizarIsoDataHora(String(item.dataEfetivacao), '00:00')
+      : (faturaCartaoIdBruto > 0 ? normalizarIsoDataHora(String(item.dataLancamento ?? item.data ?? ''), '00:00') : undefined),
     dataEstorno: item.dataEstorno ? String(item.dataEstorno).slice(0, 10) : undefined,
     observacao: String(item.observacao ?? ''),
     observacaoEfetivacao: '',
@@ -183,13 +191,14 @@ function normalizarDespesaApi(item: RegistroFinanceiroApi): DespesaDisponivel {
 
 function criarReembolsoVazio(locale: string): Reembolso {
   const hoje = new Date().toISOString().split('T')[0];
+  const hojeComHoraZerada = `${hoje}T00:00`;
   return {
     id: 0,
     descricao: '',
     solicitante: '',
-    dataLancamento: hoje,
+    dataLancamento: hojeComHoraZerada,
     competencia: formatarCompetenciaParaEntrada(obterCompetenciaAtual(), locale),
-    dataEfetivacao: hoje,
+    dataEfetivacao: hojeComHoraZerada,
     dataEstorno: hoje,
     observacao: '',
     observacaoEfetivacao: '',
@@ -234,6 +243,11 @@ export default function TelaReembolso() {
   const competenciaConsulta = useMemo(() => serializarCompetencia(competencia), [competencia]);
   const exibeContaBancaria = reembolsoAtual.tipoRecebimento === 'pix' || reembolsoAtual.tipoRecebimento === 'transferencia' || reembolsoAtual.tipoRecebimento === 'contaCorrente';
   const exibeCartao = reembolsoAtual.tipoRecebimento === 'cartaoCredito' || reembolsoAtual.tipoRecebimento === 'cartaoDebito';
+  const tipoCartaoFiltrado = useMemo<'credito' | 'debito' | null>(() => {
+    if (reembolsoAtual.tipoRecebimento === 'cartaoDebito') return 'debito';
+    if (reembolsoAtual.tipoRecebimento === 'cartaoCredito') return 'credito';
+    return null;
+  }, [reembolsoAtual.tipoRecebimento]);
   const ocultarDataVencimentoCartaoCredito = reembolsoAtual.tipoRecebimento === 'cartaoCredito';
   const opcoesContaBancaria = useMemo(
     () =>
@@ -245,12 +259,20 @@ export default function TelaReembolso() {
   );
   const opcoesCartao = useMemo(
     () =>
-      opcoesCartoesApi.map((item) => {
+      opcoesCartoesApi
+        .filter((item) => !tipoCartaoFiltrado || normalizarTipoCartaoOpcao(item.tipo) === tipoCartaoFiltrado)
+        .map((item) => {
         const referencia = item.bandeira ?? item.nome;
         return { value: String(item.id), label: item.nome, icone: obterIconeBandeiraCartao(referencia), imagem: obterImagemBandeiraCartao(referencia) };
       }),
-    [opcoesCartoesApi],
+    [opcoesCartoesApi, tipoCartaoFiltrado],
   );
+  useEffect(() => {
+    if (!reembolsoAtual.cartaoId) return;
+    const cartaoCompativel = opcoesCartao.some((opcao) => Number(opcao.value) === reembolsoAtual.cartaoId);
+    if (cartaoCompativel) return;
+    setReembolsoAtual((atual) => (atual.cartaoId ? { ...atual, cartaoId: undefined } : atual));
+  }, [reembolsoAtual.cartaoId, opcoesCartao]);
   const mapaCartoesPorId = useMemo(
     () => new Map(opcoesCartoesApi.map((item) => [item.id, item])),
     [opcoesCartoesApi],
@@ -337,8 +359,10 @@ export default function TelaReembolso() {
             });
           })
           .filter(reembolsoBateFiltroLista)
-          .sort((a, b) => a.id - b.id);
-        const dataBase = detalhe.competencia ? `${detalhe.competencia}-01` : new Date().toISOString().slice(0, 10);
+          .sort(compararPorLancamentoEfetivacaoDecrescente);
+        const dataBase = detalhe.competencia
+          ? normalizarIsoDataHora(`${detalhe.competencia}-01`, '00:00')
+          : normalizarIsoDataHora(new Date().toISOString().slice(0, 10), '00:00');
         const valorTotalTransacoes = Number.isFinite(detalhe.valorTotalTransacoes) ? detalhe.valorTotalTransacoes : reembolsosVinculados.reduce((total, item) => total + item.valorTotal, 0);
         const valorTotalFatura = Number.isFinite(detalhe.valorTotal) ? detalhe.valorTotal : valorTotalTransacoes;
         const fatura = normalizarReembolsoApi({
@@ -366,7 +390,7 @@ export default function TelaReembolso() {
           statusFaturaCartao,
         };
       })
-      .sort((a, b) => a.fatura.id - b.fatura.id);
+      .sort((a, b) => compararPorLancamentoEfetivacaoDecrescente(a.fatura, b.fatura));
   }, [detalhesFaturasCartao, filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, reembolsos, t]);
 
   const mapaGrupoPorFaturaId = useMemo(
@@ -388,9 +412,13 @@ export default function TelaReembolso() {
     const reembolsosComuns = reembolsosFiltrados.filter(
       (reembolso) => !idsReembolsosFilhosFatura.has(reembolso.id) && !reembolso.faturaCartaoId,
     );
+    const faturasOrdenadas = [...gruposFaturaReembolso.map((grupo) => grupo.fatura)].sort(compararPorLancamentoEfetivacaoDecrescente);
+    const reembolsosOrdenados = reembolsosComuns
+      .filter((reembolso) => !idsPais.has(reembolso.id))
+      .sort(compararPorLancamentoEfetivacaoDecrescente);
     return [
-      ...gruposFaturaReembolso.map((grupo) => grupo.fatura),
-      ...reembolsosComuns.filter((reembolso) => !idsPais.has(reembolso.id)),
+      ...faturasOrdenadas,
+      ...reembolsosOrdenados,
     ];
   }, [gruposFaturaReembolso, idsReembolsosFilhosFatura, reembolsosFiltrados]);
   const totalListaPrincipal = useMemo(() => {
@@ -441,7 +469,7 @@ export default function TelaReembolso() {
       setReembolsoAtual({
         ...completo,
         descricao: normalizarDescricaoMaiuscula(completo.descricao, locale),
-        dataEfetivacao: completo.dataEfetivacao || new Date().toISOString().split('T')[0],
+        dataEfetivacao: completo.dataEfetivacao || `${new Date().toISOString().split('T')[0]}T00:00`,
         dataEstorno: completo.dataEstorno || new Date().toISOString().split('T')[0],
         valorEfetivacao: completo.valorEfetivacao ?? completo.valorTotal ?? calcularTotal(completo.despesasVinculadas),
         observacaoEfetivacao: '',
@@ -529,12 +557,12 @@ export default function TelaReembolso() {
     }
 
     if (exibeContaBancaria && !reembolsoAtual.contaBancariaId) {
-      notificarErro(t('financeiro.receita.mensagens.contaObrigatoria'));
+      notificarErro(t('financeiro.reembolso.mensagens.contaObrigatoria'));
       return;
     }
 
     if (exibeCartao && !reembolsoAtual.cartaoId) {
-      notificarErro(t('financeiro.despesa.mensagens.obrigatorio'));
+      notificarErro(t('financeiro.reembolso.mensagens.cartaoObrigatorio'));
       return;
     }
 
@@ -751,7 +779,7 @@ export default function TelaReembolso() {
         />
       </View>
       <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>
-        {reembolso.solicitante || '-'} | {formatarDataPorIdioma(reembolso.dataLancamento)} | {formatarValorPorIdioma(obterValorExibicaoReembolso(reembolso))}
+        {reembolso.solicitante || '-'} | {formatarDataHoraPorIdioma(reembolso.dataLancamento)} | {formatarValorPorIdioma(obterValorExibicaoReembolso(reembolso))}
       </Text>
       <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
         {t('financeiro.reembolso.despesasSelecionadas', { count: String(reembolso.despesasVinculadas.length) })}
@@ -895,13 +923,15 @@ export default function TelaReembolso() {
 	            <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700' }}>{`${t('financeiro.cartao.acoes.fatura')} (${grupo.reembolsosVinculados.length}) ${expandida ? '^' : 'v'}`}</Text>
 	          </TouchableOpacity>
 	        </View>
-	        {expandida ? (
-	          <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10, maxHeight: 320 }}>
-	            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
-		            {grupo.reembolsosVinculados.map((reembolsoVinculado) => renderCartaoReembolso(reembolsoVinculado, { margemInferior: 8 }))}
-	            </ScrollView>
-	          </View>
-	        ) : null}
+		        {expandida ? (
+		          <View style={{ borderLeftWidth: 2, borderLeftColor: COLORS.borderAccent, marginLeft: 8, paddingLeft: 10, marginBottom: 10, maxHeight: 320 }}>
+		            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+			            {[...grupo.reembolsosVinculados]
+			              .sort(compararPorLancamentoEfetivacaoDecrescente)
+			              .map((reembolsoVinculado) => renderCartaoReembolso(reembolsoVinculado, { margemInferior: 8 }))}
+		            </ScrollView>
+		          </View>
+		        ) : null}
 		      </View>
 	    );
 	  };
@@ -963,8 +993,9 @@ export default function TelaReembolso() {
               label={t('financeiro.reembolso.descricao')}
               placeholder={t('financeiro.reembolso.placeholderDescricao')}
               value={reembolsoAtual.descricao}
-              onChangeText={(descricao) => setReembolsoAtual((atual) => ({ ...atual, descricao: normalizarDescricaoMaiuscula(descricao, locale) }))}
+              onChangeText={(descricao) => setReembolsoAtual((atual) => ({ ...atual, descricao }))}
               obrigatorio
+              forcarMaiusculo
               multiline
               numberOfLines={3}
               estilo={{ marginBottom: 12 }}
@@ -974,8 +1005,8 @@ export default function TelaReembolso() {
         ? renderCampoBloqueado(t('financeiro.reembolso.solicitante'), reembolsoAtual.solicitante)
         : <CampoTexto label={t('financeiro.reembolso.solicitante')} value={reembolsoAtual.solicitante} onChangeText={(solicitante) => setReembolsoAtual((atual) => ({ ...atual, solicitante }))} estilo={{ marginBottom: 12 }} />}
       {somenteLeitura
-        ? renderCampoBloqueado(t('financeiro.reembolso.dataLancamento'), reembolsoAtual.dataLancamento ? formatarDataPorIdioma(reembolsoAtual.dataLancamento) : '')
-        : <CampoData label={t('financeiro.reembolso.dataLancamento')} placeholder={t('financeiro.reembolso.placeholderData')} value={reembolsoAtual.dataLancamento} onChange={(dataLancamento) => setReembolsoAtual((atual) => ({ ...atual, dataLancamento }))} estilo={{ marginBottom: 12 }} />}
+        ? renderCampoBloqueado(t('financeiro.reembolso.dataLancamento'), reembolsoAtual.dataLancamento ? formatarDataHoraPorIdioma(reembolsoAtual.dataLancamento) : '')
+        : <CampoData label={t('financeiro.reembolso.dataLancamento')} placeholder={t('financeiro.reembolso.placeholderData')} value={reembolsoAtual.dataLancamento} onChange={(dataLancamento) => setReembolsoAtual((atual) => ({ ...atual, dataLancamento }))} comHora estilo={{ marginBottom: 12 }} />}
       {somenteLeitura
         ? renderCampoBloqueado(t('financeiro.reembolso.competencia'), reembolsoAtual.competencia)
         : <CampoTexto label={t('financeiro.reembolso.competencia')} placeholder={t('financeiro.reembolso.placeholderCompetencia')} value={reembolsoAtual.competencia} onChangeText={(competencia) => setReembolsoAtual((atual) => ({ ...atual, competencia: aplicarMascaraCompetencia(competencia, locale) }))} obrigatorio estilo={{ marginBottom: 12 }} />}
@@ -1109,7 +1140,7 @@ export default function TelaReembolso() {
           <>
             {renderFormularioBase(true)}
             {renderCampoBloqueadoStatus(t('financeiro.reembolso.statusLista.pendente'), t(`financeiro.reembolso.statusLista.${reembolsoSelecionado.status}`), obterEstiloBadgeStatusReembolso(reembolsoSelecionado.status))}
-            {renderCampoBloqueado(t('financeiro.reembolso.campos.dataEfetivacao'), reembolsoSelecionado.dataEfetivacao ? formatarDataPorIdioma(reembolsoSelecionado.dataEfetivacao) : '')}
+            {renderCampoBloqueado(t('financeiro.reembolso.campos.dataEfetivacao'), reembolsoSelecionado.dataEfetivacao ? formatarDataHoraPorIdioma(reembolsoSelecionado.dataEfetivacao) : '')}
             <Botao titulo={t('comum.acoes.cancelar')} onPress={() => setModoFormulario('lista')} tipo="secundario" disabled={carregando} />
           </>
         ) : null}
@@ -1126,6 +1157,7 @@ export default function TelaReembolso() {
               placeholder={t('financeiro.reembolso.placeholderData')}
               value={reembolsoAtual.dataEfetivacao || ''}
               onChange={(dataEfetivacao) => setReembolsoAtual((atual) => ({ ...atual, dataEfetivacao }))}
+              comHora
               obrigatorio
               estilo={{ marginBottom: 12 }}
             />

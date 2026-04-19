@@ -249,7 +249,7 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'financeiro.despesa.nova': 'Nova Despesa',
     'financeiro.despesa.vazio': 'Nenhuma despesa encontrada.',
     'financeiro.despesa.campos.descricao': 'DescriÃ§Ã£o *',
-    'financeiro.despesa.campos.observacao': 'Observacao',
+    'financeiro.despesa.campos.observacao': 'Observação',
     'financeiro.despesa.campos.dataLancamento': 'Data Lancamento *',
     'financeiro.despesa.campos.dataVencimento': 'Data Vencimento *',
     'financeiro.despesa.campos.dataEfetivacao': 'Data Efetivacao *',
@@ -332,7 +332,7 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'financeiro.receita.nova': 'Nova Receita',
     'financeiro.receita.vazio': 'Nenhuma receita encontrada.',
     'financeiro.receita.campos.descricao': 'DescriÃ§Ã£o *',
-    'financeiro.receita.campos.observacao': 'Observacao',
+    'financeiro.receita.campos.observacao': 'Observação',
     'financeiro.receita.campos.dataLancamento': 'Data Lancamento *',
     'financeiro.receita.campos.dataVencimento': 'Data Vencimento *',
     'financeiro.receita.campos.dataEfetivacao': 'Data Efetivacao *',
@@ -1401,7 +1401,6 @@ export const usarTraducao = () => {
 
   return { t };
 };
-
 
 
 

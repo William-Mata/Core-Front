@@ -15,6 +15,7 @@ interface CampoTextoProps {
   multiline?: boolean;
   numberOfLines?: number;
   obrigatorio?: boolean;
+  forcarMaiusculo?: boolean;
 }
 
 function formatarLabelObrigatorio(label: string, obrigatorio: boolean): string {
@@ -63,6 +64,7 @@ export function CampoTexto(props: CampoTextoProps) {
     multiline,
     numberOfLines,
     obrigatorio,
+    forcarMaiusculo,
   } = props;
   const valorFinal = value || valor;
   const [focado, setFocado] = useState(false);
@@ -78,6 +80,7 @@ export function CampoTexto(props: CampoTextoProps) {
         placeholder={placeholder}
         placeholderTextColor={COLORS.textSecondary}
         secureTextEntry={secureTextEntry}
+        autoCapitalize={forcarMaiusculo ? 'characters' : undefined}
         keyboardType={keyboardType as any}
         onFocus={() => setFocado(true)}
         onBlur={() => setFocado(false)}
@@ -92,6 +95,7 @@ export function CampoTexto(props: CampoTextoProps) {
               } as any)
             : null,
           multiline && { minHeight: numberOfLines ? numberOfLines * 20 : 100 },
+          forcarMaiusculo && { textTransform: 'uppercase' },
         ]}
         multiline={multiline}
         numberOfLines={numberOfLines}
