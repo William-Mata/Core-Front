@@ -29,7 +29,22 @@ export function desserializarCompetencia(competencia: string | null | undefined)
 export function obterCompetenciaPorData(data: string | Date | null | undefined, referencia: Date = new Date()): CompetenciaFinanceira {
   if (!data) return obterCompetenciaAtual(referencia);
 
-  const valor = data instanceof Date ? data : new Date(`${data}T12:00:00`);
+  let valor: Date;
+  if (data instanceof Date) {
+    valor = data;
+  } else {
+    const texto = String(data).trim();
+    const matchSomenteData = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
+    if (matchSomenteData) {
+      const ano = Number(matchSomenteData[1]);
+      const mes = Number(matchSomenteData[2]) - 1;
+      const dia = Number(matchSomenteData[3]);
+      valor = new Date(ano, mes, dia, 12, 0, 0, 0);
+    } else {
+      valor = new Date(texto);
+    }
+  }
+
   if (Number.isNaN(valor.getTime())) return obterCompetenciaAtual(referencia);
 
   return {

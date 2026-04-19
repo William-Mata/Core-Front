@@ -29,13 +29,13 @@ describe('utils/ordenacaoLancamentoFinanceiro', () => {
     expect(ordenados.map((item) => item.id)).toEqual([20, 22, 21]);
   });
 
-  it('deve usar id como desempate estavel final', () => {
+  it('deve usar id decrescente como desempate estavel final', () => {
     const ordenacao = compararPorLancamentoEfetivacaoDecrescente(
       { id: 1, dataLancamento: '2026-03-10', dataEfetivacao: '2026-03-12' },
       { id: 2, dataLancamento: '2026-03-10', dataEfetivacao: '2026-03-12' },
     );
 
-    expect(ordenacao).toBeLessThan(0);
+    expect(ordenacao).toBeGreaterThan(0);
   });
 
   it('nao deve mutar o array original', () => {

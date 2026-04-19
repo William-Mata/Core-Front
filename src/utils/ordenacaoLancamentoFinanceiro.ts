@@ -16,7 +16,7 @@ export function compararPorLancamentoEfetivacaoDecrescente(
   const comparacaoEfetivacao = dataEfetivacaoB.localeCompare(dataEfetivacaoA);
   if (comparacaoEfetivacao !== 0) return comparacaoEfetivacao;
 
-  return a.id - b.id;
+  return b.id - a.id;
 }
 
 export function ordenarPorLancamentoEfetivacaoDecrescente<T extends RegistroOrdenacaoLancamento>(registros: T[]): T[] {

@@ -19,11 +19,24 @@ const parseDataFiltro = (valor: string): Date | null => {
   return data;
 };
 
+const parseDataIsoAlvo = (valor: string): Date | null => {
+  const texto = String(valor ?? '').trim();
+  if (!texto) return null;
+
+  const parteData = texto.includes('T') ? texto.split('T')[0] : texto;
+  const [ano, mes, dia] = parteData.split('-').map((p) => Number(p));
+  if (!ano || !mes || !dia) return null;
+
+  const data = new Date(ano, mes - 1, dia, 0, 0, 0, 0);
+  if (Number.isNaN(data.getTime())) return null;
+  return data;
+};
+
 export const estaDentroIntervalo = (dataIso: string, inicioBr: string, fimBr: string): boolean => {
   if (!inicioBr && !fimBr) return true;
 
-  const dataAlvo = new Date(`${dataIso}T00:00:00`);
-  if (Number.isNaN(dataAlvo.getTime())) return false;
+  const dataAlvo = parseDataIsoAlvo(dataIso);
+  if (!dataAlvo) return false;
 
   const inicio = inicioBr ? parseDataFiltro(inicioBr) : null;
   const fim = fimBr ? parseDataFiltro(fimBr) : null;
