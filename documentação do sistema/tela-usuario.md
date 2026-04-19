@@ -48,7 +48,6 @@ Orientar o usuario final sobre como usar o painel de usuario.
 - confirme com atencao antes de salvar
 - se esquecer a senha atual, use a recuperacao na tela de login
 
-## Observacao
+## Observação
 - esta tela mostra os dados do usuario autenticado no momento
 - para voltar ao sistema principal, use o botao de fechar da tela
-

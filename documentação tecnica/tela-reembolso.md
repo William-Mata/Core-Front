@@ -1,10 +1,7 @@
 # Tela de Reembolso
 
 ## Objetivo
-Documentar o comportamento atual do front-end da tela de reembolso e os contratos realmente consumidos.
-
-Arquivo principal:
-- `app/principal/financeiro/reembolso.tsx`
+Documentar o contrato atual da tela de reembolso com API e regras de negocio aplicadas no front.
 
 ## Rota do front
 - `/principal/financeiro/reembolso`
@@ -17,7 +14,8 @@ Arquivo principal:
 - `efetivacao`
 - `estorno`
 
-## Endpoints consumidos pelo front
+## Endpoints consumidos
+Reembolso:
 - `GET /api/financeiro/reembolsos`
 - `GET /api/financeiro/reembolsos/{id}`
 - `POST /api/financeiro/reembolsos`
@@ -25,81 +23,74 @@ Arquivo principal:
 - `POST /api/financeiro/reembolsos/{id}/efetivar`
 - `POST /api/financeiro/reembolsos/{id}/estornar`
 
-Dependencias de apoio:
+Dependencias:
 - `GET /api/financeiro/despesas`
 - `GET /api/financeiro/contas-bancarias`
 - `GET /api/financeiro/cartoes`
 
 ## Filtros e competencia
-Filtros enviados na consulta:
-- `id`
-- `descricao`
-- `dataInicio`
-- `dataFim`
-- `competencia` (`yyyy-MM`)
+Filtros de consulta:
+- `id`, `descricao`, `dataInicio`, `dataFim`, `competencia`.
 
-Comportamento:
-- a tela so consulta quando o usuario aciona `Consultar`
-- `competencia` e a fonte de verdade para cadastro, edicao e listagem
-- quando `competencia` nao for informada, a API assume a competencia atual
-- a navegacao de competencia altera a competencia consultada
-- alem da consulta na API, existe filtro local adicional na lista
+Regras:
+- consulta acontece ao acionar `Consultar`.
+- `competencia` e obrigatoria para salvar no front.
+- existe filtro local adicional apos retorno da API.
 
 ## Regras de status para acoes
-- `Editar`: apenas `pendente`
-- `Efetivar`: apenas `pendente`
-- `Cancelar`: apenas `pendente`
-- `Estornar`: apenas `efetivada`
-- `Visualizar`: qualquer status
+- `Editar`: somente `pendente`
+- `Efetivar`: somente `pendente`
+- `Estornar`: somente `efetivada`
+- `Cancelar`: somente `pendente` (feito por `PUT` alterando status para `CANCELADA`)
 
 ## Regras de validacao no front
-- descricao obrigatoria
-- precisa ter pelo menos uma despesa vinculada
-- uma despesa nao pode estar vinculada a mais de um reembolso
-- data de efetivacao nao pode ser menor que a data de lancamento
-- `pix`, `transferencia` e `contaCorrente` exigem `contaBancariaId`
-- `cartaoCredito` e `cartaoDebito` exigem `cartaoId`
+- `descricao` obrigatoria.
+- ao menos uma despesa vinculada.
+- nao permite despesa vinculada em mais de um reembolso.
+- `competencia` obrigatoria.
+- para `tipoRecebimento` com conta (`pix`, `transferencia`, `contaCorrente`), `contaBancariaId` obrigatoria.
+- para `tipoRecebimento` com cartao (`cartaoCredito`, `cartaoDebito`), `cartaoId` obrigatorio.
 
 ## Efetivacao
-O front usa `POST /reembolsos/{id}/efetivar` com:
+Payload enviado:
 - `dataEfetivacao`
-- `valorEfetivacao` (calculado pela soma das despesas vinculadas)
+- `valorEfetivacao` (soma das despesas vinculadas)
 - `observacaoHistorico` (opcional)
 - `documentos`
 
-Regras de fluxo:
-- exige reembolso com status diferente de `pago`
-- `dataEfetivacao` nao pode ser menor que `dataLancamento`
+Regras:
+- apenas `pendente`.
+- `dataEfetivacao >= dataLancamento`.
 
 ## Estorno
-O front usa `POST /reembolsos/{id}/estornar` com:
-- `dataEstorno` (obrigatorio)
+Payload enviado:
+- `dataEstorno`
 - `observacaoHistorico` (opcional)
-- `ocultarDoHistorico` (opcional, padrao `true`)
+- `ocultarDoHistorico` (opcional)
 
-Regras de fluxo:
-- exige reembolso com status `pago`
-- `dataEstorno` nao pode ser menor que `dataLancamento`
-- quando existir `dataEfetivacao`, `dataEstorno` nao pode ser menor que `dataEfetivacao`
+Regras:
+- apenas `efetivada`.
+- `dataEstorno >= dataLancamento`.
+- se houver `dataEfetivacao`, `dataEstorno >= dataEfetivacao`.
 
 ## Cancelamento
-O front usa `PUT /reembolsos/{id}` com:
-- `status = cancelada`
-- demais campos do reembolso preservados
+- sem endpoint dedicado de cancelamento.
+- fluxo atual: busca detalhe (`GET /{id}`) e envia `PUT /{id}` com `status = CANCELADA`.
 
-## Campos relevantes do payload no front
-- `descricao`
-- `solicitante`
-- `dataLancamento`
-- `competencia`
-- `despesasVinculadas` (array de ids)
-- `valorTotal` (calculado no front)
-- `documentos`
-- `status`
-- `contaBancariaId`
-- `cartaoId`
+## Regras importantes para integracao
+- status aceito pelo front para serializacao: `PENDENTE`, `EFETIVADA`, `CANCELADA`.
+- payload de salvar/editar inclui `despesasVinculadas`, `valorTotal`, `contaBancariaId`, `cartaoId`, `documentos`.
 
 ## Fora do escopo atual da tela
-- endpoint dedicado de `efetivar` para reembolso
-- endpoint dedicado de `estornar` para reembolso
-- exclusao de reembolso pela interface (o front nao usa `DELETE`)
+- exclusao fisica de reembolso pelo usuario (`DELETE` nao e usado na tela).
+
+## Rastreabilidade no codigo
+- `app/principal/financeiro/reembolso.tsx:542`
+- `app/principal/financeiro/reembolso.tsx:614`
+- `app/principal/financeiro/reembolso.tsx:655`
+- `app/principal/financeiro/reembolso.tsx:707`
+- `src/utils/reembolsoStatus.ts:21`
+- `src/utils/reembolso.ts:6`
+- `src/servicos/financeiro/index.ts:643`
+- `src/servicos/financeiro/index.ts:665`
+- `src/servicos/financeiro/index.ts:677`

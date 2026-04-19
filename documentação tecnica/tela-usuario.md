@@ -56,7 +56,7 @@ Payload:
 - sem necessidade de payload especifico
 - o front limpa os campos e mostra mensagem de sucesso
 
-Observacao:
+Observação:
 - quando a API retornar objeto com `mensagem`, o front pode exibir esse texto.
 
 ## Resposta esperada em erro

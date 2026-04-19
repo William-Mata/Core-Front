@@ -82,7 +82,7 @@ Regras no front:
 }
 ```
 
-Observacao:
+Observação:
 - `perfil.id` e inteiro
 - `status` de modulo/tela/funcionalidade deve ser booleano
 

@@ -17,7 +17,7 @@ A tela de receita permite:
 
 ## Campos principais
 - Descricao
-- Observacao
+- Observação
 - Data de lancamento
 - Data de vencimento
 - Tipo de receita
@@ -105,5 +105,5 @@ Voce deve escolher uma area valida e, depois, uma subarea da propria area.
 ## Fluxo de aprovacao
 - quando a receita estiver em `Pendente de aprovacao`, a tela exibe as acoes `Aceitar` e `Rejeitar`
 
-## Observacao para series
+## Observação para series
 Quando voce cria uma receita recorrente, o sistema confirma a primeira ocorrencia e informa que as demais estao sendo geradas.

@@ -1,156 +1,79 @@
 # Tela de Dashboard
 
 ## Objetivo
-Documentar o comportamento atual do front-end da dashboard e o contrato de dados necessario para integrar a tela com API.
-
-Arquivo principal:
-- `app/principal/index.tsx`
+Documentar o comportamento atual da dashboard e os contratos de API realmente consumidos pelo front.
 
 ## Rota do front
-- tela principal da dashboard: `/principal`
-- documentacao do modulo: `/principal/documentacao`
+- tela principal: `/principal`
+- atalho de documentacao do modulo: `/principal/documentacao`
 
-## Estrategia atual da tela
-No estado atual do front, a dashboard monta os widgets a partir de:
-- lista de despesas (`GET /financeiro/despesas`)
-- lista de receitas (`GET /financeiro/receitas`)
-- lista de reembolsos (`GET /financeiro/reembolsos`)
+## Endpoints consumidos
+Carga principal de transacoes:
+- `GET /api/financeiro/despesas?desconsiderarCancelados=true`
+- `GET /api/financeiro/receitas?desconsiderarCancelados=true`
+- `GET /api/financeiro/reembolsos?desconsiderarCancelados=true`
 
-Nao existe chamada para endpoint consolidado de dashboard no estado atual.
-Nao existe carga dedicada de estornos no estado atual.
-Nao existe carga de saldo pronto de conta/cartao no estado atual.
+Carga da tabela de ultimas transacoes:
+- `GET /api/financeiro/historico-transacoes?quantidadeRegistros=50&ordemRegistros=MaisRecentes`
 
-## Estrutura esperada de transacao
-Campos consumidos no mapeamento atual (`mapearTransacoesApiParaDashboard`):
-- `id` (fallback para indice)
-- `valor` (fallback: `valorLiquido` ou `valorTotal`, senao `0`)
-- `descricao` (fallback: `titulo`)
-- `dataEfetivacao` (fallback: `dataLancamento` ou `data`)
-- `tipoPagamento` / `tipoRecebimento` (normalizado para codigo interno)
-- `contaBancaria` (opcional)
-- `cartao` (opcional)
-- `area` (fallback: `categoria`)
-- `subarea` (fallback: `descricao` ou `titulo`)
+Carga do resumo financeiro:
+- `GET /api/financeiro/historico-transacoes/resumo`
 
-Campos derivados no front:
-- `tipo`: definido pelo endpoint de origem (`despesa`, `receita` ou `reembolso`)
-- `codigoPagamento`: mapeado para `CARTAO_CREDITO`, `PIX`, `TRANSFERENCIA`, `BOLETO` ou `DINHEIRO`
-- `tipoPagamento`: texto i18n a partir do `codigoPagamento`
+Carga do grafico por area e subarea:
+- `GET /api/financeiro/areas-subareas/soma-rateio?tipo=Despesa`
+- `GET /api/financeiro/areas-subareas/soma-rateio?tipo=Receita`
 
-## Regras do front para pagamento e cartao
-- a coluna `Cartao` da widget `Ultimas Transacoes` so deve exibir valor quando `codigoPagamento = CARTAO_CREDITO`
-- para outros tipos de pagamento / recebimento, a coluna deve exibir `-`
-- `tipoPagamento` e exibido como texto diretamente na grid
+Carga do balanco geral:
+- `GET /api/financeiro/contas-bancarias`
+- `GET /api/financeiro/cartoes`
 
-## Estrutura do balanco no front
-O balanco geral e calculado localmente a partir de `transacoes`:
-- para `contaBancaria`: soma por nome da conta
-- para `cartao`: soma por nome do cartao
-- regra de sinal: `despesa` subtrai, demais tipos somam
+## Regras de montagem dos widgets
+1. Resumo Financeiro
+- usa prioridade do endpoint `historico-transacoes/resumo`.
+- fallback local: soma de `transacoesApi`.
 
-Regras de exibicao:
-- `tipo = conta` usa traducao de conta bancaria no card
-- `tipo = cartao` usa traducao de cartao no card
-- saldo positivo e destacado como sucesso
-- saldo negativo e destacado como erro
+2. Grafico por Area/Subarea (receitas e despesas)
+- usa `areas-subareas/soma-rateio`.
+- consolida por par `area + subarea`.
+- exibe no maximo 30 itens por grafico.
 
-## Widgets e regras atuais da dashboard
+3. Grafico Anual
+- monta series `receitas`, `despesas`, `reembolsos`, `estornos`.
+- usuario pode ocultar/exibir series, mas o front impede ocultar todas ao mesmo tempo.
 
-### 1. Resumo Financeiro
-Calculado pelo front a partir de todas as transacoes carregadas.
+4. Ultimas Transacoes
+- usa endpoint de historico e renderiza no maximo 100 linhas na UI.
+- coluna `Cartao` so exibe valor quando o tipo de pagamento mapeado e cartao de credito.
 
-Valores exibidos:
-- total de receitas
-- total de despesas
-- total de reembolsos
-- total de estornos
-- saldo
-
-Formula do saldo atual:
-
-```txt
-saldo = receitas + reembolsos + estornos - despesas
-```
-
-### 2. Grafico por Area e Subarea - Receitas
-Calculado pelo front a partir das transacoes com `tipo = receita`.
-
-Regras:
-- agrupa por `area + subarea`
-- ordena por maior volume total
-- exibe no maximo 30 combinacoes
-- o grafico usa `PieChart`
-- a lista lateral e apenas visual no estado atual
-
-### 3. Grafico por Area e Subarea - Despesas
-Calculado pelo front a partir das transacoes com `tipo = despesa`.
-
-Regras:
-- agrupa por `area + subarea`
-- ordena por maior volume total
-- exibe no maximo 30 combinacoes
-- o grafico usa `PieChart`
-- a lista lateral e apenas visual no estado atual
-
-### 4. Grafico Anual
-Calculado pelo front a partir das transacoes do ano atual.
-
-Series exibidas:
-- receitas
-- despesas
-- reembolsos
-- estornos
-
-Regras:
-- o grafico ocupa toda a largura util da widget
-- o usuario pode ativar e desativar series individualmente
-- o front nao permite desligar todas as series ao mesmo tempo
-- o tooltip do ponto usa os dados do mes selecionado
-- como nao ha carga dedicada de estornos na tela, a serie de estornos tende a permanecer zerada
-
-### 5. Ultimas Transacoes
-Regras atuais:
-- exibe no maximo 100 transacoes
-- ordenacao atual: data mais recente primeiro
-- colunas atuais:
-  - `ID`
-  - `Tipo`
-  - `Valor`
-  - `Descricao`
-  - `Data`
-  - `Pagamento / Recebimento`
-  - `Conta Bancaria`
-  - `Cartao`
-  - `Area / Subarea`
-
-### 6. Balanco Geral
-Regras atuais:
-- exibe contas e cartoes no mesmo bloco
-- saldo e recalculado no front a partir das transacoes carregadas
-- itens sem `contaBancaria` e sem `cartao` nao entram no balanco
+5. Balanco Geral
+- usa dados de contas e cartoes.
+- conta usa `saldoAtual` (fallback `saldoInicial`).
+- cartao usa `saldoDisponivel` (fallback `limiteDisponivel`/`limite`).
 
 ## Reordenacao de widgets
-A dashboard permite reordenacao de widgets por dois meios:
-- botoes de mover para cima e para baixo
-- drag and drop na web
-
-Regras do front:
-- a ordem e mantida apenas em memoria na tela no estado atual
-- ainda nao existe persistencia em API da ordenacao do usuario
+- suporta setas (todas as plataformas) e drag-and-drop na web.
+- ordem e mantida apenas em memoria da tela (nao persiste em API nem storage local).
 
 ## Regras de formatacao
-- valores devem chegar como numero e o front aplica formatacao por idioma
-- datas devem chegar em ISO `yyyy-MM-dd` e o front aplica formatacao por idioma
-- a tela suporta `pt-BR`, `en` e `es`
+- datas esperadas em ISO e formatadas por locale no front.
+- valores monetarios esperados como numero e formatados por locale no front.
 
 ## Regras importantes para integracao
-- evitar enviar valores monetarios formatados como string
-- evitar enviar datas em formato local como `24/03/2026`
-- `descricao`, `tipoPagamento`, `area` e `subarea` podem vir como texto final de exibicao
-- se optar por enviar codigos em vez de texto final, o front precisara de dicionario de traducao adicional
+- a dashboard ainda nao usa endpoint unico consolidado.
+- para evitar inconsistencias, API deve manter semantica de tipos (`despesa`, `receita`, `reembolso`, `estorno`) entre endpoints de lista e historico.
 
 ## Fora do escopo atual da tela
-- filtros locais na dashboard
-- persistencia da ordem das widgets por usuario
-- drill-down de pontos do grafico anual
-- clique funcional nas legendas da widget de area e subarea
+- persistencia da ordem de widgets por usuario.
+- filtros interativos locais por periodo/tipo diretamente na dashboard.
+
+## Rastreabilidade no codigo
+- `app/principal/index.tsx:395`
+- `app/principal/index.tsx:434`
+- `app/principal/index.tsx:493`
+- `app/principal/index.tsx:536`
+- `app/principal/index.tsx:607`
+- `src/servicos/financeiro/index.ts:505`
+- `src/servicos/financeiro/index.ts:752`
+- `src/servicos/financeiro/index.ts:770`
+- `src/servicos/financeiro/index.ts:838`
+- `src/servicos/financeiro/index.ts:892`

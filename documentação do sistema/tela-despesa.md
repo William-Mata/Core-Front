@@ -17,7 +17,7 @@ A tela de despesa permite:
 
 ## Campos principais
 - Descricao
-- Observacao
+- Observação
 - Data de lancamento
 - Data de vencimento
 - Tipo de despesa
@@ -112,5 +112,5 @@ Voce deve escolher uma area valida e, depois, uma subarea da propria area.
 ## Fluxo de aprovacao
 - quando a despesa estiver em `Pendente de aprovacao`, a tela exibe as acoes `Aceitar` e `Rejeitar`
 
-## Observacao para series
+## Observação para series
 Quando voce cria uma despesa recorrente ou parcelada, o sistema confirma a primeira ocorrencia e informa que as demais estao sendo geradas.

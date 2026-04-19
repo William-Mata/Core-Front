@@ -385,7 +385,7 @@ Codigos disparados pelo `AmigoService`:
 - `amizade_nao_encontrada` (400 em validacao inicial do `amigoId`; 404 quando busca no repositorio nao encontra)
 - `convite_nao_encontrado` (404)
 
-Observacao importante:
+Observação importante:
 
 - O dicionario `ErroMensagemExtensions` nao possui mensagens dedicadas para varios codigos especificos de amizade (`amizade_ja_existente`, `convite_ja_enviado`, `convite_nao_permitido` etc.).
 - Nesses casos, o `detail` retorna a mensagem padrao: `Nao foi possivel processar a solicitacao.`

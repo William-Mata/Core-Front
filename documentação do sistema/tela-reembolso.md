@@ -1,73 +1,56 @@
 # Tela de Reembolso
 
 ## Para que serve
-A tela de Reembolso permite registrar pedidos de reembolso vinculando despesas ja cadastradas no sistema.
+Registrar reembolsos vinculando despesas ja cadastradas, com controle de status e historico.
 
 ## O que voce pode fazer
-- consultar reembolsos cadastrados
-- filtrar por ID, descricao e periodo
-- usar competencia como referencia principal de cadastro, edicao e listagem
-- criar novo reembolso
+- consultar por id, descricao, periodo e competencia
+- criar reembolso
 - editar reembolso pendente
-- efetivar reembolso com status diferente de pago
-- estornar reembolso pago
+- efetivar reembolso pendente
+- estornar reembolso efetivado
 - cancelar reembolso pendente
 
-## Campos do reembolso
-- `Descricao` (obrigatorio)
-- `Solicitante`
-- `Data da Solicitacao`
-- `Despesas Vinculadas` (obrigatorio, selecao multipla)
-- `Valor Total` (calculado automaticamente)
-- `Valor Efetivacao` (bloqueado na efetivacao)
+## Campos principais
+- Descricao (obrigatorio)
+- Solicitante
+- Data da solicitacao
+- Competencia (obrigatorio)
+- Tipo de recebimento
+- Conta bancaria ou cartao (dependendo do tipo)
+- Despesas vinculadas (obrigatorio, pelo menos uma)
+- Valor total (calculado)
 
 ## Regras importantes
-- nao e possivel salvar sem descricao
-- nao e possivel salvar sem pelo menos 1 despesa vinculada
-- uma despesa so pode estar vinculada a um unico reembolso
-- se tentar vincular uma despesa ja usada em outro reembolso, o sistema bloqueia e informa o conflito
-- apenas reembolso `Pendente` pode ser editado
-- a competencia do reembolso segue o formato `yyyy-MM`
-- quando nao informar competencia, o sistema usa a competencia atual
-- efetivacao exige status diferente de `Pago`
-- estorno exige status `Pago`
-- na efetivacao, a data de efetivacao nao pode ser menor que a data de lancamento
-- no estorno, a data de estorno e obrigatoria
-- no estorno, a data de estorno nao pode ser menor que a data de lancamento
-- no estorno, quando existir data de efetivacao, a data de estorno nao pode ser menor que a data de efetivacao
-- apenas reembolso `Pendente` pode ser cancelado
+- a mesma despesa nao pode ser vinculada em dois reembolsos diferentes.
+- efetivacao so aparece para reembolso pendente.
+- estorno so aparece para reembolso efetivado.
+- cancelamento so aparece para reembolso pendente.
+- data de efetivacao e data de estorno nao podem ser menores que a data de solicitacao.
 
-## Como cadastrar um reembolso
+## Como cadastrar
 1. Clique em `+ Novo Reembolso`.
-2. Preencha a descricao.
-3. Informe o solicitante.
-4. Defina a data da solicitacao.
-5. Selecione as despesas vinculadas.
-6. Confira o valor total calculado.
-7. Clique em `Salvar`.
-
-## Como editar
-1. Na lista, clique em `Editar`.
-2. Altere os campos necessarios.
-3. Clique em `Confirmar`.
+2. Informe descricao, competencia e despesas vinculadas.
+3. Escolha tipo de recebimento.
+4. Se o tipo exigir, selecione conta bancaria ou cartao.
+5. Clique em `Salvar`.
 
 ## Como efetivar
-1. Na lista, clique em `Efetivar`.
-2. Revise data, valor total e valor de efetivacao.
-3. Se desejar, preencha a observacao do historico (`observacaoHistorico`).
-3. Clique em `Confirmar efetivacao`.
+1. Abra a acao `Efetivar` de um reembolso pendente.
+2. Informe a data de efetivacao.
+3. Opcionalmente preencha observacao.
+4. Confirme a efetivacao.
 
 ## Como estornar
-1. Na lista, clique em `Estornar`.
-2. Informe a data de estorno (obrigatoria).
-3. Se desejar, preencha a observacao do historico (`observacaoHistorico`).
-4. O campo `Ocultar efetivacao/estorno dos registros` vem marcado por padrao.
-5. O status volta para `Pendente`.
+1. Abra a acao `Estornar` de um reembolso efetivado.
+2. Informe a data de estorno.
+3. Opcionalmente preencha observacao e a opcao de ocultar no historico.
+4. Confirme o estorno.
 
 ## Como cancelar
-1. Na lista, clique em `Cancelar`.
-2. Confirme a acao no modal exibido.
-3. O status do reembolso passa para `Cancelada`.
+1. Clique em `Cancelar` em um reembolso pendente.
+2. Confirme no modal.
+3. O status passa para `Cancelada`.
 
 ## Dica de uso
-Use os filtros para localizar rapidamente reembolsos por periodo, descricao ou solicitante.
+Use competencia e descricao para localizar rapidamente reembolsos em lotes maiores.
