@@ -212,6 +212,42 @@ function normalizarTexto(valor: unknown) {
   return String(valor ?? '').trim();
 }
 
+function normalizarDataHoraParaApi(valor: unknown): string {
+  const texto = normalizarTexto(valor);
+  if (!texto) return texto;
+
+  const matchComSegundos = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})$/.exec(texto);
+  if (matchComSegundos) return texto;
+
+  const matchSemSegundos = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})$/.exec(texto);
+  if (matchSemSegundos) return `${matchSemSegundos[1]}T${matchSemSegundos[2]}:${matchSemSegundos[3]}:00`;
+
+  const matchSomenteData = /^(\d{4}-\d{2}-\d{2})$/.exec(texto);
+  if (matchSomenteData) return `${matchSomenteData[1]}T00:00:00`;
+
+  const data = new Date(texto);
+  if (Number.isNaN(data.getTime())) return texto;
+
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  const hora = String(data.getHours()).padStart(2, '0');
+  const minuto = String(data.getMinutes()).padStart(2, '0');
+  const segundo = String(data.getSeconds()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}`;
+}
+
+function prepararPayloadDataHoraApi<T extends object>(payload: T, campos: string[]): T {
+  const payloadNormalizado = { ...(payload as Record<string, unknown>) };
+  for (const campo of campos) {
+    if (!(campo in payloadNormalizado)) continue;
+    const valor = payloadNormalizado[campo];
+    if (valor === null || valor === undefined || valor === '') continue;
+    payloadNormalizado[campo] = normalizarDataHoraParaApi(valor);
+  }
+  return payloadNormalizado as T;
+}
+
 function normalizarOrdemHistorico(ordem: OrdemRegistrosHistoricoApi | undefined): 'MaisRecentes' | 'MaisAntigos' {
   if (ordem === undefined) return 'MaisRecentes';
   if (ordem === 1 || ordem === 'MaisRecentes') return 'MaisRecentes';
@@ -477,7 +513,8 @@ export async function obterDespesaApi(id: number): Promise<RegistroFinanceiroApi
 }
 
 export async function criarDespesaApi(payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
-  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/despesas', payload);
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao']);
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/despesas', payloadNormalizado);
   return extrairDados(data);
 }
 
@@ -486,9 +523,10 @@ export async function atualizarDespesaApi(
   payload: Record<string, unknown>,
   opcoesEscopoRecorrencia?: OpcoesEscopoRecorrencia,
 ): Promise<RegistroFinanceiroApi> {
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao']);
   const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
     '/financeiro/despesas/' + id,
-    payload,
+    payloadNormalizado,
     montarConfigEscopoRecorrencia(opcoesEscopoRecorrencia),
   );
   return extrairDados(data);
@@ -510,9 +548,10 @@ export async function efetivarDespesaApi(
   id: number,
   payload: EfetivarDespesaPayloadApi,
 ): Promise<RegistroFinanceiroApi> {
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataEfetivacao']);
   const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
     '/financeiro/despesas/' + id + '/efetivar',
-    payload,
+    payloadNormalizado,
   );
   return extrairDados(data);
 }
@@ -539,7 +578,8 @@ export async function obterReceitaApi(id: number): Promise<RegistroFinanceiroApi
 }
 
 export async function criarReceitaApi(payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
-  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/receitas', payload);
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao']);
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/receitas', payloadNormalizado);
   return extrairDados(data);
 }
 
@@ -548,9 +588,10 @@ export async function atualizarReceitaApi(
   payload: Record<string, unknown>,
   opcoesEscopoRecorrencia?: OpcoesEscopoRecorrencia,
 ): Promise<RegistroFinanceiroApi> {
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao']);
   const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
     '/financeiro/receitas/' + id,
-    payload,
+    payloadNormalizado,
     montarConfigEscopoRecorrencia(opcoesEscopoRecorrencia),
   );
   return extrairDados(data);
@@ -572,9 +613,10 @@ export async function efetivarReceitaApi(
   id: number,
   payload: EfetivarReceitaPayloadApi,
 ): Promise<RegistroFinanceiroApi> {
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataEfetivacao']);
   const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
     '/financeiro/receitas/' + id + '/efetivar',
-    payload,
+    payloadNormalizado,
   );
   return extrairDados(data);
 }
@@ -609,12 +651,14 @@ export async function obterReembolsoApi(id: number): Promise<RegistroFinanceiroA
 }
 
 export async function criarReembolsoApi(payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
-  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/reembolsos', payload);
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao']);
+  const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/reembolsos', payloadNormalizado);
   return extrairDados(data);
 }
 
 export async function atualizarReembolsoApi(id: number, payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
-  const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/reembolsos/' + id, payload);
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao']);
+  const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/reembolsos/' + id, payloadNormalizado);
   return extrairDados(data);
 }
 
@@ -622,9 +666,10 @@ export async function efetivarReembolsoApi(
   id: number,
   payload: EfetivarReembolsoPayloadApi,
 ): Promise<RegistroFinanceiroApi> {
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataEfetivacao']);
   const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
     '/financeiro/reembolsos/' + id + '/efetivar',
-    payload,
+    payloadNormalizado,
   );
   return extrairDados(data);
 }
