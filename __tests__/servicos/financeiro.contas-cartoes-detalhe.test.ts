@@ -163,17 +163,65 @@ describe('servico financeiro - detalhes de cartao e conta bancaria', () => {
     expect(resultado[0].transacoes[0].faturaCartaoId).toBe(301);
   });
 
-  it('deve efetivar e estornar fatura de cartao', async () => {
+  it('deve efetivar fatura de cartao sem payload', async () => {
     mockPost.mockResolvedValueOnce({ data: { dados: { id: 301, status: 'Efetivada' } } });
-    mockPost.mockResolvedValueOnce({ data: { dados: { id: 301, status: 'Estornada' } } });
 
     const efetivada = await efetivarFaturaCartaoApi(301);
-    const estornada = await estornarFaturaCartaoApi(301);
 
-    expect(mockPost).toHaveBeenNthCalledWith(1, '/financeiro/faturas-cartao/301/efetivar');
-    expect(mockPost).toHaveBeenNthCalledWith(2, '/financeiro/faturas-cartao/301/estornar');
+    expect(mockPost).toHaveBeenNthCalledWith(1, '/financeiro/faturas-cartao/301/efetivar', undefined);
     expect(efetivada).toEqual({ id: 301, status: 'Efetivada' });
-    expect(estornada).toEqual({ id: 301, status: 'Estornada' });
+  });
+
+  it('deve efetivar fatura de cartao com payload completo', async () => {
+    mockPost.mockResolvedValueOnce({ data: { dados: { id: 302, status: 'Efetivada' } } });
+
+    const payload = {
+      dataEfetivacao: '2026-04-19T10:00:00',
+      contaBancariaId: 10,
+      valorTotal: 1200,
+      valorEfetivacao: 1000,
+      observacaoHistorico: 'Pagamento parcial da fatura',
+    };
+
+    const efetivada = await efetivarFaturaCartaoApi(302, payload);
+
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/faturas-cartao/302/efetivar', payload);
+    expect(efetivada).toEqual({ id: 302, status: 'Efetivada' });
+  });
+
+  it('deve estornar fatura de cartao com payload', async () => {
+    mockPost.mockResolvedValueOnce({ data: { dados: { id: 303, status: 'Estornada' } } });
+
+    const payload = {
+      dataEstorno: '2026-04-20',
+      observacaoHistorico: 'Ajuste do pagamento',
+      ocultarDoHistorico: true,
+    };
+
+    const estornada = await estornarFaturaCartaoApi(303, payload);
+
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/faturas-cartao/303/estornar', {
+      ...payload,
+      dataEstorno: '2026-04-20T00:00:00',
+    });
+    expect(estornada).toEqual({ id: 303, status: 'Estornada' });
+  });
+
+  it('deve estornar fatura de cartao sem ocultarDoHistorico', async () => {
+    mockPost.mockResolvedValueOnce({ data: { dados: { id: 304, status: 'Estornada' } } });
+
+    const payload = {
+      dataEstorno: '2026-04-20',
+      observacaoHistorico: 'Revisao de baixa',
+    };
+
+    const estornada = await estornarFaturaCartaoApi(304, payload);
+
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/faturas-cartao/304/estornar', {
+      ...payload,
+      dataEstorno: '2026-04-20T00:00:00',
+    });
+    expect(estornada).toEqual({ id: 304, status: 'Estornada' });
   });
 
   it('deve obter conta bancaria por id quando resposta vier sem envelope', async () => {

@@ -142,10 +142,18 @@ interface EfetivarReceitaPayloadApi {
   cartaoId: number | null;
 }
 
-interface EstornarRegistroPayloadApi {
+export interface EstornarRegistroPayloadApi {
   dataEstorno: string;
   observacaoHistorico?: string;
   ocultarDoHistorico?: boolean;
+}
+
+export interface EfetivarFaturaCartaoPayloadApi {
+  dataEfetivacao: string;
+  contaBancariaId: number;
+  valorTotal: number;
+  valorEfetivacao: number;
+  observacaoHistorico?: string;
 }
 
 interface EfetivarReembolsoPayloadApi {
@@ -513,7 +521,7 @@ export async function obterDespesaApi(id: number): Promise<RegistroFinanceiroApi
 }
 
 export async function criarDespesaApi(payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
-  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao']);
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao', 'dataEstorno']);
   const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/despesas', payloadNormalizado);
   return extrairDados(data);
 }
@@ -523,7 +531,7 @@ export async function atualizarDespesaApi(
   payload: Record<string, unknown>,
   opcoesEscopoRecorrencia?: OpcoesEscopoRecorrencia,
 ): Promise<RegistroFinanceiroApi> {
-  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao']);
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao', 'dataEstorno']);
   const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
     '/financeiro/despesas/' + id,
     payloadNormalizado,
@@ -560,9 +568,10 @@ export async function estornarDespesaApi(
   id: number,
   payload: EstornarRegistroPayloadApi,
 ): Promise<RegistroFinanceiroApi> {
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataEstorno']);
   const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
     '/financeiro/despesas/' + id + '/estornar',
-    payload,
+    payloadNormalizado,
   );
   return extrairDados(data);
 }
@@ -578,7 +587,7 @@ export async function obterReceitaApi(id: number): Promise<RegistroFinanceiroApi
 }
 
 export async function criarReceitaApi(payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
-  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao']);
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao', 'dataEstorno']);
   const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/receitas', payloadNormalizado);
   return extrairDados(data);
 }
@@ -588,7 +597,7 @@ export async function atualizarReceitaApi(
   payload: Record<string, unknown>,
   opcoesEscopoRecorrencia?: OpcoesEscopoRecorrencia,
 ): Promise<RegistroFinanceiroApi> {
-  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao']);
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao', 'dataEstorno']);
   const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
     '/financeiro/receitas/' + id,
     payloadNormalizado,
@@ -625,9 +634,10 @@ export async function estornarReceitaApi(
   id: number,
   payload: EstornarRegistroPayloadApi,
 ): Promise<RegistroFinanceiroApi> {
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataEstorno']);
   const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
     '/financeiro/receitas/' + id + '/estornar',
-    payload,
+    payloadNormalizado,
   );
   return extrairDados(data);
 }
@@ -651,13 +661,13 @@ export async function obterReembolsoApi(id: number): Promise<RegistroFinanceiroA
 }
 
 export async function criarReembolsoApi(payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
-  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao']);
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao', 'dataEstorno']);
   const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/reembolsos', payloadNormalizado);
   return extrairDados(data);
 }
 
 export async function atualizarReembolsoApi(id: number, payload: Record<string, unknown>): Promise<RegistroFinanceiroApi> {
-  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao']);
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataLancamento', 'dataEfetivacao', 'dataEstorno']);
   const { data } = await api.put<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>('/financeiro/reembolsos/' + id, payloadNormalizado);
   return extrairDados(data);
 }
@@ -678,9 +688,10 @@ export async function estornarReembolsoApi(
   id: number,
   payload: EstornarReembolsoPayloadApi,
 ): Promise<RegistroFinanceiroApi> {
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataEstorno']);
   const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
     '/financeiro/reembolsos/' + id + '/estornar',
-    payload,
+    payloadNormalizado,
   );
   return extrairDados(data);
 }
@@ -971,18 +982,24 @@ export async function listarDetalhesFaturasCartaoApi(
 
 export async function efetivarFaturaCartaoApi(
   faturaCartaoId: number,
+  payload?: EfetivarFaturaCartaoPayloadApi,
 ): Promise<RegistroFinanceiroApi> {
+  const payloadNormalizado = payload ? prepararPayloadDataHoraApi(payload, ['dataEfetivacao']) : undefined;
   const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
     '/financeiro/faturas-cartao/' + faturaCartaoId + '/efetivar',
+    payloadNormalizado,
   );
   return extrairDados(data);
 }
 
 export async function estornarFaturaCartaoApi(
   faturaCartaoId: number,
+  payload: EstornarRegistroPayloadApi,
 ): Promise<RegistroFinanceiroApi> {
+  const payloadNormalizado = prepararPayloadDataHoraApi(payload, ['dataEstorno']);
   const { data } = await api.post<EnvelopeApi<RegistroFinanceiroApi> | RegistroFinanceiroApi>(
     '/financeiro/faturas-cartao/' + faturaCartaoId + '/estornar',
+    payloadNormalizado,
   );
   return extrairDados(data);
 }

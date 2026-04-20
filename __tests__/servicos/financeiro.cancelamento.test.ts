@@ -78,7 +78,10 @@ describe('servico financeiro - cancelamentos', () => {
 
     await estornarDespesaApi(8, payload);
 
-    expect(mockPost).toHaveBeenCalledWith('/financeiro/despesas/8/estornar', payload);
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/despesas/8/estornar', {
+      ...payload,
+      dataEstorno: '2026-03-16T00:00:00',
+    });
   });
 
   it('deve efetivar receita usando endpoint dedicado', async () => {
@@ -115,6 +118,9 @@ describe('servico financeiro - cancelamentos', () => {
 
     await estornarReceitaApi(9, payload);
 
-    expect(mockPost).toHaveBeenCalledWith('/financeiro/receitas/9/estornar', payload);
+    expect(mockPost).toHaveBeenCalledWith('/financeiro/receitas/9/estornar', {
+      ...payload,
+      dataEstorno: '2026-03-16T00:00:00',
+    });
   });
 });
