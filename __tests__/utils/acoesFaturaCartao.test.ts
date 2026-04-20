@@ -2,13 +2,16 @@ import {
   ehTransacaoVinculadaAFatura,
   podeAlterarTransacaoVinculadaAFatura,
   resolverStatusOperacionalTransacaoFatura,
+  statusTransacaoEfetivada,
   statusFaturaPermiteAlteracao,
+  todasTransacoesFaturaEfetivadas,
 } from '../../src/utils/acoesFaturaCartao';
 
 describe('utils/acoesFaturaCartao', () => {
-  it('deve permitir alteracao para status de fatura aberta, fechada e estornada', () => {
+  it('deve permitir alteracao para status de fatura aberta, fechada, vencida e estornada', () => {
     expect(statusFaturaPermiteAlteracao('aberta')).toBe(true);
     expect(statusFaturaPermiteAlteracao('fechada')).toBe(true);
+    expect(statusFaturaPermiteAlteracao('vencida')).toBe(true);
     expect(statusFaturaPermiteAlteracao('estornada')).toBe(true);
   });
 
@@ -38,5 +41,27 @@ describe('utils/acoesFaturaCartao', () => {
         'estornada',
       ),
     ).toBe('efetivada');
+  });
+
+  it('deve identificar status de transacao efetivada', () => {
+    expect(statusTransacaoEfetivada('efetivada')).toBe(true);
+    expect(statusTransacaoEfetivada('pendente')).toBe(false);
+    expect(statusTransacaoEfetivada(undefined)).toBe(false);
+  });
+
+  it('deve permitir efetivar fatura apenas quando todas as transacoes estiverem efetivadas', () => {
+    expect(
+      todasTransacoesFaturaEfetivadas([
+        { status: 'efetivada' },
+        { status: 'Efetivada' },
+      ]),
+    ).toBe(true);
+
+    expect(
+      todasTransacoesFaturaEfetivadas([
+        { status: 'efetivada' },
+        { status: 'pendente' },
+      ]),
+    ).toBe(false);
   });
 });

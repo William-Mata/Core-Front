@@ -1,5 +1,5 @@
-const STATUS_FATURA_PERMITE_ALTERACAO = new Set(['aberta', 'fechada', 'estornada']);
-const STATUS_FATURA_CARTAO = new Set(['aberta', 'fechada', 'estornada', 'efetivada']);
+const STATUS_FATURA_PERMITE_ALTERACAO = new Set(['aberta', 'fechada', 'vencida', 'estornada']);
+const STATUS_FATURA_CARTAO = new Set(['aberta', 'fechada', 'vencida', 'estornada', 'efetivada']);
 
 export function normalizarStatusFaturaParaAcao(status: unknown): string {
   return String(status ?? '').trim().toLowerCase();
@@ -50,4 +50,15 @@ export function resolverStatusOperacionalTransacaoFatura(
   if (transacao.dataEstorno) return 'estornada';
   if (transacao.dataEfetivacao) return 'efetivada';
   return statusDireto || undefined;
+}
+
+export function statusTransacaoEfetivada(status: unknown): boolean {
+  const statusNormalizado = normalizarStatusFaturaParaAcao(status);
+  return statusNormalizado.includes('efetiv');
+}
+
+export function todasTransacoesFaturaEfetivadas(
+  transacoes: Array<{ status?: unknown }>,
+): boolean {
+  return transacoes.every((transacao) => statusTransacaoEfetivada(transacao.status));
 }
