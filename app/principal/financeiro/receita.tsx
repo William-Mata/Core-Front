@@ -221,7 +221,7 @@ function criarFormularioVazio(locale: string): ReceitaForm {
     competencia: formatarCompetenciaParaEntrada(obterCompetenciaAtual(), locale),
     dataVencimento: '',
     dataEfetivacao: hojeComHoraZerada,
-    dataEstorno: hoje,
+    dataEstorno: hojeComHoraZerada,
     tipoReceita: '',
     tipoRecebimento: '',
     recorrenciaBase: 'unica',
@@ -1196,7 +1196,7 @@ export default function TelaReceita() {
       competencia: formatarCompetenciaParaEntrada(desserializarCompetencia(receita.competencia) ?? obterCompetenciaPorData(receita.dataLancamento), locale),
       dataVencimento: receita.dataVencimento,
       dataEfetivacao: receita.dataEfetivacao || `${new Date().toISOString().split('T')[0]}T00:00`,
-      dataEstorno: new Date().toISOString().split('T')[0],
+      dataEstorno: `${new Date().toISOString().split('T')[0]}T00:00`,
       tipoReceita: receita.tipoReceita,
       tipoRecebimento: receita.tipoRecebimento,
       recorrenciaBase: receita.recorrenciaBase,
@@ -2367,7 +2367,7 @@ export default function TelaReceita() {
           <>
             {renderCampoBloqueado(t('financeiro.receita.campos.valorLiquido'), formulario.valorLiquido)}
             {renderCampoBloqueado(t('financeiro.receita.campos.valorEfetivacao'), formulario.valorEfetivacao)}
-            <CampoData label={t('financeiro.receita.campos.dataEstorno')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataEstorno} onChange={(dataEstorno) => { setCamposInvalidos((atual) => ({ ...atual, dataEstorno: false })); setFormulario((atual) => ({ ...atual, dataEstorno })); }} error={camposInvalidos.dataEstorno} obrigatorio estilo={{ marginBottom: 12 }} />
+            <CampoData label={t('financeiro.receita.campos.dataEstorno')} placeholder={t('financeiro.receita.placeholders.data')} value={formulario.dataEstorno} onChange={(dataEstorno) => { setCamposInvalidos((atual) => ({ ...atual, dataEstorno: false })); setFormulario((atual) => ({ ...atual, dataEstorno })); }} error={camposInvalidos.dataEstorno} obrigatorio comHora estilo={{ marginBottom: 12 }} />
             <CampoTexto label={t('financeiro.receita.campos.observacao')} placeholder={t('financeiro.receita.placeholders.observacao')} value={formulario.observacaoEstorno} onChangeText={(observacaoEstorno) => setFormulario((atual) => ({ ...atual, observacaoEstorno }))} multiline numberOfLines={4} estilo={{ marginBottom: 12 }} />
             <View style={{ marginBottom: 20, backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -2445,4 +2445,3 @@ export default function TelaReceita() {
     </View>
   );
 }
-

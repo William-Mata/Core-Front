@@ -156,7 +156,7 @@ function normalizarReembolsoApi(item: RegistroFinanceiroApi): Reembolso {
     dataEfetivacao: item.dataEfetivacao
       ? normalizarIsoDataHora(String(item.dataEfetivacao), '00:00')
       : (faturaCartaoIdBruto > 0 ? normalizarIsoDataHora(String(item.dataLancamento ?? item.data ?? ''), '00:00') : undefined),
-    dataEstorno: item.dataEstorno ? String(item.dataEstorno).slice(0, 10) : undefined,
+    dataEstorno: item.dataEstorno ? normalizarIsoDataHora(String(item.dataEstorno), '00:00') : undefined,
     observacao: String(item.observacao ?? ''),
     observacaoEfetivacao: '',
     observacaoEstorno: '',
@@ -199,7 +199,7 @@ function criarReembolsoVazio(locale: string): Reembolso {
     dataLancamento: hojeComHoraZerada,
     competencia: formatarCompetenciaParaEntrada(obterCompetenciaAtual(), locale),
     dataEfetivacao: hojeComHoraZerada,
-    dataEstorno: hoje,
+    dataEstorno: hojeComHoraZerada,
     observacao: '',
     observacaoEfetivacao: '',
     observacaoEstorno: '',
@@ -470,7 +470,7 @@ export default function TelaReembolso() {
         ...completo,
         descricao: normalizarDescricaoMaiuscula(completo.descricao, locale),
         dataEfetivacao: completo.dataEfetivacao || `${new Date().toISOString().split('T')[0]}T00:00`,
-        dataEstorno: completo.dataEstorno || new Date().toISOString().split('T')[0],
+        dataEstorno: completo.dataEstorno || `${new Date().toISOString().split('T')[0]}T00:00`,
         valorEfetivacao: completo.valorEfetivacao ?? completo.valorTotal ?? calcularTotal(completo.despesasVinculadas),
         observacaoEfetivacao: '',
         observacaoEstorno: '',
@@ -1208,6 +1208,7 @@ export default function TelaReembolso() {
               placeholder={t('financeiro.reembolso.placeholderData')}
               value={reembolsoAtual.dataEstorno || ''}
               onChange={(dataEstorno) => setReembolsoAtual((atual) => ({ ...atual, dataEstorno }))}
+              comHora
               obrigatorio
               estilo={{ marginBottom: 12 }}
             />

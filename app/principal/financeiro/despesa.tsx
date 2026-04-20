@@ -223,7 +223,7 @@ function criarFormularioVazio(locale: string): DespesaForm {
     competencia: formatarCompetenciaParaEntrada(obterCompetenciaAtual(), locale),
     dataVencimento: '',
     dataEfetivacao: hojeComHoraZerada,
-    dataEstorno: hoje,
+    dataEstorno: hojeComHoraZerada,
     tipoDespesa: '',
     tipoPagamento: '',
     recorrenciaBase: 'unica',
@@ -1208,7 +1208,7 @@ export default function TelaDespesa() {
       competencia: formatarCompetenciaParaEntrada(desserializarCompetencia(despesa.competencia) ?? obterCompetenciaPorData(despesa.dataLancamento), locale),
       dataVencimento: despesa.dataVencimento,
       dataEfetivacao: despesa.dataEfetivacao || `${new Date().toISOString().split('T')[0]}T00:00`,
-      dataEstorno: new Date().toISOString().split('T')[0],
+      dataEstorno: `${new Date().toISOString().split('T')[0]}T00:00`,
       tipoDespesa: despesa.tipoDespesa,
       tipoPagamento: despesa.tipoPagamento,
       recorrenciaBase: despesa.recorrenciaBase,
@@ -2413,7 +2413,7 @@ export default function TelaDespesa() {
           <>
             {renderCampoBloqueado(t('financeiro.despesa.campos.valorLiquido'), formulario.valorLiquido)}
             {renderCampoBloqueado(t('financeiro.despesa.campos.valorEfetivacao'), formulario.valorEfetivacao)}
-            <CampoData label={t('financeiro.despesa.campos.dataEstorno')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataEstorno} onChange={(dataEstorno) => { setCamposInvalidos((atual) => ({ ...atual, dataEstorno: false })); setFormulario((atual) => ({ ...atual, dataEstorno })); }} error={camposInvalidos.dataEstorno} obrigatorio estilo={{ marginBottom: 12 }} />
+            <CampoData label={t('financeiro.despesa.campos.dataEstorno')} placeholder={t('financeiro.despesa.placeholders.data')} value={formulario.dataEstorno} onChange={(dataEstorno) => { setCamposInvalidos((atual) => ({ ...atual, dataEstorno: false })); setFormulario((atual) => ({ ...atual, dataEstorno })); }} error={camposInvalidos.dataEstorno} obrigatorio comHora estilo={{ marginBottom: 12 }} />
             <CampoTexto label={t('financeiro.despesa.campos.observacao')} placeholder={t('financeiro.despesa.placeholders.observacao')} value={formulario.observacaoEstorno} onChangeText={(observacaoEstorno) => setFormulario((atual) => ({ ...atual, observacaoEstorno }))} multiline numberOfLines={4} estilo={{ marginBottom: 12 }} />
             <View style={{ marginBottom: 20, backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -2491,4 +2491,3 @@ export default function TelaDespesa() {
     </View>
   );
 }
-
