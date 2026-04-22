@@ -1,5 +1,5 @@
-import { type ReactElement, useEffect, useMemo, useState } from 'react';
-import { Image, View, Text, ScrollView, TouchableOpacity, Pressable, useWindowDimensions, Platform } from 'react-native';
+import { type ReactElement, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Image, View, Text, ScrollView, TouchableOpacity, Pressable, useWindowDimensions, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LineChart } from 'react-native-gifted-charts';
 import { Cabecalho } from '../../src/componentes/comuns/Cabecalho';
@@ -102,6 +102,16 @@ interface PieAreaItem {
   text: string;
   area: string;
   subarea: string;
+}
+
+interface ValorMonetarioAnimadoProps {
+  valorFinal: number;
+  cor: string;
+  tamanhoFonte: number;
+  pesoFonte: '400' | '500' | '600' | '700';
+  margemTopo?: number;
+  deveAnimar: boolean;
+  duracaoMs?: number;
 }
 
 const CORES_RECEITA = [COLORS.success, COLORS.info, '#23c4a8', '#5dd39e', '#2dd4bf', '#14b8a6'];
@@ -272,6 +282,73 @@ function traduzirTipoPagamento(valor: unknown, t: (chave: string) => string): st
   const codigoPagamento = normalizarCodigoPagamento(valor);
   if (codigoPagamento) return t(`dashboard.pagamento.${codigoPagamento}`);
   return formatarTipoPagamentoNaoMapeado(valor);
+}
+
+function arredondarValorAnimado(valor: number): number {
+  const valorArredondado = Number(valor.toFixed(2));
+  return Object.is(valorArredondado, -0) ? 0 : valorArredondado;
+}
+
+function ValorMonetarioAnimado({
+  valorFinal,
+  cor,
+  tamanhoFonte,
+  pesoFonte,
+  margemTopo = 0,
+  deveAnimar,
+  duracaoMs = 1000,
+}: ValorMonetarioAnimadoProps): ReactElement {
+  const animacaoValor = useRef(new Animated.Value(0)).current;
+  const [valorExibido, setValorExibido] = useState(() => arredondarValorAnimado(Number(valorFinal) || 0));
+  const animacaoJaExecutada = useRef(false);
+
+  useEffect(() => {
+    const valorNormalizado = Number.isFinite(valorFinal) ? valorFinal : 0;
+    const ambienteTeste = process.env.NODE_ENV === 'test';
+
+    if (ambienteTeste) {
+      animacaoJaExecutada.current = true;
+      setValorExibido(arredondarValorAnimado(valorNormalizado));
+      return;
+    }
+
+    if (!deveAnimar || animacaoJaExecutada.current) {
+      setValorExibido(arredondarValorAnimado(valorNormalizado));
+      return;
+    }
+
+    let componenteAtivo = true;
+    animacaoValor.setValue(0);
+
+    const idListener = animacaoValor.addListener(({ value }) => {
+      if (!componenteAtivo) return;
+      const valorInterpolado = value * valorNormalizado;
+      setValorExibido(arredondarValorAnimado(valorInterpolado));
+    });
+
+    Animated.timing(animacaoValor, {
+      toValue: 1,
+      duration: duracaoMs,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start(() => {
+      if (!componenteAtivo) return;
+      animacaoJaExecutada.current = true;
+      setValorExibido(arredondarValorAnimado(valorNormalizado));
+    });
+
+    return () => {
+      componenteAtivo = false;
+      animacaoValor.removeListener(idListener);
+      animacaoValor.stopAnimation();
+    };
+  }, [animacaoValor, deveAnimar, duracaoMs, valorFinal]);
+
+  return (
+    <Text style={{ color: cor, fontSize: tamanhoFonte, fontWeight: pesoFonte, marginTop: margemTopo }}>
+      {formatarValorPorIdioma(valorExibido)}
+    </Text>
+  );
 }
 
 function mapearTipoTransacaoHistorico(valor: unknown): TipoTransacao {
@@ -776,6 +853,8 @@ export default function Dashboard() {
       saldo: Number(resumoApi?.totalGeral ?? 0),
     };
   }, [resumoApi]);
+  const deveAnimarResumo = resumoApi !== null;
+  const deveAnimarBalanco = contasCartoes.length > 0;
 
   const reordenarWidget = (origem: WidgetId, destino: WidgetId) => {
     if (origem === destino) return;
@@ -809,10 +888,10 @@ export default function Dashboard() {
     });
   };
 
-  const renderCardResumo = (titulo: string, valor: string, cor: string) => (
+  const renderCardResumo = (titulo: string, valor: number, cor: string, deveAnimarValor: boolean) => (
     <View style={{ flex: width > 1100 ? 1 : undefined, minWidth: width > 1100 ? 0 : 180, backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 12, padding: 14 }}>
       <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 6 }}>{titulo}</Text>
-      <Text style={{ color: cor, fontSize: 20, fontWeight: '700' }}>{valor}</Text>
+      <ValorMonetarioAnimado valorFinal={valor} cor={cor} tamanhoFonte={20} pesoFonte="700" deveAnimar={deveAnimarValor} />
     </View>
   );
 
@@ -986,11 +1065,11 @@ export default function Dashboard() {
         <View>
           <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700', marginBottom: 12 }}>{t('dashboard.resumoFinanceiro')}</Text>
           <View style={{ flexDirection: width > 1100 ? 'row' : 'column', gap: 10 }}>
-            {renderCardResumo(t('dashboard.cards.receitas'), formatarValorPorIdioma(resumo.totalReceitas), COLORS.success)}
-            {renderCardResumo(t('dashboard.cards.despesas'), formatarValorPorIdioma(resumo.totalDespesas), COLORS.error)}
-            {renderCardResumo(t('dashboard.cards.reembolsos'), formatarValorPorIdioma(resumo.totalReembolsos), COLORS.info)}
-            {renderCardResumo(t('dashboard.cards.estornos'), formatarValorPorIdioma(resumo.totalEstornos), COLORS.warning)}
-            {renderCardResumo(t('dashboard.cards.saldo'), formatarValorPorIdioma(resumo.saldo), resumo.saldo >= 0 ? COLORS.success : COLORS.error)}
+            {renderCardResumo(t('dashboard.cards.receitas'), resumo.totalReceitas, COLORS.success, deveAnimarResumo)}
+            {renderCardResumo(t('dashboard.cards.despesas'), resumo.totalDespesas, COLORS.error, deveAnimarResumo)}
+            {renderCardResumo(t('dashboard.cards.reembolsos'), resumo.totalReembolsos, COLORS.info, deveAnimarResumo)}
+            {renderCardResumo(t('dashboard.cards.estornos'), resumo.totalEstornos, COLORS.warning, deveAnimarResumo)}
+            {renderCardResumo(t('dashboard.cards.saldo'), resumo.saldo, resumo.saldo >= 0 ? COLORS.success : COLORS.error, deveAnimarResumo)}
           </View>
         </View>
       );
@@ -1214,7 +1293,14 @@ export default function Dashboard() {
                   </View>
                   <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 4 }}>{item.tipo === 'conta' ? t('dashboard.tiposBalanco.conta') : t('dashboard.tiposBalanco.cartao')}</Text>
                   <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 10 }}>{item.subtitulo}</Text>
-                  <Text style={{ color: item.saldo >= 0 ? COLORS.success : COLORS.error, fontSize: 20, fontWeight: '700', marginTop: 6 }}>{formatarValorPorIdioma(item.saldo)}</Text>
+                  <ValorMonetarioAnimado
+                    valorFinal={item.saldo}
+                    cor={item.saldo >= 0 ? COLORS.success : COLORS.error}
+                    tamanhoFonte={20}
+                    pesoFonte="700"
+                    margemTopo={6}
+                    deveAnimar={deveAnimarBalanco}
+                  />
                 </View>
               ))
             ) : (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
@@ -7,6 +7,7 @@ import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
 import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
+import { ValorMonetarioAnimado } from '../../../src/componentes/comuns/ValorMonetarioAnimado';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import {
   obterContaBancariaApi,
@@ -179,6 +180,9 @@ export default function TelaContaBancaria() {
   const [formulario, setFormulario] = useState<ContaForm>(() => criarFormularioVazio(locale));
   const [camposInvalidos, setCamposInvalidos] = useState<Record<string, boolean>>({});
   const [carregando, setCarregando] = useState(false);
+  const [deveAnimarValoresIniciais, setDeveAnimarValoresIniciais] = useState(true);
+  const primeiraConsultaConcluida = useRef(false);
+  const timeoutAnimacaoInicial = useRef<ReturnType<typeof setTimeout> | null>(null);
   const opcoesBanco = useMemo(() => obterOpcoesBancos(), []);
 
   const contaSelecionada = contas.find((conta) => conta.id === contaSelecionadaId) ?? null;
@@ -220,6 +224,13 @@ export default function TelaContaBancaria() {
       notificarErro(t('comum.erro'));
     } finally {
       setCarregando(false);
+      if (!primeiraConsultaConcluida.current) {
+        primeiraConsultaConcluida.current = true;
+        timeoutAnimacaoInicial.current = setTimeout(() => {
+          setDeveAnimarValoresIniciais(false);
+          timeoutAnimacaoInicial.current = null;
+        }, 700);
+      }
     }
   };
 
@@ -228,6 +239,12 @@ export default function TelaContaBancaria() {
     void carregarContasApi(controller.signal);
     return () => controller.abort();
   }, [filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, versaoConsulta]);
+
+  useEffect(() => () => {
+    if (!timeoutAnimacaoInicial.current) return;
+    clearTimeout(timeoutAnimacaoInicial.current);
+    timeoutAnimacaoInicial.current = null;
+  }, []);
 
   const atualizarSaldoInicial = (valor: string) => {
     setCamposInvalidos((atual) => ({ ...atual, saldoInicial: false }));
@@ -510,7 +527,14 @@ export default function TelaContaBancaria() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                       <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>{conta.banco} | {t('financeiro.contaBancaria.campos.agencia')}: {conta.agencia} | {t('financeiro.contaBancaria.campos.numero')}: {conta.numero}</Text>
                     </View>
-                    <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>{t('financeiro.contaBancaria.campos.saldoAtual')}: {formatarValorPorIdioma(conta.saldoAtual)}</Text>
+                    <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
+                      {t('financeiro.contaBancaria.campos.saldoAtual')}:{' '}
+                      <ValorMonetarioAnimado
+                        valorFinal={conta.saldoAtual}
+                        deveAnimar={deveAnimarValoresIniciais}
+                        estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
+                      />
+                    </Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
                       <TouchableOpacity onPress={() => abrirVisualizacao(conta)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.visualizar')}</Text></TouchableOpacity>
                       <TouchableOpacity onPress={() => abrirEdicao(conta)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity>
@@ -602,7 +626,6 @@ export default function TelaContaBancaria() {
     </View>
   );
 }
-
 
 
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
@@ -7,6 +7,7 @@ import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
 import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
+import { ValorMonetarioAnimado } from '../../../src/componentes/comuns/ValorMonetarioAnimado';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import {
   obterCartaoApi,
@@ -311,6 +312,9 @@ export default function TelaCartao() {
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [contasBancarias, setContasBancarias] = useState<ContaBancariaOpcaoApi[]>([]);
   const [carregando, setCarregando] = useState(false);
+  const [deveAnimarValoresIniciais, setDeveAnimarValoresIniciais] = useState(true);
+  const primeiraConsultaConcluida = useRef(false);
+  const timeoutAnimacaoInicial = useRef<ReturnType<typeof setTimeout> | null>(null);
   const opcoesBandeiras = useMemo(() => obterOpcoesBandeirasCartao(), []);
   const opcoesContasBancarias = useMemo(
     () =>
@@ -361,6 +365,13 @@ export default function TelaCartao() {
       notificarErro(t('comum.erro'));
     } finally {
       setCarregando(false);
+      if (!primeiraConsultaConcluida.current) {
+        primeiraConsultaConcluida.current = true;
+        timeoutAnimacaoInicial.current = setTimeout(() => {
+          setDeveAnimarValoresIniciais(false);
+          timeoutAnimacaoInicial.current = null;
+        }, 700);
+      }
     }
   };
 
@@ -369,6 +380,12 @@ export default function TelaCartao() {
     void carregarCartoesApi(controller.signal);
     return () => controller.abort();
   }, [filtroAplicado.id, filtroAplicado.descricao, filtroAplicado.dataInicio, filtroAplicado.dataFim, versaoConsulta]);
+
+  useEffect(() => () => {
+    if (!timeoutAnimacaoInicial.current) return;
+    clearTimeout(timeoutAnimacaoInicial.current);
+    timeoutAnimacaoInicial.current = null;
+  }, []);
 
   const renderCampoBloqueado = (label: string, valor: string) => (
     <View style={{ marginBottom: 12 }}>
@@ -872,7 +889,18 @@ export default function TelaCartao() {
                     {cartao.tipo === 'credito' ? (
                       <>
                         <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>
-                          {t('financeiro.cartao.campos.limite')}: {formatarValorPorIdioma(cartao.limite)} | {t('financeiro.cartao.campos.saldoDisponivel')}: {formatarValorPorIdioma(cartao.saldoDisponivel)}
+                          {t('financeiro.cartao.campos.limite')}:{' '}
+                          <ValorMonetarioAnimado
+                            valorFinal={cartao.limite}
+                            deveAnimar={deveAnimarValoresIniciais}
+                            estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
+                          />{' '}
+                          | {t('financeiro.cartao.campos.saldoDisponivel')}:{' '}
+                          <ValorMonetarioAnimado
+                            valorFinal={cartao.saldoDisponivel}
+                            deveAnimar={deveAnimarValoresIniciais}
+                            estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
+                          />
                         </Text>
                         <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
                           {t('financeiro.cartao.campos.diaVencimento')}: {formatarDataPorIdioma(cartao.diaVencimento)} | {t('financeiro.cartao.campos.dataVencimentoCartao')}: {formatarDataPorIdioma(cartao.dataVencimentoCartao)}
@@ -880,7 +908,12 @@ export default function TelaCartao() {
                       </>
                     ) : (
                       <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
-                        {t('financeiro.cartao.campos.saldoDisponivel')}: {formatarValorPorIdioma(cartao.saldoDisponivel)}
+                        {t('financeiro.cartao.campos.saldoDisponivel')}:{' '}
+                        <ValorMonetarioAnimado
+                          valorFinal={cartao.saldoDisponivel}
+                          deveAnimar={deveAnimarValoresIniciais}
+                          estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
+                        />
                       </Text>
                     )}
 
@@ -1097,7 +1130,6 @@ export default function TelaCartao() {
     </View>
   );
 }
-
 
 
 
