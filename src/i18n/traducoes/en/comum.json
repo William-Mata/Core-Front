@@ -37,11 +37,13 @@
   },
   "acoes": {
     "adicionar": "Add",
+    "criar": "Create",
     "cancelar": "Cancel",
     "salvar": "Save",
     "editar": "Edit",
     "duplicar": "Duplicate",
     "remover": "Remove",
+    "excluir": "Delete",
     "confirmar": "Confirm",
     "novo": "New",
     "consultar": "Search"

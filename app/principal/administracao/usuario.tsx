@@ -407,7 +407,7 @@ export default function FormUsuario() {
         </View>
 
         <View style={{ flex: 1, padding: 16 }}>
-          <Botao titulo={`+ ${t('admin.usuarios.criar')}`} onPress={abrirNovo} tipo="primario" estilo={{ marginBottom: 12 }} />
+          <Botao titulo={`+ ${t('comum.acoes.criar')}`} onPress={abrirNovo} tipo="primario" estilo={{ marginBottom: 12 }} />
           <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
 
           <FlatList
@@ -548,7 +548,7 @@ export default function FormUsuario() {
           <Botao titulo={carregando ? t('admin.usuario.salvando') : t('comum.acoes.salvar')} onPress={handleSalvar} tipo="primario" estilo={{ flex: 1 }} disabled={carregando} />
         </View>
 
-        {emEdicao ? <Botao titulo={t('admin.usuario.deletar')} onPress={handleDeletar} tipo="perigo" disabled={carregando} /> : null}
+        {emEdicao ? <Botao titulo={t('comum.acoes.excluir')} onPress={handleDeletar} tipo="perigo" disabled={carregando} /> : null}
       </ScrollView>
     </View>
   );
