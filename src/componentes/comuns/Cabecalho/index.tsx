@@ -64,9 +64,6 @@ export function Cabecalho({
       {/* Logo e titulo */}
       <View>
         <Text style={{ color: COLORS.accent, fontSize: 18, fontWeight: 'bold' }}>
-          Core
-        </Text>
-        <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>
           {titulo}
         </Text>
       </View>

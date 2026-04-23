@@ -20,6 +20,7 @@ interface ItemFilho {
   label: string;
   rota: string;
   requerTelaId?: string | null;
+  comparacao?: 'exata' | 'prefixo';
 }
 
 interface ItemMenu {
@@ -41,6 +42,7 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
 
   const [gruposAbertos, setGruposAbertos] = useState<Record<string, boolean>>({
     financeiro: true,
+    compras: false,
     amigos: false,
     admin: false,
   });
@@ -79,13 +81,25 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
       ],
     },
     {
+      id: 'compras',
+      label: t('menu.compras'),
+      icone: '\uD83D\uDED2',
+      rota: '/principal/compras',
+      requerModuloId: 'compras',
+      filhos: [
+        { id: 'compras-listas', label: t('compras.menu.listas'), rota: '/principal/compras', comparacao: 'exata' },
+        { id: 'compras-desejos', label: t('compras.menu.desejos'), rota: '/principal/compras/desejos' },
+        { id: 'compras-historico', label: t('compras.menu.historicoItens'), rota: '/principal/compras/historico-itens' },
+      ],
+    },
+    {
       id: 'amigos',
       label: t('menu.amigos'),
       icone: '\uD83D\uDC65',
       rota: '/principal/amigos',
       requerModuloId: '1',
       filhos: [
-        { id: 'amigos-lista', label: t('menu.listaAmigos'), rota: '/principal/amigos', requerTelaId: '3' },
+        { id: 'amigos-lista', label: t('menu.listaAmigos'), rota: '/principal/amigos', requerTelaId: '3', comparacao: 'exata' },
         { id: 'amigos-convite', label: t('menu.convites'), rota: '/principal/amigos/amigo', requerTelaId: '4' },
         { id: 'amigos-documentacao', label: t('documentacao.acao'), rota: '/principal/documentacao', requerTelaId: '5' },
       ],
@@ -97,7 +111,7 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
       rota: '/principal/administracao',
       requerModuloId: '2',
       filhos: [
-        { id: 'admin-visao-geral', label: t('menu.administracao'), rota: '/principal/administracao', requerTelaId: '30' },
+        { id: 'admin-visao-geral', label: t('menu.administracao'), rota: '/principal/administracao', requerTelaId: '30', comparacao: 'exata' },
         { id: 'admin-usuarios', label: t('menu.usuarios'), rota: '/principal/administracao/usuario', requerTelaId: '31' },
         { id: 'admin-documentos', label: t('menu.documentos'), rota: '/principal/administracao/documentos', requerTelaId: '33' },
         { id: 'admin-avisos', label: t('menu.avisos'), rota: '/principal/administracao/avisos', requerTelaId: '34' },
@@ -118,9 +132,21 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
 
   const obterModulo = (moduloId: string | null) => {
     if (!moduloId) return null;
+    const normalizar = (valor: string) =>
+      valor
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
+    const moduloIdNormalizado = normalizar(String(moduloId));
+
     return (
       modulosAtivos.find((modulo) => String(modulo.id) === String(moduloId)) ??
-      modulosAtivos.find((modulo) => String(modulo.nome).toLowerCase() === String(moduloId).toLowerCase()) ??
+      modulosAtivos.find((modulo) => normalizar(String(modulo.nome ?? '')) === moduloIdNormalizado) ??
+      modulosAtivos.find((modulo) => {
+        const nomeModuloNormalizado = normalizar(String(modulo.nome ?? ''));
+        return nomeModuloNormalizado.includes(moduloIdNormalizado) || moduloIdNormalizado.includes(nomeModuloNormalizado);
+      }) ??
       null
     );
   };
@@ -147,10 +173,9 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
     setGruposAbertos((anterior) => ({ ...anterior, [id]: !anterior[id] }));
   };
 
-  const filhoEstaAtivo = (rota: string) => {
-    const rotasExatas = ['/principal/amigos', '/principal/administracao'];
+  const rotaEstaAtiva = (rota: string, comparacao: ItemFilho['comparacao'] = 'prefixo') => {
+    if (comparacao === 'exata') return pathname === rota || pathname === `${rota}/`;
     if (pathname === rota) return true;
-    if (rotasExatas.includes(rota)) return false;
     return pathname.startsWith(`${rota}/`) || pathname.startsWith(`${rota}?`);
   };
 
@@ -205,8 +230,10 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
           {itensMenu.map((item) => {
             if (!temAcesso(item)) return null;
 
-            const ativo = rotaAtual === item.id;
             const temFilhos = !!item.filhos?.length;
+            const ativo = temFilhos
+              ? Boolean(item.filhos?.some((filho) => rotaEstaAtiva(filho.rota, filho.comparacao)))
+              : rotaAtual === item.id || rotaEstaAtiva(item.rota);
 
             return (
               <View key={item.id}>
@@ -237,7 +264,7 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
                   <View style={{ marginLeft: 18, marginRight: 8, marginBottom: 4 }}>
                     {item.filhos!.map((filho) => {
                       if (!temAcessoFilho(item, filho)) return null;
-                      const filhoAtivo = filhoEstaAtivo(filho.rota);
+                      const filhoAtivo = rotaEstaAtiva(filho.rota, filho.comparacao);
 
                       return (
                         <TouchableOpacity

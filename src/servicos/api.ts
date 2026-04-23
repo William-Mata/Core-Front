@@ -4,6 +4,7 @@ import axios, {
   AxiosResponse,
   InternalAxiosRequestConfig,
 } from 'axios';
+import { Platform } from 'react-native';
 import { usarCarregamentoStore } from '../store/usarCarregamentoStore';
 import { usarAutenticacaoStore } from '../store/usarAutenticacaoStore';
 import { usarNotificacaoStore } from '../store/usarNotificacaoStore';
@@ -22,6 +23,22 @@ let filaAguardando: Array<{
   rejeitar: (erro: unknown) => void;
 }> = [];
 
+const API_URL_PADRAO = 'https://localhost:5001/api';
+
+const normalizarApiUrl = (): string => {
+  const apiUrlConfigurada = (process.env.EXPO_PUBLIC_API_URL || API_URL_PADRAO).trim();
+  const apiUrlAndroid = (process.env.EXPO_PUBLIC_API_URL_ANDROID || '').trim();
+
+  if (Platform.OS === 'android') {
+    if (apiUrlAndroid) return apiUrlAndroid;
+    return apiUrlConfigurada
+      .replace('://localhost', '://10.0.2.2')
+      .replace('://127.0.0.1', '://10.0.2.2');
+  }
+
+  return apiUrlConfigurada;
+};
+
 const processarFila = (erro: unknown, token: string | null = null): void => {
   filaAguardando.forEach(({ resolver, rejeitar }) => {
     if (erro) rejeitar(erro);
@@ -37,7 +54,7 @@ const finalizarCarregamentoSeNecessario = (config?: ConfiguracaoComCarregamento)
 };
 
 export const criarInstanciaApi = (): AxiosInstance => {
-  const apiUrl = (process.env.EXPO_PUBLIC_API_URL || 'https://localhost:5001/api').trim();
+  const apiUrl = normalizarApiUrl();
   const timeoutRequisicaoConfigurado = Number(process.env.EXPO_PUBLIC_TIMEOUT_REQUISICAO_MS);
   const timeoutRequisicao =
     Number.isFinite(timeoutRequisicaoConfigurado) && timeoutRequisicaoConfigurado > 0

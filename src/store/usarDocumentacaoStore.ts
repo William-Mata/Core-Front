@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type ModuloDocumentacao = 'dashboard' | 'financeiro' | 'amigos' | 'admin';
+export type ModuloDocumentacao = 'dashboard' | 'financeiro' | 'compras' | 'amigos' | 'admin';
 export type StatusDocumentacao = 'RASCUNHO' | 'PUBLICADO';
 
 export interface DocumentoModulo {
@@ -48,6 +48,17 @@ const documentosIniciais: DocumentoModulo[] = [
   },
   {
     id: 3,
+    modulo: 'compras',
+    titulo: 'Operacoes do modulo compras',
+    descricao: 'Resume listas, desejos, historico de itens e colaboracao em tempo real.',
+    conteudo:
+      'No modulo compras o usuario cria listas de compras, gerencia itens com edicao rapida e completa, compartilha listas com permissoes e acompanha historico de itens. A lista de desejos permite selecao multipla e conversao para uma nova lista.',
+    status: 'PUBLICADO',
+    atualizadoEm: '2026-04-21',
+    criadoPor: 'Admin',
+  },
+  {
+    id: 4,
     modulo: 'amigos',
     titulo: 'Gestao de amigos e convites',
     descricao: 'Explica a diferenca entre amigos ativos e convites pendentes.',
@@ -58,7 +69,7 @@ const documentosIniciais: DocumentoModulo[] = [
     criadoPor: 'Admin',
   },
   {
-    id: 4,
+    id: 5,
     modulo: 'admin',
     titulo: 'Recursos administrativos',
     descricao: 'Resume usuarios, permissoes, simulacao, avisos e documentacao.',

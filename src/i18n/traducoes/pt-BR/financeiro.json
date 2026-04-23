@@ -42,21 +42,21 @@
     "rateio": {
       "nenhum": "Nenhum",
       "amigos": "Amigos",
-      "area": "Ãrea"
+      "area": "Área"
     },
     "categorias": {
-      "alimentacao": "AlimentaÃ§Ã£o",
+      "alimentacao": "Alimentação",
       "transporte": "Transporte",
       "utilidades": "Utilidades",
-      "saude": "SaÃºde",
-      "educacao": "EducaÃ§Ã£o",
+      "saude": "Saúde",
+      "educacao": "Educação",
       "lazer": "Lazer",
       "outros": "Outros"
     },
     "mensagens": {
       "obrigatorio": "Preencha os campos obrigatorios.",
       "confirmarRemocao": "Deseja remover esta despesa?",
-      "semDescricao": "Sem descriÃ§Ã£o",
+      "semDescricao": "Sem descrição",
       "criada": "Despesa criada com sucesso.",
       "atualizada": "Despesa atualizada com sucesso.",
       "obrigatorioEstorno": "Data de estorno e obrigatoria.",
@@ -67,11 +67,11 @@
     "titulo": "Receitas",
     "nova": "Nova Receita",
     "campos": {
-      "titulo": "TÃ­tulo",
+      "titulo": "Tí­tulo",
       "categoria": "Categoria",
-      "descricao": "DescriÃ§Ã£o",
+      "descricao": "Descrição",
       "valor": "Valor",
-      "efetivacao": "Data de EfetivaÃ§Ã£o",
+      "efetivacao": "Data de Efetivação",
       "contaBancaria": "Conta Bancaria",
       "contaDestino": "Conta Destino",
       "cartao": "Cartao",

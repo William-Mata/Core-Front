@@ -1,8 +1,15 @@
 // __tests__/setup.ts
 import '@testing-library/jest-native/extend-expect';
 
-// Mock Zustand
-jest.mock('zustand');
+// Mock Zustand mantendo a implementacao real do create para evitar quebra de stores
+jest.mock('zustand', () => {
+  const modulosReais = jest.requireActual('zustand');
+  return {
+    ...modulosReais,
+    create: modulosReais.create,
+    default: modulosReais.create,
+  };
+});
 
 // Mock Expo Router
 jest.mock('expo-router', () => ({

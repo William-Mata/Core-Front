@@ -37,12 +37,47 @@ interface CatalogoModulo {
   telas: CatalogoTela[];
 }
 
+interface ItemComIdNome {
+  id: string;
+  nome: string;
+}
+
 const FUNCIONALIDADES = {
   visualizar: { id: '1' },
   criar: { id: '2' },
   editar: { id: '3' },
   excluir: { id: '4' },
 } as const;
+
+function normalizarChaveBusca(valor: string): string {
+  return valor
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function criarMapaPorIdOuNome<T extends ItemComIdNome>(itens: T[]): Map<string, T> {
+  const mapa = new Map<string, T>();
+  itens.forEach((item) => {
+    const id = String(item.id ?? '').trim();
+    const nomeNormalizado = normalizarChaveBusca(String(item.nome ?? ''));
+    if (id) mapa.set(`id:${id}`, item);
+    if (nomeNormalizado) mapa.set(`nome:${nomeNormalizado}`, item);
+  });
+  return mapa;
+}
+
+function buscarPorIdOuNome<T extends ItemComIdNome>(mapa: Map<string, T>, referencia: ItemComIdNome): T | undefined {
+  const id = String(referencia.id ?? '').trim();
+  if (id) {
+    const itemPorId = mapa.get(`id:${id}`);
+    if (itemPorId) return itemPorId;
+  }
+  const nomeNormalizado = normalizarChaveBusca(String(referencia.nome ?? ''));
+  if (!nomeNormalizado) return undefined;
+  return mapa.get(`nome:${nomeNormalizado}`);
+}
 
 function criarCatalogoModulos(t: (chave: string) => string): CatalogoModulo[] {
   const acoesCrud = [
@@ -71,7 +106,6 @@ function criarCatalogoModulos(t: (chave: string) => string): CatalogoModulo[] {
       telas: [
         { id: '30', nome: t('menu.administracao'), funcionalidades: somenteVisualizar },
         { id: '31', nome: t('menu.usuarios'), funcionalidades: acoesCrud },
-        { id: '32', nome: t('menu.permissoes'), funcionalidades: acoesCrud },
         { id: '33', nome: t('menu.documentos'), funcionalidades: acoesCrud },
         { id: '34', nome: t('menu.avisos'), funcionalidades: acoesCrud },
         { id: '35', nome: t('documentacao.acao'), funcionalidades: somenteVisualizar },
@@ -87,6 +121,15 @@ function criarCatalogoModulos(t: (chave: string) => string): CatalogoModulo[] {
         { id: '103', nome: t('menu.contasBancarias'), funcionalidades: acoesCrud },
         { id: '104', nome: t('menu.cartoesCredito'), funcionalidades: acoesCrud },
         { id: '105', nome: t('documentacao.acao'), funcionalidades: somenteVisualizar },
+      ],
+    },
+    {
+      id: '4',
+      nome: t('menu.compras'),
+      telas: [
+        { id: '120', nome: t('compras.menu.listas'), funcionalidades: acoesCrud },
+        { id: '121', nome: t('compras.menu.desejos'), funcionalidades: acoesCrud },
+        { id: '122', nome: t('compras.menu.historicoItens'), funcionalidades: somenteVisualizar },
       ],
     },
   ];
@@ -113,35 +156,39 @@ function criarModulosIniciais(catalogo: CatalogoModulo[], perfil: 'USER' | 'ADMI
   });
 }
 
-function normalizarModulosUsuario(catalogo: CatalogoModulo[], origem: InterfaceModuloUsuario[] | undefined, perfil: 'USER' | 'ADMIN'): InterfaceModuloUsuario[] {
+function normalizarModulosUsuario(catalogo: CatalogoModulo[], origem: InterfaceModuloUsuario[] | undefined, _perfil: 'USER' | 'ADMIN'): InterfaceModuloUsuario[] {
   const modulosOrigem = Array.isArray(origem) ? origem : [];
-  const mapaModulos = new Map(modulosOrigem.map((m) => [m.id, m]));
+  const mapaModulos = criarMapaPorIdOuNome(modulosOrigem);
 
   return catalogo.map((moduloCatalogo) => {
-    const moduloOrigem = mapaModulos.get(moduloCatalogo.id);
-    const statusPadrao = false;
-    const statusModulo = moduloOrigem?.status ?? statusPadrao;
+    const moduloOrigem = buscarPorIdOuNome(mapaModulos, moduloCatalogo);
 
     const telasOrigemBrutas = Array.isArray(moduloOrigem?.telas)
       ? moduloOrigem!.telas
       : Array.isArray(moduloOrigem?.funcionalidades)
         ? (moduloOrigem!.funcionalidades as unknown as InterfaceTelaModulo[])
         : [];
-    const mapaTelas = new Map(telasOrigemBrutas.map((t) => [t.id, t]));
+    const mapaTelas = criarMapaPorIdOuNome(telasOrigemBrutas);
+    const statusModulo = moduloOrigem?.status ?? telasOrigemBrutas.some((tela) => tela.status || tela.funcionalidades.some((funcionalidade) => funcionalidade.status));
 
     const telas = moduloCatalogo.telas.map((telaCatalogo) => {
-      const telaOrigem = mapaTelas.get(telaCatalogo.id);
-      const statusTela = statusModulo ? (telaOrigem?.status ?? false) : false;
-      const mapaFunc = new Map((telaOrigem?.funcionalidades ?? []).map((f) => [f.id, f]));
+      const telaOrigem = buscarPorIdOuNome(mapaTelas, telaCatalogo);
+      const funcionalidadesOrigem = Array.isArray(telaOrigem?.funcionalidades) ? telaOrigem.funcionalidades : [];
+      const mapaFuncionalidades = criarMapaPorIdOuNome(funcionalidadesOrigem);
+      const statusTela = telaOrigem?.status ?? funcionalidadesOrigem.some((funcionalidade) => funcionalidade.status);
+
       return {
         id: telaCatalogo.id,
         nome: telaCatalogo.nome,
         status: statusTela,
-        funcionalidades: telaCatalogo.funcionalidades.map((func) => ({
-          id: func.id,
-          nome: mapaFunc.get(func.id)?.nome || func.nome,
-          status: statusTela ? (mapaFunc.get(func.id)?.status ?? false) : false,
-        })),
+        funcionalidades: telaCatalogo.funcionalidades.map((funcionalidadeCatalogo) => {
+          const funcionalidadeOrigem = buscarPorIdOuNome(mapaFuncionalidades, funcionalidadeCatalogo);
+          return {
+            id: funcionalidadeCatalogo.id,
+            nome: funcionalidadeOrigem?.nome || funcionalidadeCatalogo.nome,
+            status: funcionalidadeOrigem?.status ?? false,
+          };
+        }),
       };
     });
 

@@ -117,6 +117,9 @@ npm test -- --watchAll=false --coverage
 
 # Escopo específico
 npm test -- --watchAll=false --testPathPattern=<modulo>
+
+# Escopo módulo Compras
+npm test -- --watchAll=false --testPathPattern=compras
 ```
 
 ---
@@ -135,6 +138,7 @@ Core-Front/
 │       ├── usuario.tsx
 │       ├── documentacao.tsx
 │       ├── financeiro/
+│       ├── compras/
 │       ├── amigos/
 │       └── administracao/
 ├── src/
@@ -181,6 +185,13 @@ Core-Front/
 - Cartão de crédito
 - Conta bancária
 
+### Compras
+- Listas de compras
+- Detalhe da lista (itens, filtros, ordenação e ações em lote)
+- Lista de desejos
+- Histórico de itens
+- Documentação do módulo
+
 ### Amigos
 - Lista de amigos
 - Detalhe do amigo
@@ -204,7 +215,9 @@ Consome a [Core API](https://github.com/William-Mata/Core) via Axios com:
 - **JWT** — `accessToken` + `refreshToken`
 - **Refresh automático** — interceptor renova o token ao receber `401`
 - **Armazenamento seguro** — tokens via `expo-secure-store`
-- **Mocking** — MSW disponível para simular endpoints sem backend, com handlers para autenticação, financeiro, amigos e administração
+- **Mocking** — MSW disponível para simular endpoints sem backend, com handlers para autenticação, financeiro, compras, amigos e administração
+- **Compras** — endpoints para listas, itens, ações em lote, desejos, histórico e sugestões de itens
+- **Tempo real** — SignalR para sincronização de listas compartilhadas (com fallback por reconsulta)
 
 ---
 
@@ -218,7 +231,7 @@ Três idiomas com arquivos sincronizados obrigatoriamente:
 | Inglês               | `en`    |
 | Espanhol             | `es`    |
 
-Arquivos em `src/i18n/traducoes/`. Namespaces ativos: `comum`, `financeiro`.
+Arquivos em `src/i18n/traducoes/`. Namespaces ativos: `comum`, `financeiro`, `compras`.
 
 ---
 

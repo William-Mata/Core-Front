@@ -15,9 +15,10 @@ interface FiltroPadraoProps {
   valor: FiltroPadraoValor;
   aoMudar: (valor: FiltroPadraoValor) => void;
   exibirIntervaloData?: boolean;
+  children?: React.ReactNode;
 }
 
-export function FiltroPadrao({ valor, aoMudar, exibirIntervaloData = true }: FiltroPadraoProps) {
+export function FiltroPadrao({ valor, aoMudar, exibirIntervaloData = true, children }: FiltroPadraoProps) {
   const { t } = usarTraducao();
   const [foco, setFoco] = useState<keyof FiltroPadraoValor | null>(null);
 
@@ -82,6 +83,7 @@ export function FiltroPadrao({ valor, aoMudar, exibirIntervaloData = true }: Fil
             onChange={({ dataInicio, dataFim }) => aoMudar({ ...valor, dataInicio, dataFim })}
           />
         ) : null}
+        {children}
       </View>
     </View>
   );

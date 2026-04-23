@@ -1,0 +1,232 @@
+{
+  "menu": {
+    "listas": "Planificaciones",
+    "desejos": "Deseos",
+    "historicoItens": "Histórico de Productos"
+  },
+  "acoes": {
+    "novaLista": "Nueva Planificación",
+    "novoItem": "Nuevo Articulo",
+    "novoDesejo": "Nuevo Deseo",
+    "desejos": "Deseos",
+    "historicoItens": "Histórico de Precios",
+    "recarregar": "Recargar",
+    "arquivarLista": "Archivar Planificación"
+  },
+  "listas": {
+    "vazio": "No se encontraron planificaciones.",
+    "categoria": "Categoria",
+    "status": "Estado",
+    "participantes": "Participantes",
+    "totalListas": "Total de planificaciones",
+    "totalAtivas": "Activas",
+    "totalArquivadas": "Archivadas",
+    "totalConcluidas": "Concluidas",
+    "filtroStatus": "Estado de la planificación",
+    "ultimaAtualizacao": "Última actualización"
+  },
+  "lista": {
+    "titulo": "Planificaciones",
+    "vazio": "No se encontraron articulos.",
+    "resumo": "Resumen de la Planificación",
+    "totalLista": "Valor total de la planificación",
+    "totalComprado": "Valor comprado",
+    "percentualComprado": "Porcentaje comprado",
+    "quantidadeItens": "Cantidad de articulos",
+    "quantidadeItensComprados": "Articulos comprados",
+    "permissaoAtual": "Tu permiso"
+  },
+  "modalNovaLista": {
+    "titulo": "Nueva Planificación",
+    "nome": "Nombre de la planificación",
+    "placeholderNome": "Ingrese el nombre de la planificación",
+    "categoria": "Categoria"
+  },
+  "modalItem": {
+    "novoTitulo": "Nuevo Articulo",
+    "editarTitulo": "Editar Articulo"
+  },
+  "item": {
+    "descricao": "Descripción",
+    "observacao": "Observación",
+    "unidade": "Unidad",
+    "quantidade": "Cantidad",
+    "cor": "Marcador de color",
+    "valorUnitario": "Valor unitario",
+    "valorTotal": "Valor total",
+    "corSelecionada": "Color seleccionado: {{cor}}"
+  },
+  "filtros": {
+    "status": "Modo de visualización",
+    "ordenacao": "Ordenación",
+    "todos": "Todos",
+    "comprados": "Solo comprados",
+    "naoComprados": "Solo no comprados"
+  },
+  "ordenacao": {
+    "alfabetica": "Alfabética",
+    "preco": "Precio",
+    "cor": "Agrupar por color",
+    "crescente": "Ascendente",
+    "decrescente": "Descendente",
+    "modalTitulo": "Ordenar artículos",
+    "ordemTitulo": "Cómo desea ordenar",
+    "ordemAmigavelAsc": "De menor a mayor (A-Z)",
+    "ordemAmigavelDesc": "De mayor a menor (Z-A)"
+  },
+  "acoesLote": {
+    "titulo": "Acciones en lote",
+    "executar": "Ejecutar accion",
+    "itensSelecionados": "Articulos seleccionados",
+    "marcarSelecionadosComprados": "Marcar seleccionados como comprados",
+    "desmarcarSelecionados": "Desmarcar seleccionados",
+    "excluirSelecionados": "Eliminar seleccionados",
+    "excluirComprados": "Eliminar comprados",
+    "excluirNaoComprados": "Eliminar no comprados",
+    "excluirSemPreco": "Eliminar sin precio",
+    "limparLista": "Limpiar lista",
+    "resetarPrecos": "Restablecer precios",
+    "resetarCores": "Restablecer colores",
+    "criarNovaListaComComprados": "Crear nueva lista con comprados",
+    "criarNovaListaComNaoComprados": "Crear nueva lista con no comprados",
+    "duplicarLista": "Duplicar lista",
+    "mesclarDuplicados": "Combinar duplicados"
+  },
+  "desejos": {
+    "titulo": "Lista de Deseos",
+    "vazio": "No se encontraron deseos.",
+    "subtitulo": "Organice deseos por prioridad y conviértalos en listas de compra cuando sea necesario.",
+    "novoTitulo": "Nuevo Deseo",
+    "editarTitulo": "Editar Deseo",
+    "valorAlvo": "Valor objetivo",
+    "totalDesejos": "Total de deseos",
+    "totalSelecionados": "Seleccionados",
+    "totalValorAlvo": "Valor objetivo total",
+    "filtroUnidade": "Unidad de medida",
+    "converterSelecionados": "Convertir seleccionados ({{quantidade}})",
+    "converterTitulo": "Convertir deseos",
+    "modoConversao": "Destino de la conversion",
+    "conversaoNovaLista": "Crear nueva planificación",
+    "conversaoListaExistente": "Usar planificación existente",
+    "listaDestino": "Planificación de destino",
+    "nomeNovaLista": "Nombre de la nueva planificación",
+    "categoriaNovaLista": "Categoria de la nueva planificación",
+    "acaoPosConversao": "Acción post-conversión",
+    "acaoPosConversaoManter": "Mantener deseos",
+    "acaoPosConversaoArquivar": "Archivar deseos",
+    "acaoPosConversaoMarcarComoConvertido": "Marcar como convertido",
+    "nomeListaConvertida": "Planificación creada desde deseos"
+  },
+  "historico": {
+    "titulo": "Histórico de Precios",
+    "subtitulo": "Revise el historico de productos y compare variaciones de precio por unidad.",
+    "filtroDescricao": "Descripción del artículo",
+    "filtroUnidade": "Unidad",
+    "filtroDataInicio": "Fecha inicio (YYYY-MM-DD)",
+    "filtroDataFim": "Fecha fin (YYYY-MM-DD)",
+    "placeholderFiltroDescricao": "Escriba para filtrar por articulo",
+    "placeholderDataIso": "YYYY-MM-DD",
+    "todasUnidades": "Todas",
+    "totalOcorrencias": "Total de ocurrencias",
+    "vazio": "No se encontraron registros.",
+    "ultimoPreco": "Último precio",
+    "menorPreco": "Menor precio",
+    "maiorPreco": "Mayor precio",
+    "mediaPreco": "Precio promedio",
+    "dataUltimoPreco": "Fecha del último precio"
+  },
+  "participantes": {
+    "titulo": "Participantes",
+    "tituloModal": "Participantes de la planificación: {{nomeLista}}",
+    "amigo": "Amigo",
+    "participanteId": "ID del participante",
+    "permissao": "Permiso",
+    "adicionar": "Agregar participante",
+    "convidar": "Invitar a la planificación",
+    "gerenciar": "Participantes",
+    "listaAtual": "Participantes actuales",
+    "vazio": "No hay participantes adicionales.",
+    "usuario": "Usuario"
+  },
+  "logs": {
+    "titulo": "Registros de la planificación",
+    "vazio": "No se encontraron registros."
+  },
+  "tempoReal": {
+    "conectado": "Actualización en tiempo real conectada",
+    "desconectado": "Actualización en tiempo real desconectada"
+  },
+  "status": {
+    "ativa": "Activa",
+    "arquivada": "Archivada",
+    "concluida": "Concluida"
+  },
+  "permissoes": {
+    "proprietario": "Propietario",
+    "editor": "Editor",
+    "leitor": "Lector"
+  },
+  "categorias": {
+    "mercado": "Mercado",
+    "moveis": "Muebles",
+    "roupas": "Ropa",
+    "farmacia": "Farmacia",
+    "construcao": "Construcción",
+    "outros": "Otros"
+  },
+  "unidades": {
+    "unidade": "Unidad",
+    "kg": "Kg",
+    "g": "g",
+    "mg": "mg",
+    "l": "L",
+    "ml": "ml",
+    "pacote": "Paquete",
+    "caixa": "Caja"
+  },
+  "mensagens": {
+    "erroCarregarListas": "No fue posible cargar las planificaciones.",
+    "erroSalvarLista": "No fue posible guardar la planificación.",
+    "erroArquivarLista": "No fue posible archivar la planificación.",
+    "erroDuplicarLista": "No fue posible duplicar la planificación.",
+    "erroRemoverLista": "No fue posible eliminar la planificación.",
+    "listaCriada": "Planificación creada con exito.",
+    "listaArquivada": "Planificación archivada con exito.",
+    "listaDuplicada": "Planificación duplicada con exito.",
+    "listaRemovida": "Planificación eliminada con exito.",
+    "erroCarregarItens": "No fue posible cargar los artículos de la planificación.",
+    "itemInvalido": "Informe descripción, unidad, cantidad, color, valor unitario y valor total.",
+    "itemCriado": "Articulo creado con exito.",
+    "itemAtualizado": "Articulo actualizado con exito.",
+    "erroSalvarItem": "No fue posible guardar el articulo.",
+    "erroAtualizacaoRapida": "No fue posible actualizar rápidamente el artículo.",
+    "acaoLoteSucesso": "Accion en lote ejecutada con exito.",
+    "acaoLoteErro": "No fue posible ejecutar la accion en lote.",
+    "selecioneItensLote": "Seleccione articulos para la accion en lote.",
+    "erroCarregarDesejos": "No fue posible cargar los deseos.",
+    "erroSalvarDesejo": "No fue posible guardar el deseo.",
+    "desejoCriado": "Deseo creado con exito.",
+    "desejoAtualizado": "Deseo actualizado con exito.",
+    "desejoRemovido": "Deseo eliminado con exito.",
+    "selecioneDesejos": "Seleccione al menos un deseo.",
+    "listaDestinoObrigatoria": "Seleccione una planificación de destino.",
+    "desejosConvertidosComResumo": "Deseos convertidos con exito. Articulos creados: {{itensCriados}}. Deseos procesados: {{desejosProcessados}}.",
+    "erroConverterDesejos": "No fue posible convertir los deseos.",
+    "erroCarregarHistorico": "No fue posible cargar el histórico.",
+    "listaInvalida": "Planificación inválida.",
+    "participanteInvalido": "Participante inválido.",
+    "erroCarregarAmigos": "No fue posible cargar sus amigos para invitación.",
+    "participanteAdicionado": "Participante agregado con exito.",
+    "erroCompartilharLista": "No fue posible compartir la planificación.",
+    "participanteRemovido": "Participante removido con exito.",
+    "erroRemoverParticipante": "No fue posible remover participante."
+  },
+  "confirmacoes": {
+    "removerLista": "Desea eliminar esta planificación?",
+    "arquivarLista": "Desea archivar esta planificación?",
+    "acaoLote": "Desea ejecutar esta accion en lote?",
+    "converterDesejos": "Desea convertir los deseos seleccionados en una planificación?",
+    "removerParticipante": "Desea remover este participante de la planificación?",
+    "removerDesejo": "Desea eliminar este deseo?"
+  }
+}

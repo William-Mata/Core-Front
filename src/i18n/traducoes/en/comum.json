@@ -1,6 +1,9 @@
 {
   "saudacao": "Hello",
   "carregando": "Loading...",
+  "carregamento": {
+    "textoPrincipal": "Core"
+  },
   "erro": "An error occurred",
   "senha": "Password",
   "entrar": "Login",
@@ -17,6 +20,7 @@
   "menu": {
     "dashboard": "Dashboard",
     "financeiro": "Finance",
+    "compras": "Shopping",
     "despesas": "Expenses",
     "receitas": "Income",
     "reembolsos": "Reimbursements",

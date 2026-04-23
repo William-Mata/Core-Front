@@ -17,7 +17,7 @@ interface DocumentoForm {
   status: 'RASCUNHO' | 'PUBLICADO';
 }
 
-const modulos: ModuloDocumentacao[] = ['dashboard', 'financeiro', 'amigos', 'admin'];
+const modulos: ModuloDocumentacao[] = ['dashboard', 'financeiro', 'compras', 'amigos', 'admin'];
 
 export default function CriarEditarDocumento() {
   const router = useRouter();

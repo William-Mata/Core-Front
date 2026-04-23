@@ -68,6 +68,7 @@ function normalizarModuloId(modulo: Record<string, unknown>): string {
   if (idBruto) return idBruto;
   const nome = slug(String(modulo.nome ?? ''));
   if (nome.includes('finance')) return 'financeiro';
+  if (nome.includes('compra')) return 'compras';
   if (nome.includes('amig')) return 'amigos';
   if (nome.includes('admin')) return 'administracao';
   return idBruto || nome || `modulo-${Math.random().toString(36).slice(2, 6)}`;
@@ -89,6 +90,8 @@ function normalizarTelaId(tela: Record<string, unknown>): string {
   if (nome.includes('visao') || nome.includes('geral')) return 'visao-geral';
   if (nome.includes('documentacao')) return 'documentacao';
   if (nome.includes('lista')) return 'lista';
+  if (nome.includes('historico') && nome.includes('item')) return 'historico-itens';
+  if (nome.includes('desejo')) return 'desejos';
   if (nome.includes('convite')) return 'convite';
   return idBruto || nome || `tela-${Math.random().toString(36).slice(2, 6)}`;
 }
@@ -203,6 +206,17 @@ function criarModulosPadraoCadastroUsuario(): InterfaceModuloUsuario[] {
         { id: '103', nome: 'Contas Bancarias', status: true, funcionalidades: funcionalidadesCrud },
         { id: '104', nome: 'Cartoes de Credito', status: true, funcionalidades: funcionalidadesCrud },
         { id: '105', nome: 'Documentacao Modulo Financeiro', status: true, funcionalidades: funcionalidadesVisualizar },
+      ],
+    },
+    {
+      id: '4',
+      nome: 'Compras',
+      status: true,
+      telas: [
+        { id: '200', nome: 'Listas de Compras', status: true, funcionalidades: funcionalidadesCrud },
+        { id: '201', nome: 'Lista de Desejos', status: true, funcionalidades: funcionalidadesCrud },
+        { id: '202', nome: 'Historico de Itens', status: true, funcionalidades: funcionalidadesVisualizar },
+        { id: '203', nome: 'Documentacao Modulo Compras', status: true, funcionalidades: funcionalidadesVisualizar },
       ],
     },
   ];

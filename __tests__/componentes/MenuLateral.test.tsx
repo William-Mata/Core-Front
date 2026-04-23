@@ -89,6 +89,15 @@ function criarModulosAtivos(overrides?: Partial<Record<string, { status: boolean
   ];
 }
 
+function criarModuloComprasAtivo(): InterfaceModuloUsuario {
+  return {
+    id: '4',
+    nome: 'Compras',
+    status: true,
+    telas: [],
+  };
+}
+
 describe('MenuLateral', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -190,5 +199,23 @@ describe('MenuLateral', () => {
       expect(mockReplace).toHaveBeenCalledWith('/auth/entrar');
     });
   });
-});
 
+  it('deve destacar apenas o submenu correto de compras conforme rota atual', () => {
+    mockPathname = '/principal/compras/desejos';
+
+    const { getByText } = render(
+      <MenuLateral
+        modulosAtivos={[...criarModulosAtivos(), criarModuloComprasAtivo()]}
+        rotaAtual="compras"
+      />,
+    );
+
+    fireEvent.press(getByText('menu.compras'));
+
+    const itemPlanejamento = getByText('compras.menu.listas');
+    const itemDesejos = getByText('compras.menu.desejos');
+
+    expect(itemDesejos).toHaveStyle({ fontWeight: '700' });
+    expect(itemPlanejamento).toHaveStyle({ fontWeight: '500' });
+  });
+});

@@ -19,6 +19,7 @@ export default function PrincipalLayout() {
 
   const rotaAtual = (() => {
     if (pathname.includes('/financeiro')) return 'financeiro';
+    if (pathname.includes('/compras')) return 'compras';
     if (pathname.includes('/amigos')) return 'amigos';
     if (pathname.includes('/administracao')) return 'admin';
     if (pathname.includes('/usuario')) return 'usuario';
@@ -31,6 +32,10 @@ export default function PrincipalLayout() {
     const obterModulo = (id: string) =>
       usuario.modulosAtivos.find((m) => String(m.id) === id) ?? null;
     const moduloAtivo = (id: string) => Boolean(obterModulo(id)?.status);
+    const moduloComprasAtivo = () => {
+      const compras = usuario.modulosAtivos.find((m) => String(m.nome ?? '').toLowerCase().includes('compra'));
+      return Boolean(compras?.status);
+    };
     const telaAtiva = (moduloId: string, telaId: string) => {
       const modulo = obterModulo(moduloId);
       if (!modulo?.status) return false;
@@ -51,6 +56,7 @@ export default function PrincipalLayout() {
     if (pathname.startsWith('/principal/financeiro/cartao')) return telaAtiva('3', '104');
     if (pathname.startsWith('/principal/financeiro/documentacao')) return telaAtiva('3', '105');
     if (pathname.startsWith('/principal/financeiro')) return moduloAtivo('3');
+    if (pathname.startsWith('/principal/compras')) return moduloComprasAtivo();
 
     if (pathname.startsWith('/principal/administracao/usuario')) return telaAtiva('2', '31');
     if (pathname.startsWith('/principal/administracao/documentos') || pathname.startsWith('/principal/administracao/documento')) {
@@ -75,6 +81,10 @@ export default function PrincipalLayout() {
       if (!modulo?.status) return false;
       return modulo.telas?.some((t) => String(t.id) === telaId && t.status);
     };
+    const moduloComprasAtivo = () => {
+      const compras = usuario.modulosAtivos.find((m) => String(m.nome ?? '').toLowerCase().includes('compra'));
+      return Boolean(compras?.status);
+    };
 
     if (telaAtiva('1', '1')) return '/principal';
     if (telaAtiva('1', '2')) return '/principal/usuario';
@@ -88,6 +98,7 @@ export default function PrincipalLayout() {
     if (telaAtiva('3', '103')) return '/principal/financeiro/conta-bancaria';
     if (telaAtiva('3', '104')) return '/principal/financeiro/cartao';
     if (telaAtiva('3', '105')) return '/principal/financeiro/documentacao';
+    if (moduloComprasAtivo()) return '/principal/compras';
 
     if (telaAtiva('2', '30')) return '/principal/administracao';
     if (telaAtiva('2', '31')) return '/principal/administracao/usuario';

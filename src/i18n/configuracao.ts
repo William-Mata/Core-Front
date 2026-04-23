@@ -3,12 +3,15 @@ import { initReactI18next } from 'react-i18next';
 
 import ptBRComum from './traducoes/pt-BR/comum.json';
 import ptBRFinanceiro from './traducoes/pt-BR/financeiro.json';
+import ptBRCompras from './traducoes/pt-BR/compras.json';
 
 import enComum from './traducoes/en/comum.json';
 import enFinanceiro from './traducoes/en/financeiro.json';
+import enCompras from './traducoes/en/compras.json';
 
 import esComum from './traducoes/es/comum.json';
 import esFinanceiro from './traducoes/es/financeiro.json';
+import esCompras from './traducoes/es/compras.json';
 
 const normalizarMojibake = (texto: string): string => {
   if (!texto) return texto;
@@ -59,14 +62,17 @@ i18n.use(initReactI18next).init({
     'pt-BR': {
       comum: normalizarRecursivo(ptBRComum),
       financeiro: normalizarRecursivo(ptBRFinanceiro),
+      compras: normalizarRecursivo(ptBRCompras),
     },
     en: {
       comum: normalizarRecursivo(enComum),
       financeiro: normalizarRecursivo(enFinanceiro),
+      compras: normalizarRecursivo(enCompras),
     },
     es: {
       comum: normalizarRecursivo(esComum),
       financeiro: normalizarRecursivo(esFinanceiro),
+      compras: normalizarRecursivo(esCompras),
     },
   },
 });

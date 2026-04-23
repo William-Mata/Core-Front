@@ -1,6 +1,9 @@
 {
   "saudacao": "Hola",
   "carregando": "Cargando...",
+  "carregamento": {
+    "textoPrincipal": "Core"
+  },
   "erro": "Ocurrió un error",
   "senha": "Contraseña",
   "entrar": "Iniciar sesión",
@@ -17,6 +20,7 @@
   "menu": {
     "dashboard": "Panel",
     "financeiro": "Finanzas",
+    "compras": "Compras",
     "despesas": "Gastos",
     "receitas": "Ingresos",
     "reembolsos": "Reembolsos",

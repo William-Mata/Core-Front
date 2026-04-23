@@ -1,0 +1,232 @@
+{
+  "menu": {
+    "listas": "Plans",
+    "desejos": "Wishes",
+    "historicoItens": "Product History"
+  },
+  "acoes": {
+    "novaLista": "New Planning",
+    "novoItem": "New Item",
+    "novoDesejo": "New Wish",
+    "desejos": "Wishlist",
+    "historicoItens": "Price History",
+    "recarregar": "Reload",
+    "arquivarLista": "Archive Planning"
+  },
+  "listas": {
+    "vazio": "No planning found.",
+    "categoria": "Category",
+    "status": "Status",
+    "participantes": "Participants",
+    "totalListas": "Total plannings",
+    "totalAtivas": "Active",
+    "totalArquivadas": "Archived",
+    "totalConcluidas": "Completed",
+    "filtroStatus": "Planning status",
+    "ultimaAtualizacao": "Last update"
+  },
+  "lista": {
+    "titulo": "Plans",
+    "vazio": "No item found.",
+    "resumo": "Planning Summary",
+    "totalLista": "Planning total amount",
+    "totalComprado": "Purchased amount",
+    "percentualComprado": "Purchased percent",
+    "quantidadeItens": "Items quantity",
+    "quantidadeItensComprados": "Purchased items",
+    "permissaoAtual": "Your permission"
+  },
+  "modalNovaLista": {
+    "titulo": "New Planning",
+    "nome": "Planning name",
+    "placeholderNome": "Type the planning name",
+    "categoria": "Category"
+  },
+  "modalItem": {
+    "novoTitulo": "New Item",
+    "editarTitulo": "Edit Item"
+  },
+  "item": {
+    "descricao": "Description",
+    "observacao": "Note",
+    "unidade": "Unit",
+    "quantidade": "Quantity",
+    "cor": "Color marker",
+    "valorUnitario": "Unit price",
+    "valorTotal": "Total price",
+    "corSelecionada": "Selected color: {{cor}}"
+  },
+  "filtros": {
+    "status": "Display mode",
+    "ordenacao": "Sorting",
+    "todos": "All",
+    "comprados": "Purchased only",
+    "naoComprados": "Not purchased only"
+  },
+  "ordenacao": {
+    "alfabetica": "Alphabetical",
+    "preco": "Price",
+    "cor": "Group by color",
+    "crescente": "Ascending",
+    "decrescente": "Descending",
+    "modalTitulo": "Sort items",
+    "ordemTitulo": "How do you want to sort",
+    "ordemAmigavelAsc": "From lower to higher (A-Z)",
+    "ordemAmigavelDesc": "From higher to lower (Z-A)"
+  },
+  "acoesLote": {
+    "titulo": "Batch actions",
+    "executar": "Run action",
+    "itensSelecionados": "Selected items",
+    "marcarSelecionadosComprados": "Mark selected as purchased",
+    "desmarcarSelecionados": "Unmark selected",
+    "excluirSelecionados": "Delete selected",
+    "excluirComprados": "Delete purchased",
+    "excluirNaoComprados": "Delete not purchased",
+    "excluirSemPreco": "Delete without price",
+    "limparLista": "Clear list",
+    "resetarPrecos": "Reset prices",
+    "resetarCores": "Reset colors",
+    "criarNovaListaComComprados": "Create new list with purchased",
+    "criarNovaListaComNaoComprados": "Create new list with not purchased",
+    "duplicarLista": "Duplicate list",
+    "mesclarDuplicados": "Merge duplicates"
+  },
+  "desejos": {
+    "titulo": "Wishlist",
+    "vazio": "No wish found.",
+    "subtitulo": "Organize wishes by priority and convert them into shopping lists when needed.",
+    "novoTitulo": "New Wish",
+    "editarTitulo": "Edit Wish",
+    "valorAlvo": "Target price",
+    "totalDesejos": "Total wishes",
+    "totalSelecionados": "Selected",
+    "totalValorAlvo": "Total target amount",
+    "filtroUnidade": "Unit of measure",
+    "converterSelecionados": "Convert selected ({{quantidade}})",
+    "converterTitulo": "Convert wishes",
+    "modoConversao": "Conversion destination",
+    "conversaoNovaLista": "Create new planning",
+    "conversaoListaExistente": "Use existing planning",
+    "listaDestino": "Destination planning",
+    "nomeNovaLista": "New planning name",
+    "categoriaNovaLista": "New planning category",
+    "acaoPosConversao": "Post-conversion action",
+    "acaoPosConversaoManter": "Keep wishes",
+    "acaoPosConversaoArquivar": "Archive wishes",
+    "acaoPosConversaoMarcarComoConvertido": "Mark as converted",
+    "nomeListaConvertida": "Planning created from wishes"
+  },
+  "historico": {
+    "titulo": "Price History",
+    "subtitulo": "Review product history and compare price changes by unit.",
+    "filtroDescricao": "Item description",
+    "filtroUnidade": "Unit",
+    "filtroDataInicio": "Start date (YYYY-MM-DD)",
+    "filtroDataFim": "End date (YYYY-MM-DD)",
+    "placeholderFiltroDescricao": "Type to filter by item",
+    "placeholderDataIso": "YYYY-MM-DD",
+    "todasUnidades": "All",
+    "totalOcorrencias": "Total occurrences",
+    "vazio": "No record found.",
+    "ultimoPreco": "Last price",
+    "menorPreco": "Lowest price",
+    "maiorPreco": "Highest price",
+    "mediaPreco": "Average price",
+    "dataUltimoPreco": "Last price date"
+  },
+  "participantes": {
+    "titulo": "Participants",
+    "tituloModal": "Planning participants: {{nomeLista}}",
+    "amigo": "Friend",
+    "participanteId": "Participant ID",
+    "permissao": "Permission",
+    "adicionar": "Add participant",
+    "convidar": "Invite to planning",
+    "gerenciar": "Participants",
+    "listaAtual": "Current participants",
+    "vazio": "No additional participants.",
+    "usuario": "User"
+  },
+  "logs": {
+    "titulo": "Planning logs",
+    "vazio": "No logs found."
+  },
+  "tempoReal": {
+    "conectado": "Real-time updates connected",
+    "desconectado": "Real-time updates disconnected"
+  },
+  "status": {
+    "ativa": "Active",
+    "arquivada": "Archived",
+    "concluida": "Completed"
+  },
+  "permissoes": {
+    "proprietario": "Owner",
+    "editor": "Editor",
+    "leitor": "Reader"
+  },
+  "categorias": {
+    "mercado": "Grocery",
+    "moveis": "Furniture",
+    "roupas": "Clothes",
+    "farmacia": "Pharmacy",
+    "construcao": "Construction",
+    "outros": "Other"
+  },
+  "unidades": {
+    "unidade": "Unit",
+    "kg": "Kg",
+    "g": "g",
+    "mg": "mg",
+    "l": "L",
+    "ml": "ml",
+    "pacote": "Package",
+    "caixa": "Box"
+  },
+  "mensagens": {
+    "erroCarregarListas": "Could not load shopping lists.",
+    "erroSalvarLista": "Could not save the planning.",
+    "erroArquivarLista": "Could not archive the planning.",
+    "erroDuplicarLista": "Could not duplicate the planning.",
+    "erroRemoverLista": "Could not remove the planning.",
+    "listaCriada": "Planning created successfully.",
+    "listaArquivada": "Planning archived successfully.",
+    "listaDuplicada": "Planning duplicated successfully.",
+    "listaRemovida": "Planning removed successfully.",
+    "erroCarregarItens": "Could not load planning items.",
+    "itemInvalido": "Please provide description, unit, quantity, color, unit price and total price.",
+    "itemCriado": "Item created successfully.",
+    "itemAtualizado": "Item updated successfully.",
+    "erroSalvarItem": "Could not save item.",
+    "erroAtualizacaoRapida": "Could not quick-update item.",
+    "acaoLoteSucesso": "Batch action completed successfully.",
+    "acaoLoteErro": "Could not execute batch action.",
+    "selecioneItensLote": "Select items for the batch action.",
+    "erroCarregarDesejos": "Could not load wishlist.",
+    "erroSalvarDesejo": "Could not save wish.",
+    "desejoCriado": "Wish created successfully.",
+    "desejoAtualizado": "Wish updated successfully.",
+    "desejoRemovido": "Wish removed successfully.",
+    "selecioneDesejos": "Select at least one wish.",
+    "listaDestinoObrigatoria": "Select a destination planning.",
+    "desejosConvertidosComResumo": "Wishes converted successfully. Created items: {{itensCriados}}. Processed wishes: {{desejosProcessados}}.",
+    "erroConverterDesejos": "Could not convert wishes.",
+    "erroCarregarHistorico": "Could not load history.",
+    "listaInvalida": "Invalid planning.",
+    "participanteInvalido": "Invalid participant.",
+    "erroCarregarAmigos": "Could not load your friends for invitation.",
+    "participanteAdicionado": "Participant added successfully.",
+    "erroCompartilharLista": "Could not share the planning.",
+    "participanteRemovido": "Participant removed successfully.",
+    "erroRemoverParticipante": "Could not remove participant."
+  },
+  "confirmacoes": {
+    "removerLista": "Do you want to remove this planning?",
+    "arquivarLista": "Do you want to archive this planning?",
+    "acaoLote": "Do you want to run this batch action?",
+    "converterDesejos": "Do you want to convert selected wishes into a planning?",
+    "removerParticipante": "Do you want to remove this participant from the planning?",
+    "removerDesejo": "Do you want to remove this wish?"
+  }
+}

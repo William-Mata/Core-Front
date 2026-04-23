@@ -1,4 +1,5 @@
-﻿import { useTranslation } from 'react-i18next';
+﻿import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import i18n from '../i18n/configuracao';
 
 const normalizarMojibake = (texto: string): string => {
@@ -153,6 +154,7 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'documentacao.atualizadoEm': 'Atualizado em',
     'documentacao.modulos.dashboard': 'Dashboard',
     'documentacao.modulos.financeiro': 'Financeiro',
+    'documentacao.modulos.compras': 'Compras',
     'documentacao.modulos.amigos': 'Amigos',
     'documentacao.modulos.admin': 'AdministraÃ§Ã£o',
     'comum.login.esqueciSenha': 'Esqueci minha senha',
@@ -237,7 +239,7 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'financeiro.cartao.mensagens.obrigatorioDebito': 'DescriÃ§Ã£o, bandeira, tipo e saldo disponÃ­vel sÃ£o obrigatÃ³rios para cartÃ£o de dÃ©bito.',
     'financeiro.cartao.mensagens.criado': 'CartÃ£o criado com sucesso.',
     'financeiro.cartao.mensagens.atualizado': 'CartÃ£o atualizado com sucesso.',
-    'financeiro.cartao.mensagens.transacoesPendentes': 'NÃ£o ? possÃ­vel inativar. Existem transaÃ§Ãµes pendentes vinculadas a este cartÃ£o.',
+    'financeiro.cartao.mensagens.transacoesPendentes': 'Não é possí­vel efetivar. Existem transações pendentes vinculadas a este cartãoo.',
     'financeiro.cartao.mensagens.confirmarAtivacao': 'Deseja ativar este cartÃ£o?',
     'financeiro.cartao.mensagens.confirmarInativacao': 'Deseja inativar este cartÃ£o?',
     'financeiro.cartao.logs.titulo': 'Logs de alteracoes',
@@ -588,6 +590,7 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'documentacao.atualizadoEm': 'Updated on',
     'documentacao.modulos.dashboard': 'Dashboard',
     'documentacao.modulos.financeiro': 'Finance',
+    'documentacao.modulos.compras': 'Shopping',
     'documentacao.modulos.amigos': 'Friends',
     'documentacao.modulos.admin': 'Administration',
     'comum.login.esqueciSenha': 'I forgot my password',
@@ -1022,6 +1025,7 @@ const fallbackPorIdioma: Record<string, Record<string, string>> = {
     'documentacao.atualizadoEm': 'Actualizado el',
     'documentacao.modulos.dashboard': 'Panel',
     'documentacao.modulos.financeiro': 'Finanzas',
+    'documentacao.modulos.compras': 'Compras',
     'documentacao.modulos.amigos': 'Amigos',
     'documentacao.modulos.admin': 'AdministraciÃ³n',
     'comum.login.esqueciSenha': 'Olvide mi contraseÃ±a',
@@ -1335,7 +1339,7 @@ const traducoesExtrasPorIdioma: Record<string, Record<string, string>> = {
     'admin.usuario.status': 'Status do UsuÃ¡rio',
     'admin.usuario.statusAtivo': 'Ativo',
     'admin.usuario.statusInativo': 'Inativo',
-    'admin.usuario.permissoesTitulo': 'MÃ³dulos, telas e funcionalidades',
+    'admin.usuario.permissoesTitulo': 'Módulos, telas e funcionalidades',
   },
   en: {
     'menu.geral': 'General',
@@ -1362,21 +1366,21 @@ const traducoesExtrasPorIdioma: Record<string, Record<string, string>> = {
 };
 
 export const usarTraducao = () => {
-  const { t: i18nT } = useTranslation(['comum', 'financeiro']);
+  const { t: i18nT } = useTranslation(['comum', 'financeiro', 'compras']);
 
-  const interpolar = (texto: string, opcoes?: Record<string, string>) => {
+  const interpolar = useCallback((texto: string, opcoes?: Record<string, string>) => {
     if (!opcoes) return texto;
     return Object.entries(opcoes).reduce((resultado, [chave, valor]) => {
       const marcador = new RegExp(`\\{\\{\\s*${chave}\\s*\\}\\}`, 'g');
       return resultado.replace(marcador, String(valor));
     }, texto);
-  };
+  }, []);
 
-  const t = (chave: string, opcoes?: Record<string, string>): string => {
+  const t = useCallback((chave: string, opcoes?: Record<string, string>): string => {
     let resultado = '';
     let chaveInterna = chave;
 
-    if (chave.startsWith('comum.') || chave.startsWith('financeiro.')) {
+    if (chave.startsWith('comum.') || chave.startsWith('financeiro.') || chave.startsWith('compras.')) {
       const [ns, ...resto] = chave.split('.');
       chaveInterna = resto.join('.');
       resultado = String(i18nT(`${ns}:${chaveInterna}`, opcoes as any));
@@ -1385,18 +1389,22 @@ export const usarTraducao = () => {
       if (resultado === `comum:${chave}`) {
         resultado = String(i18nT(`financeiro:${chave}`, opcoes as any));
       }
+      if (resultado === `financeiro:${chave}`) {
+        resultado = String(i18nT(`compras:${chave}`, opcoes as any));
+      }
     }
 
     if (
       resultado === chave ||
       resultado === chaveInterna ||
       resultado === `comum:${chave}` ||
-      resultado === `financeiro:${chave}`
+      resultado === `financeiro:${chave}` ||
+      resultado === `compras:${chave}`
     ) {
       const idiomaAtual = i18n.resolvedLanguage || i18n.language || 'pt-BR';
       const idiomaBase = idiomaAtual.startsWith('en') ? 'en' : idiomaAtual.startsWith('es') ? 'es' : 'pt-BR';
 
-      const buscarRecurso = (ns: 'comum' | 'financeiro', key: string) => {
+      const buscarRecurso = (ns: 'comum' | 'financeiro' | 'compras', key: string) => {
         const atual = i18n.getResource(idiomaAtual, ns, key);
         if (typeof atual === 'string') return atual;
         const base = i18n.getResource(idiomaBase, ns, key);
@@ -1411,11 +1419,16 @@ export const usarTraducao = () => {
       } else if (chave.startsWith('financeiro.')) {
         const recurso = buscarRecurso('financeiro', chaveInterna);
         if (recurso) return normalizarMojibake(interpolar(recurso, opcoes));
+      } else if (chave.startsWith('compras.')) {
+        const recurso = buscarRecurso('compras', chaveInterna);
+        if (recurso) return normalizarMojibake(interpolar(recurso, opcoes));
       } else {
         const comum = buscarRecurso('comum', chave);
         if (comum) return normalizarMojibake(interpolar(comum, opcoes));
         const financeiro = buscarRecurso('financeiro', chave);
         if (financeiro) return normalizarMojibake(interpolar(financeiro, opcoes));
+        const compras = buscarRecurso('compras', chave);
+        if (compras) return normalizarMojibake(interpolar(compras, opcoes));
       }
 
       const extras = traducoesExtrasPorIdioma[idiomaBase] || traducoesExtrasPorIdioma['pt-BR'];
@@ -1433,7 +1446,7 @@ export const usarTraducao = () => {
     }
 
     return normalizarMojibake(resultado);
-  };
+  }, [i18nT, interpolar]);
 
   return { t };
 };

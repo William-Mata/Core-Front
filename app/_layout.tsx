@@ -15,16 +15,16 @@ export default function RootLayout() {
   useEffect(() => {
     try {
       require('../src/i18n/configuracao');
-    } catch (error) {
-      console.log('i18n nao esta disponivel por enquanto');
+    } catch {
+      // Ignorar indisponibilidade temporaria de i18n durante bootstrap.
     }
 
     if (Platform.OS === 'web') {
       try {
         const { iniciarMocks } = require('../src/mocks');
         iniciarMocks();
-      } catch (error) {
-        console.log('Mocks nao estao disponiveis por enquanto');
+      } catch {
+        // Ignorar indisponibilidade temporaria de mocks em runtime.
       }
     }
   }, []);
