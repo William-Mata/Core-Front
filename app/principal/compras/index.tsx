@@ -4,12 +4,12 @@ import { useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
+import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
 import { Modal } from '../../../src/componentes/comuns/Modal';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import {
   adicionarParticipanteListaCompraApi,
-  arquivarListaCompraApi,
   criarListaCompraApi,
   duplicarListaCompraApi,
   listarListasCompraApi,
@@ -20,6 +20,7 @@ import { listarAmigosRateioApi, type AmigoRateioApi } from '../../../src/servico
 import { usarAutenticacaoStore } from '../../../src/store/usarAutenticacaoStore';
 import { ListaCompra, PermissaoParticipanteLista } from '../../../src/tipos/compras.tipos';
 import { solicitarConfirmacao } from '../../../src/utils/confirmacao';
+import { extrairMensagemErroApi } from '../../../src/utils/erroApi';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma } from '../../../src/utils/formatacaoLocale';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
@@ -35,6 +36,7 @@ const opcoesCategoriasLista = [
 ] as const;
 
 type StatusFiltroLista = 'todos' | ListaCompra['status'];
+type AcaoListaPlanejamento = 'duplicar' | 'excluir' | 'compartilhar';
 
 const filtroInicial: FiltroPadraoValor = {
   id: '',
@@ -44,6 +46,7 @@ const filtroInicial: FiltroPadraoValor = {
 };
 
 function obterPermissaoUsuario(lista: ListaCompra, usuarioId?: number): PermissaoParticipanteLista {
+  if (lista.papelUsuario) return lista.papelUsuario;
   if (!usuarioId) return 'leitor';
   if (lista.criadoPorUsuarioId === usuarioId) return 'proprietario';
   const participante = lista.participantes.find((item) => item.usuarioId === usuarioId);
@@ -58,6 +61,7 @@ export default function ComprasIndex() {
   const [carregando, setCarregando] = useState(false);
   const [modalNovaLista, setModalNovaLista] = useState(false);
   const [nomeLista, setNomeLista] = useState('');
+  const [observacaoLista, setObservacaoLista] = useState('');
   const [categoriaLista, setCategoriaLista] = useState<ListaCompra['categoria']>('mercado');
   const [filtro, setFiltro] = useState<FiltroPadraoValor>(filtroInicial);
   const [filtroAplicado, setFiltroAplicado] = useState<FiltroPadraoValor>(filtroInicial);
@@ -67,7 +71,13 @@ export default function ComprasIndex() {
   const [carregandoAmigos, setCarregandoAmigos] = useState(false);
   const [modalParticipantesListaId, setModalParticipantesListaId] = useState<number | null>(null);
   const [amigoSelecionadoId, setAmigoSelecionadoId] = useState('');
-  const [permissaoParticipante, setPermissaoParticipante] = useState<'editor' | 'leitor'>('editor');
+  const [permissaoParticipante, setPermissaoParticipante] = useState<'coproprietario' | 'leitor'>('coproprietario');
+  const [menuAcoesAbertoListaId, setMenuAcoesAbertoListaId] = useState<number | null>(null);
+  const [modalDuplicarLista, setModalDuplicarLista] = useState(false);
+  const [listaDuplicacaoId, setListaDuplicacaoId] = useState<number | null>(null);
+  const [nomeDuplicacao, setNomeDuplicacao] = useState('');
+  const [observacaoDuplicacao, setObservacaoDuplicacao] = useState('');
+  const [categoriaDuplicacao, setCategoriaDuplicacao] = useState<ListaCompra['categoria']>('mercado');
 
   const carregarListas = useCallback(async () => {
     try {
@@ -114,6 +124,11 @@ export default function ComprasIndex() {
     participantesIds.add(listaModalParticipantes.criadoPorUsuarioId);
     return amigosDisponiveis.filter((amigo) => !participantesIds.has(amigo.id));
   }, [amigosDisponiveis, listaModalParticipantes]);
+  const permissaoModalParticipantes = useMemo(() => {
+    if (!listaModalParticipantes) return 'leitor' as const;
+    return obterPermissaoUsuario(listaModalParticipantes, usuarioId);
+  }, [listaModalParticipantes, usuarioId]);
+  const podeGerenciarParticipantes = permissaoModalParticipantes !== 'leitor';
 
   const listasFiltradas = useMemo(() => {
     const termoId = filtroAplicado.id.trim();
@@ -150,16 +165,17 @@ export default function ComprasIndex() {
   const abrirModalParticipantes = (listaId: number) => {
     setModalParticipantesListaId(listaId);
     setAmigoSelecionadoId('');
-    setPermissaoParticipante('editor');
+    setPermissaoParticipante('coproprietario');
   };
 
   const fecharModalParticipantes = () => {
     setModalParticipantesListaId(null);
     setAmigoSelecionadoId('');
-    setPermissaoParticipante('editor');
+    setPermissaoParticipante('coproprietario');
   };
 
   const abrirLista = (listaId: number) => {
+    setMenuAcoesAbertoListaId(null);
     router.push(`/principal/compras/lista?listaId=${listaId}` as never);
   };
 
@@ -168,9 +184,11 @@ export default function ComprasIndex() {
     try {
       await criarListaCompraApi({
         nome: nomeLista.trim(),
+        observacao: observacaoLista.trim(),
         categoria: categoriaLista,
       });
       setNomeLista('');
+      setObservacaoLista('');
       setCategoriaLista('mercado');
       setModalNovaLista(false);
       notificarSucesso(t('compras.mensagens.listaCriada'));
@@ -180,9 +198,31 @@ export default function ComprasIndex() {
     }
   };
 
-  const duplicarLista = async (listaId: number) => {
+  const abrirModalDuplicarLista = (lista: ListaCompra) => {
+    setListaDuplicacaoId(lista.id);
+    setNomeDuplicacao(lista.nome);
+    setObservacaoDuplicacao(lista.observacao ?? '');
+    setCategoriaDuplicacao(lista.categoria);
+    setModalDuplicarLista(true);
+  };
+
+  const fecharModalDuplicarLista = () => {
+    setModalDuplicarLista(false);
+    setListaDuplicacaoId(null);
+    setNomeDuplicacao('');
+    setObservacaoDuplicacao('');
+    setCategoriaDuplicacao('mercado');
+  };
+
+  const duplicarLista = async () => {
+    if (!listaDuplicacaoId || nomeDuplicacao.trim().length < 3) return;
     try {
-      await duplicarListaCompraApi(listaId);
+      await duplicarListaCompraApi(listaDuplicacaoId, {
+        nome: nomeDuplicacao.trim(),
+        observacao: observacaoDuplicacao.trim(),
+        categoria: categoriaDuplicacao,
+      });
+      fecharModalDuplicarLista();
       notificarSucesso(t('compras.mensagens.listaDuplicada'));
       await carregarListas();
     } catch {
@@ -190,28 +230,13 @@ export default function ComprasIndex() {
     }
   };
 
-  const arquivarLista = async (listaId: number) => {
-    const confirmar = await solicitarConfirmacao(t('compras.confirmacoes.arquivarLista'), {
-      titulo: t('comum.acoes.confirmar'),
-      textoConfirmar: t('comum.acoes.confirmar'),
-      textoCancelar: t('comum.acoes.cancelar'),
-    });
-    if (!confirmar) return;
-
-    try {
-      await arquivarListaCompraApi(listaId);
-      notificarSucesso(t('compras.mensagens.listaArquivada'));
-      await carregarListas();
-    } catch {
-      notificarErro(t('compras.mensagens.erroArquivarLista'));
-    }
-  };
-
   const removerLista = async (listaId: number) => {
     const confirmar = await solicitarConfirmacao(t('compras.confirmacoes.removerLista'), {
-      titulo: t('comum.acoes.confirmar'),
-      textoConfirmar: t('comum.acoes.confirmar'),
+      titulo: t('comum.confirmacoes.tituloExclusao'),
+      textoConfirmar: t('comum.acoes.excluir'),
       textoCancelar: t('comum.acoes.cancelar'),
+      mensagemImpacto: t('comum.confirmacoes.alertaAcaoIrreversivel'),
+      tipoConfirmar: 'perigo',
     });
     if (!confirmar) return;
 
@@ -239,18 +264,20 @@ export default function ComprasIndex() {
       });
       notificarSucesso(t('compras.mensagens.participanteAdicionado'));
       setAmigoSelecionadoId('');
-      setPermissaoParticipante('editor');
+      setPermissaoParticipante('coproprietario');
       await carregarListas();
-    } catch {
-      notificarErro(t('compras.mensagens.erroCompartilharLista'));
+    } catch (erro) {
+      notificarErro(extrairMensagemErroApi(erro, t('compras.mensagens.erroCompartilharLista')));
     }
   };
 
   const removerParticipante = async (listaId: number, participanteId: number) => {
     const confirmar = await solicitarConfirmacao(t('compras.confirmacoes.removerParticipante'), {
-      titulo: t('comum.acoes.confirmar'),
-      textoConfirmar: t('comum.acoes.confirmar'),
+      titulo: t('comum.confirmacoes.tituloExclusao'),
+      textoConfirmar: t('comum.acoes.remover'),
       textoCancelar: t('comum.acoes.cancelar'),
+      mensagemImpacto: t('comum.confirmacoes.alertaAcaoIrreversivel'),
+      tipoConfirmar: 'perigo',
     });
     if (!confirmar) return;
 
@@ -258,9 +285,23 @@ export default function ComprasIndex() {
       await removerParticipanteListaCompraApi(listaId, participanteId);
       notificarSucesso(t('compras.mensagens.participanteRemovido'));
       await carregarListas();
-    } catch {
-      notificarErro(t('compras.mensagens.erroRemoverParticipante'));
+    } catch (erro) {
+      notificarErro(extrairMensagemErroApi(erro, t('compras.mensagens.erroRemoverParticipante')));
     }
+  };
+
+  const executarAcaoLista = async (lista: ListaCompra, acao: AcaoListaPlanejamento) => {
+    if (acao === 'duplicar') {
+      abrirModalDuplicarLista(lista);
+      return;
+    }
+
+    if (acao === 'excluir') {
+      await removerLista(lista.id);
+      return;
+    }
+
+    abrirModalParticipantes(lista.id);
   };
 
   return (
@@ -321,15 +362,36 @@ export default function ComprasIndex() {
         {carregando ? <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 24 }}>{t('comum.carregando')}</Text> : null}
         {!carregando && listasFiltradas.length === 0 ? <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 24 }}>{t('compras.listas.vazio')}</Text> : null}
 
-        <View style={{ gap: 10 }}>
+        <View style={{ gap: 10, overflow: 'visible' }}>
           {listasFiltradas.map((lista) => {
             const permissaoAtual = obterPermissaoUsuario(lista, usuarioId);
-            const ehProprietario = permissaoAtual === 'proprietario';
+            const podeGerenciarLista = permissaoAtual !== 'leitor';
             const podeDuplicar = permissaoAtual !== 'leitor';
+            const estiloStatus =
+              lista.status === 'ativa'
+                ? { corTexto: COLORS.success, corBorda: '#86efac', corFundo: '#14532d' }
+                : lista.status === 'arquivada'
+                  ? { corTexto: COLORS.warning, corBorda: '#fde68a', corFundo: '#78350f' }
+                  : { corTexto: COLORS.info, corBorda: '#93c5fd', corFundo: '#1e3a8a' };
+            const opcoesAcoesLista = [
+              ...(podeDuplicar
+                ? [{ value: 'duplicar', label: t('comum.acoes.duplicar') }]
+                : []),
+              ...(podeGerenciarLista
+                ? [{ value: 'compartilhar', label: t('compras.participantes.compartilharComAmigos') }]
+                : []),
+              ...(podeGerenciarLista
+                ? [{ value: 'excluir', label: t('comum.acoes.excluir') }]
+                : []),
+            ] as Array<{ value: AcaoListaPlanejamento; label: string }>;
             return (
               <View
                 key={lista.id}
                 style={{
+                  position: 'relative',
+                  zIndex: menuAcoesAbertoListaId === lista.id ? 50 : 1,
+                  elevation: menuAcoesAbertoListaId === lista.id ? 12 : 0,
+                  overflow: 'visible',
                   backgroundColor: COLORS.bgTertiary,
                   borderWidth: 1,
                   borderColor: COLORS.borderColor,
@@ -337,60 +399,146 @@ export default function ComprasIndex() {
                   padding: 14,
                 }}
               >
-                <TouchableOpacity onPress={() => abrirLista(lista.id)} activeOpacity={0.85}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <Text style={{ color: COLORS.textPrimary, fontWeight: '700', fontSize: 15, flex: 1 }}>{lista.nome}</Text>
-                    <View
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TouchableOpacity onPress={() => abrirLista(lista.id)} activeOpacity={0.85} style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ color: COLORS.textPrimary, fontWeight: '700', fontSize: 15, flex: 1 }}>{lista.nome}</Text>
+                      <DistintivoStatus
+                        rotulo={t(`compras.status.${lista.status}`)}
+                        corTexto={estiloStatus.corTexto}
+                        corBorda={estiloStatus.corBorda}
+                        corFundo={estiloStatus.corFundo}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                  {opcoesAcoesLista.length > 0 ? (
+                    <TouchableOpacity
+                      onPress={() => setMenuAcoesAbertoListaId((atual) => (atual === lista.id ? null : lista.id))}
                       style={{
-                        backgroundColor:
-                          lista.status === 'ativa'
-                            ? COLORS.success
-                            : lista.status === 'arquivada'
-                              ? COLORS.warning
-                              : COLORS.accent,
-                        borderRadius: 6,
-                        paddingHorizontal: 10,
-                        paddingVertical: 4,
+                        width: 30,
+                        height: 30,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: menuAcoesAbertoListaId === lista.id ? COLORS.borderAccent : COLORS.textPrimary,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: menuAcoesAbertoListaId === lista.id ? COLORS.accentSubtle : COLORS.bgSecondary,
                       }}
                     >
-                      <Text style={{ color: COLORS.textPrimary, fontSize: 11, fontWeight: '700' }}>{t(`compras.status.${lista.status}`)}</Text>
-                    </View>
-                  </View>
-
-                  <Text style={{ color: COLORS.textSecondary, marginTop: 6 }}>
-                    {t('compras.listas.categoria')}: {t(`compras.categorias.${lista.categoria}`)}
-                  </Text>
-                  <Text style={{ color: COLORS.textSecondary }}>
-                    {t('compras.listas.participantes')}: {lista.participantes.length}
-                  </Text>
-                  <Text style={{ color: COLORS.textSecondary }}>
-                    {t('compras.lista.permissaoAtual')}: {t(`compras.permissoes.${permissaoAtual}`)}
-                  </Text>
-                  {lista.atualizadoEm || lista.criadoEm ? (
-                    <Text style={{ color: COLORS.textSecondary }}>
-                      {t('compras.listas.ultimaAtualizacao')}: {formatarDataPorIdioma(lista.atualizadoEm || lista.criadoEm)}
-                    </Text>
-                  ) : null}
-                </TouchableOpacity>
-
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                  {podeDuplicar ? (
-                    <Botao titulo={t('comum.acoes.duplicar')} tipo="secundario" onPress={() => void duplicarLista(lista.id)} />
-                  ) : null}
-                  {ehProprietario ? (
-                    <Botao
-                      titulo={t('compras.participantes.gerenciar')}
-                      tipo="secundario"
-                      onPress={() => abrirModalParticipantes(lista.id)}
-                    />
-                  ) : null}
-                  {ehProprietario && lista.status !== 'arquivada' ? (
-                    <Botao titulo={t('compras.acoes.arquivarLista')} tipo="secundario" onPress={() => void arquivarLista(lista.id)} />
-                  ) : null}
-                  {ehProprietario ? (
-                    <Botao titulo={t('comum.acoes.remover')} tipo="perigo" onPress={() => void removerLista(lista.id)} />
+                      <Text
+                        style={{
+                          color: menuAcoesAbertoListaId === lista.id ? COLORS.accent : COLORS.textPrimary,
+                          fontSize: 18,
+                          fontWeight: '700',
+                          lineHeight: 18,
+                        }}
+                      >
+                        {'\u22EE'}
+                      </Text>
+                    </TouchableOpacity>
                   ) : null}
                 </View>
+
+                <TouchableOpacity onPress={() => abrirLista(lista.id)} activeOpacity={0.85}>
+                  <View style={{ marginTop: 6 }}>
+                    <Text style={{ color: COLORS.textSecondary }}>
+                      {t('compras.listas.categoria')}: {t(`compras.categorias.${lista.categoria}`)}
+                    </Text>
+                    <Text style={{ color: COLORS.textSecondary }}>
+                      {t('compras.listas.participantes')}: {lista.quantidadeParticipantes ?? lista.participantes.length}
+                    </Text>
+                    <Text style={{ color: COLORS.textSecondary }}>
+                      {t('compras.lista.permissaoAtual')}: {t(`compras.permissoes.${permissaoAtual}`)}
+                    </Text>
+                    {lista.atualizadoEm || lista.criadoEm ? (
+                      <Text style={{ color: COLORS.textSecondary }}>
+                        {t('compras.listas.ultimaAtualizacao')}: {formatarDataPorIdioma(lista.atualizadoEm || lista.criadoEm)}
+                      </Text>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+
+                {opcoesAcoesLista.length > 0 && menuAcoesAbertoListaId === lista.id ? (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 50,
+                      right: 14,
+                      zIndex: 60,
+                      elevation: 14,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 240,
+                        borderWidth: 1,
+                        borderColor: COLORS.borderAccent,
+                        borderRadius: 12,
+                        backgroundColor: COLORS.bgSecondary,
+                        overflow: 'hidden',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 8 },
+                        shadowOpacity: 0.35,
+                        shadowRadius: 12,
+                      }}
+                    >
+                      <View
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                          borderBottomWidth: 1,
+                          borderBottomColor: COLORS.borderColor,
+                          backgroundColor: COLORS.accentSubtle,
+                        }}
+                      >
+                        <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700' }}>
+                          {t('compras.acoes.menuAcoes')}
+                        </Text>
+                      </View>
+                      {opcoesAcoesLista.map((opcao, indice) => {
+                        const acaoPerigosa = opcao.value === 'excluir';
+                        const icone = opcao.value === 'duplicar' ? '\u29C9' : opcao.value === 'compartilhar' ? '\u2197' : '\u2716';
+                        return (
+                          <TouchableOpacity
+                            key={`${lista.id}-${opcao.value}`}
+                            onPress={() => {
+                              setMenuAcoesAbertoListaId(null);
+                              void executarAcaoLista(lista, opcao.value);
+                            }}
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingVertical: 11,
+                              borderTopWidth: indice === 0 ? 0 : 1,
+                              borderTopColor: COLORS.borderColor,
+                              backgroundColor: acaoPerigosa ? COLORS.errorSoft : COLORS.bgSecondary,
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 10,
+                            }}
+                          >
+                            <View
+                              style={{
+                                width: 24,
+                                height: 24,
+                                borderRadius: 12,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: acaoPerigosa ? COLORS.errorSoft : COLORS.accentSubtle,
+                              }}
+                            >
+                              <Text style={{ color: acaoPerigosa ? COLORS.error : COLORS.accent, fontSize: 12 }}>
+                                {icone}
+                              </Text>
+                            </View>
+                            <Text style={{ color: acaoPerigosa ? COLORS.error : COLORS.textPrimary, fontSize: 14, fontWeight: '600' }}>
+                              {opcao.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ) : null}
               </View>
             );
           })}
@@ -404,6 +552,14 @@ export default function ComprasIndex() {
           onChangeText={setNomeLista}
           placeholder={t('compras.modalNovaLista.placeholderNome')}
         />
+        <CampoTexto
+          label={t('compras.modalNovaLista.observacao')}
+          value={observacaoLista}
+          onChangeText={setObservacaoLista}
+          placeholder={t('compras.modalNovaLista.placeholderObservacao')}
+          multiline
+          numberOfLines={3}
+        />
         <CampoSelect
           label={t('compras.modalNovaLista.categoria')}
           value={categoriaLista}
@@ -416,6 +572,33 @@ export default function ComprasIndex() {
         </View>
       </Modal>
 
+      <Modal visivel={modalDuplicarLista} onFechar={fecharModalDuplicarLista} titulo={t('comum.acoes.duplicar')}>
+        <CampoTexto
+          label={t('compras.modalNovaLista.nome')}
+          value={nomeDuplicacao}
+          onChangeText={setNomeDuplicacao}
+          placeholder={t('compras.modalNovaLista.placeholderNome')}
+        />
+        <CampoTexto
+          label={t('compras.modalNovaLista.observacao')}
+          value={observacaoDuplicacao}
+          onChangeText={setObservacaoDuplicacao}
+          placeholder={t('compras.modalNovaLista.placeholderObservacao')}
+          multiline
+          numberOfLines={3}
+        />
+        <CampoSelect
+          label={t('compras.modalNovaLista.categoria')}
+          value={categoriaDuplicacao}
+          onChange={(valor) => setCategoriaDuplicacao(valor as ListaCompra['categoria'])}
+          options={opcoesCategoriasLista.map((opcao) => ({ value: opcao.value, label: t(`compras.categorias.${opcao.value}`) }))}
+        />
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+          <Botao titulo={t('comum.acoes.cancelar')} tipo="secundario" onPress={fecharModalDuplicarLista} />
+          <Botao titulo={t('comum.acoes.duplicar')} onPress={() => void duplicarLista()} desabilitado={nomeDuplicacao.trim().length < 3} />
+        </View>
+      </Modal>
+
       <Modal
         visivel={Boolean(listaModalParticipantes)}
         onFechar={fecharModalParticipantes}
@@ -424,31 +607,35 @@ export default function ComprasIndex() {
         {carregandoAmigos ? (
           <Text style={{ color: COLORS.textSecondary, marginBottom: 10 }}>{t('comum.carregando')}</Text>
         ) : null}
-        <CampoSelect
-          label={t('compras.participantes.amigo')}
-          value={amigoSelecionadoId}
-          onChange={setAmigoSelecionadoId}
-          options={amigosDisponiveisParaConvite.map((amigo) => ({
-            value: String(amigo.id),
-            label: amigo.email ? `${amigo.nome} - ${amigo.email}` : amigo.nome,
-          }))}
-        />
-        <CampoSelect
-          label={t('compras.participantes.permissao')}
-          value={permissaoParticipante}
-          onChange={(valor) => setPermissaoParticipante(valor as 'editor' | 'leitor')}
-          options={[
-            { value: 'editor', label: t('compras.permissoes.editor') },
-            { value: 'leitor', label: t('compras.permissoes.leitor') },
-          ]}
-        />
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 12 }}>
-          <Botao titulo={t('compras.participantes.convidar')} onPress={() => void convidarParticipante()} tipo="primario" />
-        </View>
+        {podeGerenciarParticipantes ? (
+          <>
+            <CampoSelect
+              label={t('compras.participantes.amigo')}
+              value={amigoSelecionadoId}
+              onChange={setAmigoSelecionadoId}
+              options={amigosDisponiveisParaConvite.map((amigo) => ({
+                value: String(amigo.id),
+                label: amigo.email ? `${amigo.nome} - ${amigo.email}` : amigo.nome,
+              }))}
+            />
+            <CampoSelect
+              label={t('compras.participantes.permissao')}
+              value={permissaoParticipante}
+              onChange={(valor) => setPermissaoParticipante(valor as 'coproprietario' | 'leitor')}
+              options={[
+                { value: 'coproprietario', label: t('compras.permissoes.coproprietario') },
+                { value: 'leitor', label: t('compras.permissoes.leitor') },
+              ]}
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 12 }}>
+              <Botao titulo={t('compras.participantes.convidar')} onPress={() => void convidarParticipante()} tipo="primario" />
+            </View>
+          </>
+        ) : null}
 
         <View style={{ backgroundColor: COLORS.bgTertiary, borderRadius: 10, borderWidth: 1, borderColor: COLORS.borderColor, padding: 10, gap: 8 }}>
           <Text style={{ color: COLORS.accent, fontWeight: '700' }}>{t('compras.participantes.listaAtual')}</Text>
-          {listaModalParticipantes ? (
+          {listaModalParticipantes && listaModalParticipantes.criadoPorUsuarioId > 0 ? (
             <Text style={{ color: COLORS.textSecondary }}>
               {t('compras.permissoes.proprietario')}: {listaModalParticipantes.criadoPorUsuarioId}
             </Text>
@@ -465,7 +652,7 @@ export default function ComprasIndex() {
                   <Text style={{ color: COLORS.textSecondary, flex: 1 }}>
                     {participante.nomeUsuario || `${t('compras.participantes.usuario')} ${participante.usuarioId}`} - {t(`compras.permissoes.${participante.permissao}`)}
                   </Text>
-                  {listaModalParticipantes && participante.usuarioId !== listaModalParticipantes.criadoPorUsuarioId ? (
+                  {podeGerenciarParticipantes && listaModalParticipantes && participante.usuarioId !== listaModalParticipantes.criadoPorUsuarioId ? (
                     <Botao
                       titulo={t('comum.acoes.remover')}
                       tipo="perigo"

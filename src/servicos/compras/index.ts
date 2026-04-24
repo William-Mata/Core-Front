@@ -26,11 +26,13 @@ interface OpcoesRequisicao {
 
 export interface PayloadCriarListaCompra {
   nome: string;
+  observacao?: string;
   categoria: CategoriaListaCompra;
 }
 
 export interface PayloadAtualizarListaCompra {
   nome?: string;
+  observacao?: string;
   categoria?: CategoriaListaCompra;
   status?: ListaCompra['status'];
 }
@@ -108,7 +110,19 @@ function montarConfigConsulta(opcoes?: OpcoesRequisicao): { signal?: AbortSignal
 
 function normalizarPermissao(permissao: unknown): PermissaoParticipanteLista {
   const valor = String(permissao ?? '').trim().toLowerCase();
-  if (valor === 'editor') return 'editor';
+  if (
+    valor === 'coproprietario'
+    || valor === 'coproprietário'
+    || valor === 'co-proprietario'
+    || valor === 'co-proprietário'
+    || valor === 'co_proprietario'
+    || valor === 'co proprietario'
+    || valor === 'coowner'
+    || valor === 'co-owner'
+    || valor === 'editor'
+  ) {
+    return 'coproprietario';
+  }
   if (valor === 'leitor') return 'leitor';
   if (valor === 'proprietario' || valor === 'dono' || valor === 'owner') return 'proprietario';
   return 'leitor';
@@ -148,13 +162,30 @@ function normalizarParticipante(entrada: unknown): ParticipanteListaCompra {
 function normalizarLista(entrada: unknown): ListaCompra {
   const lista = (entrada ?? {}) as Record<string, unknown>;
   const participantesEntrada = Array.isArray(lista.participantes) ? lista.participantes : [];
+  const papelUsuario = normalizarPermissao(lista.papelUsuario ?? lista.papel ?? lista.permissaoUsuario);
+  const valorTotal = Number(lista.valorTotal);
+  const valorComprado = Number(lista.valorComprado);
+  const percentualComprado = Number(lista.percentualComprado);
+  const quantidadeItens = Number(lista.quantidadeItens);
+  const quantidadeItensComprados = Number(lista.quantidadeItensComprados);
+  const quantidadeParticipantes = Number(lista.quantidadeParticipantes);
   return {
     id: Number(lista.id ?? 0),
     nome: String(lista.nome ?? ''),
+    observacao: String(lista.observacao ?? ''),
     categoria: normalizarCategoria(lista.categoria ?? lista.categoriaLista),
     status: String(lista.status ?? 'ativa') as ListaCompra['status'],
+    papelUsuario,
     criadoPorUsuarioId: Number(lista.criadoPorUsuarioId ?? lista.usuarioId ?? 0),
     participantes: participantesEntrada.map(normalizarParticipante),
+    valorTotal: Number.isFinite(valorTotal) ? valorTotal : undefined,
+    valorComprado: Number.isFinite(valorComprado) ? valorComprado : undefined,
+    percentualComprado: Number.isFinite(percentualComprado) ? percentualComprado : undefined,
+    quantidadeItens: Number.isFinite(quantidadeItens) ? quantidadeItens : undefined,
+    quantidadeItensComprados: Number.isFinite(quantidadeItensComprados) ? quantidadeItensComprados : undefined,
+    quantidadeParticipantes: Number.isFinite(quantidadeParticipantes)
+      ? quantidadeParticipantes
+      : participantesEntrada.length,
     criadoEm: String(lista.criadoEm ?? ''),
     atualizadoEm: String(lista.atualizadoEm ?? ''),
   };
@@ -265,6 +296,7 @@ export async function obterListaCompraApi(listaId: number, opcoes?: OpcoesRequis
 export async function criarListaCompraApi(payload: PayloadCriarListaCompra): Promise<ListaCompra> {
   const { data } = await api.post<EnvelopeApi<unknown> | unknown>('/compras/listas', {
     nome: payload.nome,
+    ...(payload.observacao !== undefined ? { observacao: payload.observacao } : {}),
     categoria: payload.categoria,
   });
   return normalizarLista(extrairDados(data));
@@ -273,14 +305,19 @@ export async function criarListaCompraApi(payload: PayloadCriarListaCompra): Pro
 export async function atualizarListaCompraApi(listaId: number, payload: PayloadAtualizarListaCompra): Promise<ListaCompra> {
   const { data } = await api.put<EnvelopeApi<unknown> | unknown>(`/compras/listas/${listaId}`, {
     ...(payload.nome !== undefined ? { nome: payload.nome } : {}),
+    ...(payload.observacao !== undefined ? { observacao: payload.observacao } : {}),
     ...(payload.categoria !== undefined ? { categoria: payload.categoria } : {}),
     ...(payload.status !== undefined ? { status: payload.status } : {}),
   });
   return normalizarLista(extrairDados(data));
 }
 
-export async function duplicarListaCompraApi(listaId: number): Promise<ListaCompra> {
-  const { data } = await api.post<EnvelopeApi<unknown> | unknown>(`/compras/listas/${listaId}/duplicar`);
+export async function duplicarListaCompraApi(listaId: number, payload?: PayloadCriarListaCompra): Promise<ListaCompra> {
+  const { data } = await api.post<EnvelopeApi<unknown> | unknown>(`/compras/listas/${listaId}/duplicar`, payload ? {
+    nome: payload.nome,
+    ...(payload.observacao !== undefined ? { observacao: payload.observacao } : {}),
+    categoria: payload.categoria,
+  } : undefined);
   return normalizarLista(extrairDados(data));
 }
 
@@ -451,3 +488,4 @@ export async function buscarSugestoesItensCompraApi(listaId: number, consulta: C
   const sugestoes = extrairDados(data);
   return Array.isArray(sugestoes) ? sugestoes.map(normalizarSugestao) : [];
 }
+

@@ -11,7 +11,9 @@
     "desejos": "Desejos",
     "historicoItens": "Histórico de Preços",
     "recarregar": "Recarregar",
-    "arquivarLista": "Arquivar Planejamento"
+    "arquivarLista": "Arquivar Planejamento",
+    "menuAcoes": "Opcoes do planejamento",
+    "selecionarAcao": "Selecionar acao"
   },
   "listas": {
     "vazio": "Nenhum planejamento encontrado.",
@@ -40,6 +42,8 @@
     "titulo": "Novo Planejamento",
     "nome": "Nome do planejamento",
     "placeholderNome": "Digite o nome do planejamento",
+    "observacao": "Observacao",
+    "placeholderObservacao": "Digite observacoes adicionais",
     "categoria": "Categoria"
   },
   "modalItem": {
@@ -143,6 +147,9 @@
     "adicionar": "Adicionar participante",
     "convidar": "Convidar para lista",
     "gerenciar": "Participantes",
+    "compartilhar": "Compartilhar",
+    "compartilharComAmigos": "Compartilhar com amigos",
+    "somenteLeitura": "Somente Propriet�rio e Copropriet�rio podem adicionar ou remover participantes deste planejamento.",
     "listaAtual": "Participantes atuais",
     "vazio": "Nenhum participante adicional.",
     "usuario": "Usuário"
@@ -162,7 +169,7 @@
   },
   "permissoes": {
     "proprietario": "Proprietário",
-    "editor": "Editor",
+    "coproprietario": "Coproprietário",
     "leitor": "Leitor"
   },
   "categorias": {
@@ -223,9 +230,10 @@
   "confirmacoes": {
     "removerLista": "Deseja remover este planejamento?",
     "arquivarLista": "Deseja arquivar este planejamento?",
-    "acaoLote": "Deseja executar esta ação em lote?",
+    "acaoLote": "Deseja executar a ação \"{{acao}}\"?",
     "converterDesejos": "Deseja converter os desejos selecionados para lista de compras?",
     "removerParticipante": "Deseja remover este participante da lista?",
     "removerDesejo": "Deseja remover este desejo?"
   }
 }
+

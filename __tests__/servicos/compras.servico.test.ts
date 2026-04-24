@@ -27,14 +27,96 @@ describe('servico compras', () => {
   it('deve listar listas de compras com suporte ao envelope dados', async () => {
     mockGet.mockResolvedValueOnce({
       data: {
-        dados: [{ id: 1, nome: 'Mercado', categoria: 'mercado', status: 'ativa', participantes: [] }],
+        dados: [{
+          id: 1,
+          nome: 'Mercado',
+          categoria: 'mercado',
+          status: 'ativa',
+          papelUsuario: 'Proprietario',
+          valorTotal: 245.9,
+          valorComprado: 80,
+          percentualComprado: 33.33,
+          quantidadeItens: 9,
+          quantidadeItensComprados: 3,
+          quantidadeParticipantes: 2,
+        }],
       },
     });
 
     const resultado = await listarListasCompraApi();
 
     expect(mockGet).toHaveBeenCalledWith('/compras/listas', { signal: undefined });
-    expect(resultado[0]).toMatchObject({ id: 1, nome: 'Mercado', categoria: 'mercado' });
+    expect(resultado[0]).toMatchObject({
+      id: 1,
+      nome: 'Mercado',
+      categoria: 'mercado',
+      papelUsuario: 'proprietario',
+      quantidadeParticipantes: 2,
+      quantidadeItens: 9,
+    });
+  });
+
+  it('deve mapear papelUsuario CoProprietario para coproprietario', async () => {
+    mockGet.mockResolvedValueOnce({
+      data: {
+        dados: [{
+          id: 2,
+          nome: 'Casa',
+          categoria: 'outros',
+          status: 'ativa',
+          papelUsuario: 'CoProprietario',
+        }],
+      },
+    });
+
+    const resultado = await listarListasCompraApi();
+
+    expect(resultado[0]).toMatchObject({
+      id: 2,
+      papelUsuario: 'coproprietario',
+    });
+  });
+
+  it('deve manter compatibilidade legado para papelUsuario Editor', async () => {
+    mockGet.mockResolvedValueOnce({
+      data: {
+        dados: [{
+          id: 3,
+          nome: 'Casa legado',
+          categoria: 'outros',
+          status: 'ativa',
+          papelUsuario: 'Editor',
+        }],
+      },
+    });
+
+    const resultado = await listarListasCompraApi();
+
+    expect(resultado[0]).toMatchObject({
+      id: 3,
+      papelUsuario: 'coproprietario',
+    });
+  });
+
+  it('deve mapear papelUsuario Coproprietário para coproprietario', async () => {
+    mockGet.mockResolvedValueOnce({
+      data: {
+        dados: [{
+          id: 4,
+          nome: 'Casa acentuado',
+          categoria: 'outros',
+          status: 'ativa',
+          papelUsuario: 'Coproprietário',
+        }],
+      },
+    });
+
+    const resultado = await listarListasCompraApi();
+
+    expect(resultado[0]).toMatchObject({
+      id: 4,
+      papelUsuario: 'coproprietario',
+    });
   });
 
   it('deve criar item em lista com contrato precoUnitario', async () => {
