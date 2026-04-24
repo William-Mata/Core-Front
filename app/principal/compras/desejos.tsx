@@ -176,9 +176,11 @@ export default function DesejosCompraTela() {
 
   const removerDesejo = async (desejoId: number) => {
     const confirmar = await solicitarConfirmacao(t('compras.confirmacoes.removerDesejo'), {
-      titulo: t('comum.acoes.confirmar'),
-      textoConfirmar: t('comum.acoes.confirmar'),
+      titulo: t('comum.confirmacoes.tituloExclusao'),
+      textoConfirmar: t('comum.acoes.remover'),
       textoCancelar: t('comum.acoes.cancelar'),
+      mensagemImpacto: t('comum.confirmacoes.alertaAcaoIrreversivel'),
+      tipoConfirmar: 'perigo',
     });
     if (!confirmar) return;
 

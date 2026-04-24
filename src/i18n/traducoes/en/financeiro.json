@@ -133,6 +133,7 @@
       "adicionarDespesa": "Add at least one expense",
       "despesaJaVinculada": "Expense {{despesa}} is already linked to another reimbursement.",
       "confirmarRemocao": "Do you want to remove this reimbursement?",
+      "confirmarCancelamento": "Do you want to cancel this reimbursement?",
       "criado": "Reimbursement created successfully.",
       "atualizado": "Reimbursement updated successfully.",
       "removido": "Reimbursement removed successfully.",

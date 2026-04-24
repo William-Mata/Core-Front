@@ -9,6 +9,11 @@
   "entrar": "Entrar",
   "sair": "Sair",
   "sucesso": "Sucesso",
+  "confirmacoes": {
+    "tituloExclusao": "Confirmar exclusão",
+    "tituloAcaoCritica": "Confirmar",
+    "alertaAcaoIrreversivel": "Esta ação pode ser irreversível."
+  },
   "confirmacao": "Confirmação",
   "email": "Email",
   "login": {
@@ -151,6 +156,9 @@
       "pendente": "Pendente",
       "bloqueado": "Bloqueado",
       "desconhecido": "Desconhecido"
+    },
+    "confirmacoes": {
+      "removerAmigo": "Deseja remover este amigo?"
     },
     "form": {
       "titulo": "Convidar Amigo",

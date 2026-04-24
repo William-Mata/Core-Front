@@ -131,6 +131,7 @@
       "adicionarDespesa": "Adicione pelo menos uma despesa",
       "despesaJaVinculada": "A despesa {{despesa}} jÃ¡ estÃ¡ vinculada a outro reembolso.",
       "confirmarRemocao": "Deseja remover este reembolso?",
+      "confirmarCancelamento": "Deseja cancelar este reembolso?",
       "criado": "Reembolso criado com sucesso.",
       "atualizado": "Reembolso atualizado com sucesso.",
       "removido": "Reembolso removido com sucesso.",

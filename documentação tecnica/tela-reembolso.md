@@ -76,6 +76,9 @@ Regras:
 ## Cancelamento
 - sem endpoint dedicado de cancelamento.
 - fluxo atual: busca detalhe (`GET /{id}`) e envia `PUT /{id}` com `status = CANCELADA`.
+- antes de cancelar, o front exige confirmacao explicita em modal destrutiva.
+- a modal de cancelamento exibe mensagem contextual, alerta de impacto e botoes `Cancelar` e `Confirmar`.
+- ao cancelar no modal, nenhuma alteracao e enviada para API.
 
 ## Regras importantes para integracao
 - status aceito pelo front para serializacao: `PENDENTE`, `EFETIVADA`, `CANCELADA`.

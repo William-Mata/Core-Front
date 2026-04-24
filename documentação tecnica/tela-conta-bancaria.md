@@ -48,6 +48,9 @@ Regras de saldo:
 - `Inativar` apenas quando status e `ativa`.
 - `Ativar` apenas quando status e `inativa`.
 - inativacao e bloqueada quando existe pendencia no mapa local `transacoesPendentesPorConta`.
+- antes de inativar, o front exige confirmacao explicita em modal.
+- a modal de inativacao usa alerta de impacto e botoes `Cancelar` e `Inativar`.
+- ao cancelar no modal, nenhuma chamada para `/inativar` e enviada.
 
 ## Regras de extrato
 - detalhe abre por conta na propria lista.

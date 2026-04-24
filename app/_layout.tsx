@@ -2,6 +2,7 @@ import { Stack, usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { CarregamentoGlobal } from '../src/componentes/comuns/CarregamentoGlobal';
+import { ProvedorConfirmacaoCritica } from '../src/componentes/comuns/ProvedorConfirmacaoCritica';
 import { ToastViewport } from '../src/componentes/comuns/ToastViewport';
 import { usarCarregamentoStore } from '../src/store/usarCarregamentoStore';
 import { COLORS } from '../src/styles/variables';
@@ -81,7 +82,7 @@ export default function RootLayout() {
   }, [finalizarCarregamentoNavegacao, iniciarCarregamentoNavegacao, pathname]);
 
   return (
-    <>
+    <ProvedorConfirmacaoCritica>
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="auth" options={{ headerShown: false }} />
@@ -89,6 +90,6 @@ export default function RootLayout() {
       </Stack>
       <CarregamentoGlobal />
       <ToastViewport />
-    </>
+    </ProvedorConfirmacaoCritica>
   );
 }

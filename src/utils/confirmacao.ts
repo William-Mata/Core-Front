@@ -1,15 +1,34 @@
 import { Alert, Platform } from 'react-native';
 
-interface OpcoesConfirmacao {
+export interface OpcoesConfirmacao {
   titulo: string;
   textoConfirmar: string;
   textoCancelar: string;
+  mensagemImpacto?: string;
+  tipoConfirmar?: 'primario' | 'perigo';
 }
+
+type SolicitadorConfirmacao = (
+  mensagem: string,
+  opcoes: OpcoesConfirmacao,
+) => Promise<boolean>;
+
+let solicitarConfirmacaoAtual: SolicitadorConfirmacao | null = null;
+
+export const registrarSolicitadorConfirmacao = (
+  solicitador: SolicitadorConfirmacao | null,
+) => {
+  solicitarConfirmacaoAtual = solicitador;
+};
 
 export const solicitarConfirmacao = (
   mensagem: string,
   opcoes: OpcoesConfirmacao,
 ): Promise<boolean> => {
+  if (solicitarConfirmacaoAtual) {
+    return solicitarConfirmacaoAtual(mensagem, opcoes);
+  }
+
   if (Platform.OS === 'web') {
     if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
       return Promise.resolve(true);

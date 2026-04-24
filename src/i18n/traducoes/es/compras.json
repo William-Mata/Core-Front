@@ -11,7 +11,9 @@
     "desejos": "Deseos",
     "historicoItens": "Histórico de Precios",
     "recarregar": "Recargar",
-    "arquivarLista": "Archivar Planificación"
+    "arquivarLista": "Archivar Planificación",
+    "menuAcoes": "Opciones de la planificacion",
+    "selecionarAcao": "Seleccionar accion"
   },
   "listas": {
     "vazio": "No se encontraron planificaciones.",
@@ -40,6 +42,8 @@
     "titulo": "Nueva Planificación",
     "nome": "Nombre de la planificación",
     "placeholderNome": "Ingrese el nombre de la planificación",
+    "observacao": "Observacion",
+    "placeholderObservacao": "Ingrese observaciones adicionales",
     "categoria": "Categoria"
   },
   "modalItem": {
@@ -144,6 +148,9 @@
     "adicionar": "Agregar participante",
     "convidar": "Invitar a la planificación",
     "gerenciar": "Participantes",
+    "compartilhar": "Compartir",
+    "compartilharComAmigos": "Compartir con amigos",
+    "somenteLeitura": "Solo propietario y copropietario pueden agregar o remover participantes de esta planificación.",
     "listaAtual": "Participantes actuales",
     "vazio": "No hay participantes adicionales.",
     "usuario": "Usuario"
@@ -163,7 +170,7 @@
   },
   "permissoes": {
     "proprietario": "Propietario",
-    "editor": "Editor",
+    "coproprietario": "Copropietario",
     "leitor": "Lector"
   },
   "categorias": {
@@ -224,9 +231,10 @@
   "confirmacoes": {
     "removerLista": "Desea eliminar esta planificación?",
     "arquivarLista": "Desea archivar esta planificación?",
-    "acaoLote": "Desea ejecutar esta accion en lote?",
+    "acaoLote": "¿Desea ejecutar la acción \"{{acao}}\"?",
     "converterDesejos": "Desea convertir los deseos seleccionados en una planificación?",
     "removerParticipante": "Desea remover este participante de la planificación?",
     "removerDesejo": "Desea eliminar este deseo?"
   }
 }
+

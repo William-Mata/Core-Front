@@ -98,6 +98,8 @@ Voce deve escolher uma area valida e, depois, uma subarea da propria area.
 
 ## Como cancelar
 - a opcao de cancelar so aparece para despesa com status `Pendente`
+- antes de cancelar, o sistema abre uma confirmacao obrigatoria
+- se voce clicar em `Cancelar` na modal, a despesa nao e alterada
 
 ## Como estornar
 - a opcao de estornar so aparece para despesa com status `Efetivada`

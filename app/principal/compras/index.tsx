@@ -251,21 +251,22 @@ export default function ComprasIndex() {
 
   const convidarParticipante = async () => {
     if (!listaModalParticipantes) return;
-    const participanteId = Number(amigoSelecionadoId);
-    if (!Number.isInteger(participanteId) || participanteId <= 0) {
+    const amigoId = Number(amigoSelecionadoId);
+    if (!Number.isInteger(amigoId) || amigoId <= 0) {
       notificarErro(t('compras.mensagens.participanteInvalido'));
       return;
     }
 
     try {
-      await adicionarParticipanteListaCompraApi(listaModalParticipantes.id, {
-        participanteId,
+      const listaAtualizada = await adicionarParticipanteListaCompraApi(listaModalParticipantes.id, {
+        amigoId,
         permissao: permissaoParticipante,
       });
+      setListas((atual) => atual.map((lista) => (lista.id === listaAtualizada.id ? listaAtualizada : lista)));
       notificarSucesso(t('compras.mensagens.participanteAdicionado'));
       setAmigoSelecionadoId('');
       setPermissaoParticipante('coproprietario');
-      await carregarListas();
+      void carregarListas();
     } catch (erro) {
       notificarErro(extrairMensagemErroApi(erro, t('compras.mensagens.erroCompartilharLista')));
     }
@@ -283,8 +284,21 @@ export default function ComprasIndex() {
 
     try {
       await removerParticipanteListaCompraApi(listaId, participanteId);
+      setListas((atual) => atual.map((lista) => {
+        if (lista.id !== listaId) return lista;
+        const participantesFiltrados = lista.participantes.filter((participante) => participante.usuarioId !== participanteId);
+        const quantidadeAtual = lista.quantidadeParticipantes ?? lista.participantes.length;
+        const participanteRemovido = participantesFiltrados.length !== lista.participantes.length;
+        return {
+          ...lista,
+          participantes: participantesFiltrados,
+          quantidadeParticipantes: participanteRemovido
+            ? Math.max(0, quantidadeAtual - 1)
+            : quantidadeAtual,
+        };
+      }));
       notificarSucesso(t('compras.mensagens.participanteRemovido'));
-      await carregarListas();
+      void carregarListas();
     } catch (erro) {
       notificarErro(extrairMensagemErroApi(erro, t('compras.mensagens.erroRemoverParticipante')));
     }

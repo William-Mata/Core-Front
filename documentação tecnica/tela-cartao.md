@@ -54,6 +54,9 @@ Regras:
 - `Inativar` apenas quando status atual e `ativo`.
 - `Ativar` apenas quando status atual e `inativo`.
 - inativacao e bloqueada quando existe pendencia no mapa local `transacoesPendentesPorCartao`.
+- antes de inativar, o front exige confirmacao explicita em modal.
+- a modal de inativacao usa alerta de impacto e botoes `Cancelar` e `Inativar`.
+- ao cancelar no modal, nenhuma chamada para `/inativar` e enviada.
 
 ## Regras de fatura/extrato
 - navegacao mensal por `YYYY-MM`.

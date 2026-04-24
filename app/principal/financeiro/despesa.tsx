@@ -2458,8 +2458,10 @@ export default function TelaDespesa() {
         visivel={Boolean(despesaPendenteCancelamento)}
         titulo={t('comum.confirmacao')}
         mensagem={t('financeiro.despesa.mensagens.confirmarCancelamento')}
+        mensagemImpacto={t('comum.confirmacoes.alertaAcaoIrreversivel')}
         textoCancelar={t('comum.acoes.cancelar')}
         textoConfirmar={t('comum.acoes.confirmar')}
+        tipoConfirmar="perigo"
         opcoes={opcoesEscopoCancelamentoRecorrencia}
         valorSelecionado={escopoCancelamentoRecorrente}
         onSelecionarOpcao={(valor) => setEscopoCancelamentoRecorrente(valor as EscopoAcaoRecorrencia)}

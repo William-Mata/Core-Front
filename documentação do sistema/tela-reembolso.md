@@ -49,8 +49,11 @@ Registrar reembolsos vinculando despesas ja cadastradas, com controle de status 
 
 ## Como cancelar
 1. Clique em `Cancelar` em um reembolso pendente.
-2. Confirme no modal.
+2. Confirme no modal (acao critica).
 3. O status passa para `Cancelada`.
+
+Regra importante:
+- se voce escolher `Cancelar` no modal, o reembolso nao e alterado.
 
 ## Dica de uso
 Use competencia e descricao para localizar rapidamente reembolsos em lotes maiores.

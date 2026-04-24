@@ -1242,9 +1242,11 @@ export default function TelaReembolso() {
       <ModalConfirmacao
         visivel={Boolean(reembolsoPendenteCancelamento)}
         titulo={t('comum.confirmacao')}
-        mensagem={t('comum.acoes.cancelar')}
+        mensagem={t('financeiro.reembolso.mensagens.confirmarCancelamento')}
+        mensagemImpacto={t('comum.confirmacoes.alertaAcaoIrreversivel')}
         textoCancelar={t('comum.acoes.cancelar')}
         textoConfirmar={t('comum.acoes.confirmar')}
+        tipoConfirmar="perigo"
         carregando={carregando}
         onCancelar={() => setReembolsoPendenteCancelamento(null)}
         onConfirmar={() => void confirmarCancelamento()}

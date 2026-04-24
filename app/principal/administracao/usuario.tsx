@@ -10,6 +10,7 @@ import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/c
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { COLORS } from '../../../src/styles/variables';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
+import { solicitarConfirmacao } from '../../../src/utils/confirmacao';
 import { formatarDataPorIdioma } from '../../../src/utils/formatacaoLocale';
 import { erroApiJaNotificado, extrairMensagemErroApi } from '../../../src/utils/erroApi';
 import { idadeMinimaAtingida } from '../../../src/utils/validacaoDataNascimento';
@@ -427,6 +428,18 @@ export default function FormUsuario() {
 
   const handleDeletar = async () => {
     if (!usuarioId) return;
+    const confirmar = await solicitarConfirmacao(
+      t('admin.usuario.confirmarExclusaoTexto'),
+      {
+        titulo: t('admin.usuario.confirmarExclusaoTitulo'),
+        textoConfirmar: t('comum.acoes.excluir'),
+        textoCancelar: t('comum.acoes.cancelar'),
+        mensagemImpacto: t('comum.confirmacoes.alertaAcaoIrreversivel'),
+        tipoConfirmar: 'perigo',
+      },
+    );
+    if (!confirmar) return;
+
     setCarregando(true);
     try {
       await deletarUsuarioAdminApi(usuarioId);
@@ -595,7 +608,7 @@ export default function FormUsuario() {
           <Botao titulo={carregando ? t('admin.usuario.salvando') : t('comum.acoes.salvar')} onPress={handleSalvar} tipo="primario" estilo={{ flex: 1 }} disabled={carregando} />
         </View>
 
-        {emEdicao ? <Botao titulo={t('comum.acoes.excluir')} onPress={handleDeletar} tipo="perigo" disabled={carregando} /> : null}
+        {emEdicao ? <Botao titulo={t('comum.acoes.excluir')} onPress={() => void handleDeletar()} tipo="perigo" disabled={carregando} /> : null}
       </ScrollView>
     </View>
   );

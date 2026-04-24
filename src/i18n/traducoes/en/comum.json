@@ -9,6 +9,11 @@
   "entrar": "Login",
   "sair": "Logout",
   "sucesso": "Success",
+  "confirmacoes": {
+    "tituloExclusao": "Confirm deletion",
+    "tituloAcaoCritica": "Confirm",
+    "alertaAcaoIrreversivel": "This action may be irreversible."
+  },
   "confirmacao": "Confirmation",
   "email": "Email",
   "login": {
@@ -151,6 +156,9 @@
       "pendente": "Pending",
       "bloqueado": "Blocked",
       "desconhecido": "Unknown"
+    },
+    "confirmacoes": {
+      "removerAmigo": "Do you want to remove this friend?"
     },
     "form": {
       "titulo": "Invite Friend",

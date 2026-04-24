@@ -108,6 +108,7 @@ const opcoesAcaoLote: Array<{
 
 function obterPermissaoAtual(detalhe: ListaCompraDetalhe | null, usuarioId?: number): PermissaoParticipanteLista {
   if (!detalhe || !usuarioId) return 'leitor';
+  if (detalhe.papelUsuario) return detalhe.papelUsuario;
   if (detalhe.criadoPorUsuarioId === usuarioId) return 'proprietario';
   const participante = detalhe.participantes.find((item) => item.usuarioId === usuarioId);
   return participante?.permissao ?? 'leitor';
@@ -235,7 +236,7 @@ export default function ListaCompraDetalheTela() {
   }, [descricao, listaId]);
 
   const permissaoAtual = useMemo(() => obterPermissaoAtual(detalheLista, usuarioId), [detalheLista, usuarioId]);
-  const podeEditarItens = permissaoAtual === 'proprietario' || permissaoAtual === 'editor';
+  const podeEditarItens = permissaoAtual === 'proprietario' || permissaoAtual === 'coproprietario';
   const casasDecimaisQuantidade = useMemo(
     () => obterCasasDecimaisQuantidade(unidadeMedida),
     [unidadeMedida],
@@ -413,16 +414,28 @@ export default function ListaCompraDetalheTela() {
     if (!podeEditarItens) return;
     const opcaoSelecionada = opcoesAcaoLote.find((item) => item.value === acaoLoteSelecionada);
     if (!opcaoSelecionada) return;
+    const rotuloAcaoSelecionada = t(`compras.acoesLote.${opcaoSelecionada.chaveLabel}`);
+    const acaoDestrutiva = [
+      'ExcluirSelecionados',
+      'ExcluirComprados',
+      'ExcluirNaoComprados',
+      'ExcluirSemPreco',
+      'LimparLista',
+      'ResetarPrecos',
+      'ResetarCores',
+    ].includes(opcaoSelecionada.value);
 
     if (opcaoSelecionada.requerSelecao && itensSelecionadosIds.length === 0) {
       notificarErro(t('compras.mensagens.selecioneItensLote'));
       return;
     }
 
-    const confirmar = await solicitarConfirmacao(t('compras.confirmacoes.acaoLote'), {
-      titulo: t('comum.acoes.confirmar'),
-      textoConfirmar: t('comum.acoes.confirmar'),
+    const confirmar = await solicitarConfirmacao(t('compras.confirmacoes.acaoLote', { acao: rotuloAcaoSelecionada }), {
+      titulo: t('comum.confirmacoes.tituloAcaoCritica'),
+      textoConfirmar: rotuloAcaoSelecionada,
       textoCancelar: t('comum.acoes.cancelar'),
+      mensagemImpacto: acaoDestrutiva ? t('comum.confirmacoes.alertaAcaoIrreversivel') : undefined,
+      tipoConfirmar: acaoDestrutiva ? 'perigo' : 'primario',
     });
     if (!confirmar) return;
 
@@ -690,7 +703,13 @@ export default function ListaCompraDetalheTela() {
             </ScrollView>
           </View>
         ) : null}
-        <CampoTexto label={t('compras.item.observacao')} value={observacao} onChangeText={setObservacao} />
+        <CampoTexto
+          label={t('compras.item.observacao')}
+          value={observacao}
+          onChangeText={setObservacao}
+          multiline
+          numberOfLines={3}
+        />
         <CampoSelect
           label={t('compras.item.unidade')}
           value={unidadeMedida}
@@ -748,7 +767,13 @@ export default function ListaCompraDetalheTela() {
 
       <Modal visivel={modalEditarItem} onFechar={() => setModalEditarItem(false)} titulo={t('compras.modalItem.editarTitulo')}>
         <CampoTexto label={t('compras.item.descricao')} value={descricao} onChangeText={setDescricao} />
-        <CampoTexto label={t('compras.item.observacao')} value={observacao} onChangeText={setObservacao} />
+        <CampoTexto
+          label={t('compras.item.observacao')}
+          value={observacao}
+          onChangeText={setObservacao}
+          multiline
+          numberOfLines={3}
+        />
         <CampoSelect
           label={t('compras.item.unidade')}
           value={unidadeMedida}

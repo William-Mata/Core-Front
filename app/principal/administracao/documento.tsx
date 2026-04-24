@@ -5,6 +5,7 @@ import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { COLORS } from '../../../src/styles/variables';
+import { solicitarConfirmacao } from '../../../src/utils/confirmacao';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { DocumentoModulo, ModuloDocumentacao, usarDocumentacaoStore } from '../../../src/store/usarDocumentacaoStore';
 
@@ -73,8 +74,17 @@ export default function CriarEditarDocumento() {
     router.back();
   };
 
-  const handleDeletar = () => {
+  const handleDeletar = async () => {
     if (!documento.id) return;
+    const confirmar = await solicitarConfirmacao(t('admin.documento.confirmarDelete'), {
+      titulo: t('comum.confirmacoes.tituloExclusao'),
+      textoConfirmar: t('comum.acoes.excluir'),
+      textoCancelar: t('comum.acoes.cancelar'),
+      mensagemImpacto: t('comum.confirmacoes.alertaAcaoIrreversivel'),
+      tipoConfirmar: 'perigo',
+    });
+    if (!confirmar) return;
+
     removerDocumento(documento.id);
     notificarSucesso(t('admin.documentacao.deletadoSucesso'));
     router.back();
@@ -140,7 +150,7 @@ export default function CriarEditarDocumento() {
         {documento.status === 'RASCUNHO' ? <Botao titulo={t('admin.documentacao.publicar')} tipo="primario" onPress={handlePublicar} /> : null}
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Botao titulo={t('comum.acoes.cancelar')} tipo="secundario" onPress={() => router.back()} estilo={{ flex: 1 }} />
-          {documentoId ? <Botao titulo={t('admin.usuario.deletar')} tipo="perigo" onPress={handleDeletar} estilo={{ flex: 0.6 }} /> : null}
+          {documentoId ? <Botao titulo={t('admin.usuario.deletar')} tipo="perigo" onPress={() => void handleDeletar()} estilo={{ flex: 0.6 }} /> : null}
           <Botao titulo={t('comum.acoes.salvar')} tipo="primario" onPress={handleSalvar} estilo={{ flex: 1 }} />
         </View>
       </View>

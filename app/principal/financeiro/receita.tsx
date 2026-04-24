@@ -2412,8 +2412,10 @@ export default function TelaReceita() {
         visivel={Boolean(receitaPendenteCancelamento)}
         titulo={t('comum.confirmacao')}
         mensagem={t('financeiro.receita.mensagens.confirmarCancelamento')}
+        mensagemImpacto={t('comum.confirmacoes.alertaAcaoIrreversivel')}
         textoCancelar={t('comum.acoes.cancelar')}
         textoConfirmar={t('comum.acoes.confirmar')}
+        tipoConfirmar="perigo"
         opcoes={opcoesEscopoCancelamentoRecorrencia}
         valorSelecionado={escopoCancelamentoRecorrente}
         onSelecionarOpcao={(valor) => setEscopoCancelamentoRecorrente(valor as EscopoAcaoRecorrencia)}

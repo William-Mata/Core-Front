@@ -26,6 +26,7 @@ import {
   type RegistroFinanceiroApi,
 } from '../../../src/servicos/financeiro';
 import { COLORS } from '../../../src/styles/variables';
+import { solicitarConfirmacao } from '../../../src/utils/confirmacao';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
 import { formatarDataPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
@@ -606,6 +607,18 @@ export default function TelaCartao() {
         notificarErro( t('financeiro.cartao.mensagens.transacoesPendentes'));
         return;
       }
+
+      const confirmarInativacao = await solicitarConfirmacao(
+        t('financeiro.cartao.mensagens.confirmarInativacao'),
+        {
+          titulo: t('comum.confirmacoes.tituloAcaoCritica'),
+          textoConfirmar: t('financeiro.cartao.acoes.inativar'),
+          textoCancelar: t('comum.acoes.cancelar'),
+          mensagemImpacto: t('comum.confirmacoes.alertaAcaoIrreversivel'),
+          tipoConfirmar: 'perigo',
+        },
+      );
+      if (!confirmarInativacao) return;
     }
 
     setCarregando(true);
@@ -1130,7 +1143,6 @@ export default function TelaCartao() {
     </View>
   );
 }
-
 
 
 

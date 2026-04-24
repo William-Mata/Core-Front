@@ -32,6 +32,8 @@ Orientar o usuario final sobre uso da tela de conta bancaria com as regras atuai
 ## Como ativar/inativar
 - inativar: apenas quando a conta estiver ativa e sem pendencias.
 - ativar: apenas quando a conta estiver inativa.
+- ao inativar, o sistema sempre abre confirmacao obrigatoria antes de concluir.
+- se voce clicar em `Cancelar`, a conta nao e inativada.
 
 ## Como consultar extrato
 1. Clique em `Extrato` no card da conta.

@@ -34,6 +34,8 @@ Orientar o usuario final sobre o uso da tela de cartao com as regras atuais.
 ## Como inativar/ativar
 - inativar: apenas quando cartao esta ativo e sem pendencias.
 - ativar: apenas quando cartao esta inativo.
+- ao inativar, o sistema sempre abre confirmacao obrigatoria antes de concluir.
+- se voce clicar em `Cancelar`, o cartao nao e inativado.
 
 ## Como consultar fatura ou extrato
 - em credito, a tela mostra fatura mensal com status.

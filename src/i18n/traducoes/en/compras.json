@@ -11,7 +11,9 @@
     "desejos": "Wishlist",
     "historicoItens": "Price History",
     "recarregar": "Reload",
-    "arquivarLista": "Archive Planning"
+    "arquivarLista": "Archive Planning",
+    "menuAcoes": "Planning options",
+    "selecionarAcao": "Select action"
   },
   "listas": {
     "vazio": "No planning found.",
@@ -40,6 +42,8 @@
     "titulo": "New Planning",
     "nome": "Planning name",
     "placeholderNome": "Type the planning name",
+    "observacao": "Notes",
+    "placeholderObservacao": "Enter additional notes",
     "categoria": "Category"
   },
   "modalItem": {
@@ -144,6 +148,9 @@
     "adicionar": "Add participant",
     "convidar": "Invite to planning",
     "gerenciar": "Participants",
+    "compartilhar": "Share",
+    "compartilharComAmigos": "Share with friends",
+    "somenteLeitura": "Only owner and co-owner can add or remove participants from this planning.",
     "listaAtual": "Current participants",
     "vazio": "No additional participants.",
     "usuario": "User"
@@ -163,7 +170,7 @@
   },
   "permissoes": {
     "proprietario": "Owner",
-    "editor": "Editor",
+    "coproprietario": "Co-owner",
     "leitor": "Reader"
   },
   "categorias": {
@@ -224,7 +231,7 @@
   "confirmacoes": {
     "removerLista": "Do you want to remove this planning?",
     "arquivarLista": "Do you want to archive this planning?",
-    "acaoLote": "Do you want to run this batch action?",
+    "acaoLote": "Do you want to execute the \"{{acao}}\" action?",
     "converterDesejos": "Do you want to convert selected wishes into a planning?",
     "removerParticipante": "Do you want to remove this participant from the planning?",
     "removerDesejo": "Do you want to remove this wish?"

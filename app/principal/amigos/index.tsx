@@ -16,6 +16,7 @@ import {
   type AmigoRateioApi,
   type ConviteAmizadeApi,
 } from '../../../src/servicos/financeiro';
+import { solicitarConfirmacao } from '../../../src/utils/confirmacao';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 
 interface AmigoTela {
@@ -131,6 +132,15 @@ export default function Amigos() {
   };
 
   const removerAmigo = async (id: number) => {
+    const confirmar = await solicitarConfirmacao(t('amigos.confirmacoes.removerAmigo'), {
+      titulo: t('comum.confirmacoes.tituloExclusao'),
+      textoConfirmar: t('comum.acoes.remover'),
+      textoCancelar: t('comum.acoes.cancelar'),
+      mensagemImpacto: t('comum.confirmacoes.alertaAcaoIrreversivel'),
+      tipoConfirmar: 'perigo',
+    });
+    if (!confirmar) return;
+
     try {
       await removerAmizadeApi(id);
       notificarSucesso(t('comum.sucesso'));
@@ -234,4 +244,3 @@ export default function Amigos() {
     </View>
   );
 }
-

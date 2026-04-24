@@ -94,6 +94,19 @@ Regra do front:
 - se existir `detail`, exibir `detail`
 - fallback em mensagem padrao traduzida quando nao houver `detail`
 
+## Confirmacao de acoes criticas
+- A exclusao de usuario exige confirmacao explicita em modal antes da chamada `DELETE /api/usuarios/{id}`.
+- A confirmacao usa:
+  - titulo claro de exclusao
+  - descricao contextual da entidade
+  - alerta visual de impacto irreversivel
+  - botoes `Cancelar` e `Excluir`
+- `Cancelar` encerra o modal sem disparar requisicao de exclusao.
+
+Escopo adicional no modulo Administracao:
+- Avisos: exclusao com confirmacao antes de concluir o fluxo local da tela.
+- Documentacao: exclusao com confirmacao antes de remover o registro da store.
+
 ## Filtro da listagem
 - `id`: parcial textual
 - `descricao`: nome e email
@@ -108,3 +121,10 @@ Regra do front:
 6. Atualizar usuario existente com payload completo.
 7. Deletar usuario existente.
 8. Validar propagacao de status entre modulo, tela e funcionalidade.
+
+## Fonte no front (confirmacao critica)
+- `app/principal/administracao/usuario.tsx`
+- `app/principal/administracao/aviso.tsx`
+- `app/principal/administracao/documento.tsx`
+- `src/utils/confirmacao.ts`
+- `src/componentes/comuns/ModalConfirmacao/index.tsx`

@@ -12,8 +12,10 @@ interface ModalConfirmacaoProps {
   visivel: boolean;
   titulo: string;
   mensagem: string;
+  mensagemImpacto?: string;
   textoConfirmar: string;
   textoCancelar: string;
+  tipoConfirmar?: 'primario' | 'perigo';
   opcoes?: ModalConfirmacaoOpcao[];
   valorSelecionado?: string;
   onSelecionarOpcao?: (valor: string) => void;
@@ -27,8 +29,10 @@ export function ModalConfirmacao({
   visivel,
   titulo,
   mensagem,
+  mensagemImpacto,
   textoConfirmar,
   textoCancelar,
+  tipoConfirmar = 'primario',
   opcoes,
   valorSelecionado,
   onSelecionarOpcao,
@@ -42,6 +46,21 @@ export function ModalConfirmacao({
   return (
     <Modal visivel={visivel} onFechar={onCancelar} titulo={titulo}>
       <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginBottom: 16 }}>{mensagem}</Text>
+      {mensagemImpacto ? (
+        <View
+          style={{
+            backgroundColor: COLORS.errorSoft,
+            borderWidth: 1,
+            borderColor: COLORS.error,
+            borderRadius: 10,
+            paddingHorizontal: 10,
+            paddingVertical: 8,
+            marginBottom: 16,
+          }}
+        >
+          <Text style={{ color: COLORS.error, fontSize: 12, fontWeight: '700' }}>{mensagemImpacto}</Text>
+        </View>
+      ) : null}
       {exibirOpcoes ? (
         <View style={{ gap: 8, marginBottom: 16 }}>
           {opcoes.map((opcao) => {
@@ -71,7 +90,7 @@ export function ModalConfirmacao({
       {observacao ? <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 16 }}>{observacao}</Text> : null}
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Botao titulo={textoCancelar} tipo="secundario" onPress={onCancelar} estilo={{ flex: 1 }} disabled={carregando} />
-        <Botao titulo={textoConfirmar} tipo="primario" onPress={onConfirmar} estilo={{ flex: 1 }} carregando={carregando} />
+        <Botao titulo={textoConfirmar} tipo={tipoConfirmar} onPress={onConfirmar} estilo={{ flex: 1 }} carregando={carregando} />
       </View>
     </Modal>
   );

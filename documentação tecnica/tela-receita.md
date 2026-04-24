@@ -58,6 +58,15 @@ Comportamento:
 - `Aceitar`: apenas `pendenteAprovacao`
 - `Rejeitar`: apenas `pendenteAprovacao`
 
+## Confirmacao de acoes criticas
+- Cancelamento de receita abre modal de confirmacao antes de enviar `POST /api/financeiro/receitas/{id}/cancelar`.
+- Modal de cancelamento segue padrao destrutivo:
+  - titulo de confirmacao
+  - mensagem contextual de cancelamento
+  - alerta de impacto irreversivel
+  - botoes `Cancelar` e `Confirmar`
+- Se o usuario cancelar, nenhuma chamada de cancelamento e executada.
+
 ## Regras de validacao no front
 - campos obrigatorios: descricao, datas, tipo de receita, tipo de recebimento e valor total
 - data de efetivacao nao pode ser menor que a data de lancamento
@@ -115,3 +124,7 @@ Regras de fluxo:
 ## Fora do escopo atual da tela
 - exclusao fisica de receita
 - filtro sem acionar o botao `Consultar`
+
+## Fonte no front (confirmacao critica)
+- `app/principal/financeiro/receita.tsx`
+- `src/componentes/comuns/ModalConfirmacao/index.tsx`

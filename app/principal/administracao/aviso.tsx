@@ -6,6 +6,7 @@ import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { COLORS } from '../../../src/styles/variables';
+import { solicitarConfirmacao } from '../../../src/utils/confirmacao';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 
 interface Aviso {
@@ -66,7 +67,16 @@ export default function CriarEditarAviso() {
     }, 500);
   };
 
-  const handleDeletar = () => {
+  const handleDeletar = async () => {
+    const confirmar = await solicitarConfirmacao(t('admin.aviso.confirmarDelete'), {
+      titulo: t('comum.confirmacoes.tituloExclusao'),
+      textoConfirmar: t('comum.acoes.excluir'),
+      textoCancelar: t('comum.acoes.cancelar'),
+      mensagemImpacto: t('comum.confirmacoes.alertaAcaoIrreversivel'),
+      tipoConfirmar: 'perigo',
+    });
+    if (!confirmar) return;
+
     setTimeout(() => {
       notificarSucesso(t('admin.aviso.deletadoSucesso'));
       router.back();
@@ -113,7 +123,7 @@ export default function CriarEditarAviso() {
         {aviso.status === 'RASCUNHO' && aviso.titulo.trim() && aviso.conteudo.trim() && <Botao titulo={t('admin.aviso.publicar')} tipo="primario" onPress={handlePublicar} disabled={carregando} />}
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Botao titulo={t('comum.acoes.cancelar')} tipo="secundario" onPress={() => router.back()} estilo={{ flex: 1 }} />
-          {avisoId && <Botao titulo={t('admin.usuario.deletar')} tipo="perigo" onPress={handleDeletar} estilo={{ flex: 0.5 }} />}
+          {avisoId && <Botao titulo={t('admin.usuario.deletar')} tipo="perigo" onPress={() => void handleDeletar()} estilo={{ flex: 0.5 }} />}
           <Botao titulo={t('comum.acoes.salvar')} tipo="primario" onPress={handleSalvar} estilo={{ flex: 1 }} disabled={carregando} />
         </View>
       </View>

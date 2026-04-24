@@ -16,6 +16,14 @@ Orientar o administrador no gerenciamento de usuarios e permissoes.
 - ativar/inativar usuario
 - configurar acessos por modulo, tela e funcionalidade
 
+## Confirmacao antes de excluir
+- Ao excluir um usuario, o sistema sempre abre uma confirmacao antes de concluir.
+- A janela mostra o contexto da exclusao e um alerta de impacto.
+- Se voce clicar em `Cancelar`, nada e excluido.
+
+Escopo no modulo Administracao:
+- Avisos e Documentos tambem seguem confirmacao obrigatoria antes de excluir.
+
 ## Cadastro e edicao
 Campos:
 - Nome
