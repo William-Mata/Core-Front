@@ -24,10 +24,20 @@ interface OpcoesRequisicao {
   signal?: AbortSignal;
 }
 
+interface OpcoesListarListasCompra extends OpcoesRequisicao {
+  incluirArquivadas?: boolean;
+}
+
+export interface PayloadParticipanteListaCompra {
+  usuarioId: number;
+  permissao: PermissaoParticipanteLista;
+}
+
 export interface PayloadCriarListaCompra {
   nome: string;
   observacao?: string;
   categoria: CategoriaListaCompra;
+  participantes?: PayloadParticipanteListaCompra[];
 }
 
 export interface PayloadAtualizarListaCompra {
@@ -35,6 +45,7 @@ export interface PayloadAtualizarListaCompra {
   observacao?: string;
   categoria?: CategoriaListaCompra;
   status?: ListaCompra['status'];
+  participantes?: PayloadParticipanteListaCompra[];
 }
 
 export interface PayloadCriarItemListaCompra {
@@ -60,11 +71,6 @@ export interface PayloadAtualizarItemListaCompra {
 export interface PayloadAcaoLoteItensCompra {
   acao: AcaoLoteItensCompra;
   itemIds?: number[];
-}
-
-export interface PayloadAdicionarParticipanteListaCompra {
-  participanteId: number;
-  permissao: Exclude<PermissaoParticipanteLista, 'proprietario'>;
 }
 
 export interface PayloadCriarDesejoCompra {
@@ -108,13 +114,15 @@ function montarConfigConsulta(opcoes?: OpcoesRequisicao): { signal?: AbortSignal
   return { signal: opcoes?.signal };
 }
 
+function normalizarTextoSemAcento(valor: string): string {
+  return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 function normalizarPermissao(permissao: unknown): PermissaoParticipanteLista {
-  const valor = String(permissao ?? '').trim().toLowerCase();
+  const valor = normalizarTextoSemAcento(String(permissao ?? '').trim().toLowerCase());
   if (
     valor === 'coproprietario'
-    || valor === 'coproprietário'
     || valor === 'co-proprietario'
-    || valor === 'co-proprietário'
     || valor === 'co_proprietario'
     || valor === 'co proprietario'
     || valor === 'coowner'
@@ -169,14 +177,23 @@ function normalizarLista(entrada: unknown): ListaCompra {
   const quantidadeItens = Number(lista.quantidadeItens);
   const quantidadeItensComprados = Number(lista.quantidadeItensComprados);
   const quantidadeParticipantes = Number(lista.quantidadeParticipantes);
+  const statusEntrada = String(lista.status ?? 'ativa').toLowerCase();
+  const status = statusEntrada === 'arquivada' ? 'arquivada' : statusEntrada === 'concluida' ? 'concluida' : 'ativa';
+
   return {
     id: Number(lista.id ?? 0),
     nome: String(lista.nome ?? ''),
     observacao: String(lista.observacao ?? ''),
     categoria: normalizarCategoria(lista.categoria ?? lista.categoriaLista),
-    status: String(lista.status ?? 'ativa') as ListaCompra['status'],
+    status,
     papelUsuario,
-    criadoPorUsuarioId: Number(lista.criadoPorUsuarioId ?? lista.usuarioId ?? 0),
+    criadoPorUsuarioId: Number(
+      lista.criadoPorUsuarioId
+      ?? lista.usuarioId
+      ?? lista.usuarioCadastroId
+      ?? lista.proprietarioUsuarioId
+      ?? 0,
+    ),
     participantes: participantesEntrada.map(normalizarParticipante),
     valorTotal: Number.isFinite(valorTotal) ? valorTotal : undefined,
     valorComprado: Number.isFinite(valorComprado) ? valorComprado : undefined,
@@ -187,7 +204,7 @@ function normalizarLista(entrada: unknown): ListaCompra {
       ? quantidadeParticipantes
       : participantesEntrada.length,
     criadoEm: String(lista.criadoEm ?? ''),
-    atualizadoEm: String(lista.atualizadoEm ?? ''),
+    atualizadoEm: String(lista.atualizadoEm ?? lista.dataHoraAtualizacao ?? ''),
   };
 }
 
@@ -203,12 +220,12 @@ function normalizarItem(entrada: unknown): ItemListaCompra {
     observacao: String(item.observacao ?? ''),
     unidadeMedida: normalizarUnidade(item.unidadeMedida ?? item.unidade),
     quantidade: Number.isFinite(quantidade) ? quantidade : 0,
-    marcadorCor: String(item.marcadorCor ?? '#9ca3af'),
+    marcadorCor: String(item.marcadorCor ?? item.etiquetaCor ?? '#9ca3af'),
     valorUnitario: Number.isFinite(valorUnitario) ? valorUnitario : 0,
     valorTotal: Number.isFinite(valorTotal) ? valorTotal : 0,
     comprado: Boolean(item.comprado),
     versao: Number(item.versao ?? 0),
-    atualizadoEm: String(item.atualizadoEm ?? item.dataHoraUtc ?? ''),
+    atualizadoEm: String(item.atualizadoEm ?? item.dataHoraUtc ?? item.dataHoraCompra ?? ''),
   };
 }
 
@@ -217,9 +234,13 @@ function normalizarLog(entrada: unknown): ListaCompraLog {
   return {
     id: Number(log.id ?? 0),
     listaId: Number(log.listaId ?? 0),
-    evento: String(log.evento ?? ''),
-    usuarioId: Number(log.usuarioId ?? 0),
-    dataHoraUtc: String(log.dataHoraUtc ?? ''),
+    evento: String(log.evento ?? log.acao ?? ''),
+    usuarioId: Number(log.usuarioId ?? log.usuarioCadastroId ?? 0),
+    itemListaCompraId: Number(log.itemListaCompraId ?? 0) || undefined,
+    descricao: String(log.descricao ?? ''),
+    valorAnterior: String(log.valorAnterior ?? ''),
+    valorNovo: String(log.valorNovo ?? ''),
+    dataHoraUtc: String(log.dataHoraUtc ?? log.dataHoraCadastro ?? ''),
   };
 }
 
@@ -277,13 +298,36 @@ function normalizarSugestao(entrada: unknown): SugestaoItemCompra {
   return {
     descricao: String(sugestao.descricao ?? ''),
     unidadeMedida: normalizarUnidade(sugestao.unidadeMedida ?? sugestao.unidade),
-    valorReferencia: Number(sugestao.valorReferencia ?? sugestao.ultimoPreco ?? 0),
+    valorReferencia: Number(sugestao.valorReferencia ?? sugestao.ultimoPrecoUnitario ?? sugestao.ultimoPreco ?? 0),
     marcadorCor: String(sugestao.marcadorCor ?? '#9ca3af'),
   };
 }
 
-export async function listarListasCompraApi(opcoes?: OpcoesRequisicao): Promise<ListaCompra[]> {
-  const { data } = await api.get<EnvelopeApi<unknown[]> | unknown[]>('/compras/listas', montarConfigConsulta(opcoes));
+function mapearPermissaoParaPapelApi(permissao: PermissaoParticipanteLista): 'Proprietario' | 'CoProprietario' | 'Leitor' {
+  if (permissao === 'proprietario') return 'Proprietario';
+  if (permissao === 'coproprietario') return 'CoProprietario';
+  return 'Leitor';
+}
+
+function montarPayloadParticipantes(
+  participantes?: PayloadParticipanteListaCompra[],
+): Array<{ usuarioId: number; papel: 'Proprietario' | 'CoProprietario' | 'Leitor' }> | undefined {
+  if (!participantes || participantes.length === 0) return undefined;
+
+  return participantes.map((participante) => ({
+    usuarioId: participante.usuarioId,
+    papel: mapearPermissaoParaPapelApi(participante.permissao),
+  }));
+}
+
+export async function listarListasCompraApi(opcoes?: OpcoesListarListasCompra): Promise<ListaCompra[]> {
+  const config = montarConfigConsulta(opcoes);
+  const { data } = await api.get<EnvelopeApi<unknown[]> | unknown[]>('/compras/listas', {
+    ...config,
+    params: {
+      incluirArquivadas: opcoes?.incluirArquivadas ?? false,
+    },
+  });
   const listas = extrairDados(data);
   return Array.isArray(listas) ? listas.map(normalizarLista) : [];
 }
@@ -293,31 +337,47 @@ export async function obterListaCompraApi(listaId: number, opcoes?: OpcoesRequis
   return normalizarDetalheLista(extrairDados(data));
 }
 
+export async function obterDetalheListaCompraApi(listaId: number, opcoes?: OpcoesRequisicao): Promise<ListaCompraDetalhe> {
+  const { data } = await api.get<EnvelopeApi<unknown> | unknown>(`/compras/listas/${listaId}/detalhe`, montarConfigConsulta(opcoes));
+  return normalizarDetalheLista(extrairDados(data));
+}
+
 export async function criarListaCompraApi(payload: PayloadCriarListaCompra): Promise<ListaCompra> {
+  const participantes = montarPayloadParticipantes(payload.participantes);
   const { data } = await api.post<EnvelopeApi<unknown> | unknown>('/compras/listas', {
     nome: payload.nome,
     ...(payload.observacao !== undefined ? { observacao: payload.observacao } : {}),
     categoria: payload.categoria,
+    ...(participantes ? { participantes } : {}),
   });
   return normalizarLista(extrairDados(data));
 }
 
 export async function atualizarListaCompraApi(listaId: number, payload: PayloadAtualizarListaCompra): Promise<ListaCompra> {
+  const participantes = montarPayloadParticipantes(payload.participantes);
   const { data } = await api.put<EnvelopeApi<unknown> | unknown>(`/compras/listas/${listaId}`, {
     ...(payload.nome !== undefined ? { nome: payload.nome } : {}),
     ...(payload.observacao !== undefined ? { observacao: payload.observacao } : {}),
     ...(payload.categoria !== undefined ? { categoria: payload.categoria } : {}),
     ...(payload.status !== undefined ? { status: payload.status } : {}),
+    ...(participantes ? { participantes } : {}),
   });
   return normalizarLista(extrairDados(data));
 }
 
 export async function duplicarListaCompraApi(listaId: number, payload?: PayloadCriarListaCompra): Promise<ListaCompra> {
-  const { data } = await api.post<EnvelopeApi<unknown> | unknown>(`/compras/listas/${listaId}/duplicar`, payload ? {
-    nome: payload.nome,
-    ...(payload.observacao !== undefined ? { observacao: payload.observacao } : {}),
-    categoria: payload.categoria,
-  } : undefined);
+  const participantes = montarPayloadParticipantes(payload?.participantes);
+  const { data } = await api.post<EnvelopeApi<unknown> | unknown>(
+    `/compras/listas/${listaId}/duplicar`,
+    payload
+      ? {
+          nome: payload.nome,
+          ...(payload.observacao !== undefined ? { observacao: payload.observacao } : {}),
+          categoria: payload.categoria,
+          ...(participantes ? { participantes } : {}),
+        }
+      : undefined,
+  );
   return normalizarLista(extrairDados(data));
 }
 
@@ -328,18 +388,6 @@ export async function arquivarListaCompraApi(listaId: number): Promise<ListaComp
 
 export async function removerListaCompraApi(listaId: number): Promise<void> {
   await api.delete(`/compras/listas/${listaId}`);
-}
-
-export async function adicionarParticipanteListaCompraApi(
-  listaId: number,
-  payload: PayloadAdicionarParticipanteListaCompra,
-): Promise<ListaCompra> {
-  const { data } = await api.post<EnvelopeApi<unknown> | unknown>(`/compras/listas/${listaId}/participantes`, payload);
-  return normalizarLista(extrairDados(data));
-}
-
-export async function removerParticipanteListaCompraApi(listaId: number, participanteId: number): Promise<void> {
-  await api.delete(`/compras/listas/${listaId}/participantes/${participanteId}`);
 }
 
 export async function listarItensListaCompraApi(listaId: number, opcoes?: OpcoesRequisicao): Promise<ItemListaCompra[]> {
@@ -468,12 +516,6 @@ export async function listarHistoricoItensCompraApi(consulta?: ConsultaHistorico
   return Array.isArray(historico) ? historico.map(normalizarHistorico) : [];
 }
 
-export async function listarLogsListaCompraApi(listaId: number, opcoes?: OpcoesRequisicao): Promise<ListaCompraLog[]> {
-  const { data } = await api.get<EnvelopeApi<unknown[]> | unknown[]>(`/compras/listas/${listaId}/logs`, montarConfigConsulta(opcoes));
-  const logs = extrairDados(data);
-  return Array.isArray(logs) ? logs.map(normalizarLog) : [];
-}
-
 export async function buscarSugestoesItensCompraApi(listaId: number, consulta: ConsultaSugestoesItem): Promise<SugestaoItemCompra[]> {
   const termo = consulta.termo.trim();
   if (termo.length < 3) return [];
@@ -488,4 +530,3 @@ export async function buscarSugestoesItensCompraApi(listaId: number, consulta: C
   const sugestoes = extrairDados(data);
   return Array.isArray(sugestoes) ? sugestoes.map(normalizarSugestao) : [];
 }
-

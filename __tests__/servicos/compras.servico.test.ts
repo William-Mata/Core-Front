@@ -1,21 +1,26 @@
 import {
   atualizarItemRapidoListaCompraApi,
+  atualizarListaCompraApi,
   buscarSugestoesItensCompraApi,
   converterDesejosParaListaCompraApi,
   criarItemListaCompraApi,
+  criarListaCompraApi,
   listarHistoricoItensCompraApi,
   listarListasCompraApi,
+  obterListaCompraApi,
 } from '../../src/servicos/compras';
 
 const mockGet = jest.fn();
 const mockPost = jest.fn();
 const mockPatch = jest.fn();
+const mockPut = jest.fn();
 
 jest.mock('../../src/servicos/api', () => ({
   api: {
     get: (...args: unknown[]) => mockGet(...args),
     post: (...args: unknown[]) => mockPost(...args),
     patch: (...args: unknown[]) => mockPatch(...args),
+    put: (...args: unknown[]) => mockPut(...args),
   },
 }));
 
@@ -45,7 +50,10 @@ describe('servico compras', () => {
 
     const resultado = await listarListasCompraApi();
 
-    expect(mockGet).toHaveBeenCalledWith('/compras/listas', { signal: undefined });
+    expect(mockGet).toHaveBeenCalledWith('/compras/listas', {
+      signal: undefined,
+      params: { incluirArquivadas: false },
+    });
     expect(resultado[0]).toMatchObject({
       id: 1,
       nome: 'Mercado',
@@ -59,63 +67,100 @@ describe('servico compras', () => {
   it('deve mapear papelUsuario CoProprietario para coproprietario', async () => {
     mockGet.mockResolvedValueOnce({
       data: {
-        dados: [{
-          id: 2,
-          nome: 'Casa',
-          categoria: 'outros',
-          status: 'ativa',
-          papelUsuario: 'CoProprietario',
-        }],
+        dados: [{ id: 2, nome: 'Casa', categoria: 'outros', status: 'ativa', papelUsuario: 'CoProprietario' }],
       },
     });
 
     const resultado = await listarListasCompraApi();
 
-    expect(resultado[0]).toMatchObject({
-      id: 2,
-      papelUsuario: 'coproprietario',
-    });
+    expect(resultado[0]).toMatchObject({ id: 2, papelUsuario: 'coproprietario' });
   });
 
   it('deve manter compatibilidade legado para papelUsuario Editor', async () => {
     mockGet.mockResolvedValueOnce({
       data: {
-        dados: [{
-          id: 3,
-          nome: 'Casa legado',
-          categoria: 'outros',
-          status: 'ativa',
-          papelUsuario: 'Editor',
-        }],
+        dados: [{ id: 3, nome: 'Casa legado', categoria: 'outros', status: 'ativa', papelUsuario: 'Editor' }],
       },
     });
 
     const resultado = await listarListasCompraApi();
 
-    expect(resultado[0]).toMatchObject({
-      id: 3,
-      papelUsuario: 'coproprietario',
+    expect(resultado[0]).toMatchObject({ id: 3, papelUsuario: 'coproprietario' });
+  });
+
+  it('deve mapear papelUsuario com acento para coproprietario', async () => {
+    mockGet.mockResolvedValueOnce({
+      data: {
+        dados: [{ id: 4, nome: 'Casa acentuado', categoria: 'outros', status: 'ativa', papelUsuario: 'Coproprietário' }],
+      },
+    });
+
+    const resultado = await listarListasCompraApi();
+
+    expect(resultado[0]).toMatchObject({ id: 4, papelUsuario: 'coproprietario' });
+  });
+
+  it('deve obter detalhe da lista via /listas/{id}', async () => {
+    mockGet.mockResolvedValueOnce({
+      data: {
+        dados: {
+          id: 10,
+          nome: 'Mercado',
+          categoria: 'mercado',
+          status: 'ativa',
+          itens: [{ id: 1, descricao: 'Arroz', unidade: 'kg', quantidade: 1, precoUnitario: 7 }],
+          participantes: [{ usuarioId: 1, nome: 'William', papel: 'Proprietario' }],
+          logs: [{ id: 1, acao: 'Atualizacao', usuarioCadastroId: 1, dataHoraCadastro: '2026-04-24T14:10:00Z' }],
+        },
+      },
+    });
+
+    const resultado = await obterListaCompraApi(10);
+
+    expect(mockGet).toHaveBeenNthCalledWith(1, '/compras/listas/10', { signal: undefined });
+    expect(resultado.participantes[0]).toMatchObject({ usuarioId: 1, permissao: 'proprietario' });
+    expect(resultado.logs[0]).toMatchObject({ evento: 'Atualizacao', usuarioId: 1 });
+  });
+
+  it('deve enviar participantes no payload de criar lista', async () => {
+    mockPost.mockResolvedValueOnce({
+      data: { id: 50, nome: 'Mercado', categoria: 'mercado', status: 'ativa', participantes: [] },
+    });
+
+    await criarListaCompraApi({
+      nome: 'Mercado',
+      categoria: 'mercado',
+      participantes: [
+        { usuarioId: 1, permissao: 'proprietario' },
+        { usuarioId: 2, permissao: 'coproprietario' },
+        { usuarioId: 3, permissao: 'leitor' },
+      ],
+    });
+
+    expect(mockPost).toHaveBeenCalledWith('/compras/listas', {
+      nome: 'Mercado',
+      categoria: 'mercado',
+      participantes: [
+        { usuarioId: 1, papel: 'Proprietario' },
+        { usuarioId: 2, papel: 'CoProprietario' },
+        { usuarioId: 3, papel: 'Leitor' },
+      ],
     });
   });
 
-  it('deve mapear papelUsuario Coproprietário para coproprietario', async () => {
-    mockGet.mockResolvedValueOnce({
-      data: {
-        dados: [{
-          id: 4,
-          nome: 'Casa acentuado',
-          categoria: 'outros',
-          status: 'ativa',
-          papelUsuario: 'Coproprietário',
-        }],
-      },
+  it('deve enviar participantes no payload de editar lista', async () => {
+    mockPut.mockResolvedValueOnce({
+      data: { id: 77, nome: 'Casa', categoria: 'outros', status: 'ativa', participantes: [] },
     });
 
-    const resultado = await listarListasCompraApi();
+    await atualizarListaCompraApi(77, {
+      nome: 'Casa',
+      participantes: [{ usuarioId: 1, permissao: 'proprietario' }],
+    });
 
-    expect(resultado[0]).toMatchObject({
-      id: 4,
-      papelUsuario: 'coproprietario',
+    expect(mockPut).toHaveBeenCalledWith('/compras/listas/77', {
+      nome: 'Casa',
+      participantes: [{ usuarioId: 1, papel: 'Proprietario' }],
     });
   });
 

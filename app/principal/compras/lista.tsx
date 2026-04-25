@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Keyboard, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Keyboard, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
@@ -107,11 +107,87 @@ const opcoesAcaoLote: Array<{
 ];
 
 function obterPermissaoAtual(detalhe: ListaCompraDetalhe | null, usuarioId?: number): PermissaoParticipanteLista {
-  if (!detalhe || !usuarioId) return 'leitor';
+  if (!detalhe) return 'leitor';
+
+  const usuarioIdNormalizado = Number(usuarioId);
+  if (Number.isFinite(usuarioIdNormalizado) && usuarioIdNormalizado > 0) {
+    const participante = detalhe.participantes.find((item) => Number(item.usuarioId) === usuarioIdNormalizado);
+    if (participante?.permissao) return participante.permissao;
+
+    if (Number(detalhe.criadoPorUsuarioId) === usuarioIdNormalizado) return 'proprietario';
+  }
+
   if (detalhe.papelUsuario) return detalhe.papelUsuario;
-  if (detalhe.criadoPorUsuarioId === usuarioId) return 'proprietario';
-  const participante = detalhe.participantes.find((item) => item.usuarioId === usuarioId);
-  return participante?.permissao ?? 'leitor';
+  return 'leitor';
+}
+
+function arredondarValorAnimado(valor: number): number {
+  const valorArredondado = Number(valor.toFixed(2));
+  return Object.is(valorArredondado, -0) ? 0 : valorArredondado;
+}
+
+interface NumeroResumoAnimadoProps {
+  valorFinal: number;
+  deveAnimar: boolean;
+  duracaoMs?: number;
+  formatar: (valor: number) => string;
+  estilo?: { color?: string; fontWeight?: '700' | '600' | '500' | '400'; marginTop?: number };
+}
+
+function NumeroResumoAnimado({
+  valorFinal,
+  deveAnimar,
+  duracaoMs = 1000,
+  formatar,
+  estilo,
+}: NumeroResumoAnimadoProps) {
+  const animacaoValor = useRef(new Animated.Value(0)).current;
+  const [valorExibido, setValorExibido] = useState(() => arredondarValorAnimado(Number(valorFinal) || 0));
+  const animacaoJaExecutada = useRef(false);
+
+  useEffect(() => {
+    const valorNormalizado = Number.isFinite(valorFinal) ? valorFinal : 0;
+    const ambienteTeste = process.env.NODE_ENV === 'test';
+
+    if (ambienteTeste) {
+      animacaoJaExecutada.current = true;
+      setValorExibido(arredondarValorAnimado(valorNormalizado));
+      return;
+    }
+
+    if (!deveAnimar || animacaoJaExecutada.current) {
+      setValorExibido(arredondarValorAnimado(valorNormalizado));
+      return;
+    }
+
+    let componenteAtivo = true;
+    animacaoValor.setValue(0);
+
+    const idListener = animacaoValor.addListener(({ value }) => {
+      if (!componenteAtivo) return;
+      const valorInterpolado = value * valorNormalizado;
+      setValorExibido(arredondarValorAnimado(valorInterpolado));
+    });
+
+    Animated.timing(animacaoValor, {
+      toValue: 1,
+      duration: duracaoMs,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start(() => {
+      if (!componenteAtivo) return;
+      animacaoJaExecutada.current = true;
+      setValorExibido(arredondarValorAnimado(valorNormalizado));
+    });
+
+    return () => {
+      componenteAtivo = false;
+      animacaoValor.removeListener(idListener);
+      animacaoValor.stopAnimation();
+    };
+  }, [animacaoValor, deveAnimar, duracaoMs, valorFinal]);
+
+  return <Text style={estilo}>{formatar(valorExibido)}</Text>;
 }
 
 export default function ListaCompraDetalheTela() {
@@ -160,6 +236,7 @@ export default function ListaCompraDetalheTela() {
   const [filtroStatusRascunho, setFiltroStatusRascunho] = useState<typeof filtroStatus>(filtroStatus);
   const [ordenacaoRascunho, setOrdenacaoRascunho] = useState<OrdenacaoItensCompra>(ordenacao);
   const [direcaoOrdenacaoRascunho, setDirecaoOrdenacaoRascunho] = useState<DirecaoOrdenacao>(direcaoOrdenacao);
+  const carregarDetalheListaRef = useRef<() => Promise<void>>(async () => undefined);
 
   const carregarDetalheLista = useCallback(async () => {
     if (!Number.isFinite(listaId)) return;
@@ -174,6 +251,10 @@ export default function ListaCompraDetalheTela() {
       setCarregando(false);
     }
   }, [definirItensDaListaAtiva, listaId, t]);
+
+  useEffect(() => {
+    carregarDetalheListaRef.current = carregarDetalheLista;
+  }, [carregarDetalheLista]);
 
   useEffect(() => {
     if (!Number.isFinite(listaId)) return;
@@ -199,11 +280,15 @@ export default function ListaCompraDetalheTela() {
           },
           aoReceberEvento: (evento) => {
             if (!ativo || evento.listaId !== listaId) return;
-            void carregarDetalheLista();
+            void carregarDetalheListaRef.current();
           },
         });
         clienteLimpeza = cliente;
         await cliente.iniciar();
+        if (!ativo) {
+          await cliente.parar().catch(() => undefined);
+          return;
+        }
         await cliente.entrarLista(listaId);
       } catch {
         if (ativo) setConectadoTempoReal(false);
@@ -214,12 +299,12 @@ export default function ListaCompraDetalheTela() {
 
     return () => {
       ativo = false;
-      setConectadoTempoReal(false);
-      if (!clienteLimpeza) return;
-      void clienteLimpeza.sairLista(listaId).catch(() => undefined);
-      void clienteLimpeza.parar().catch(() => undefined);
+      const clienteAtual = clienteLimpeza;
+      if (!clienteAtual) return;
+      void clienteAtual.sairLista(listaId).catch(() => undefined);
+      void clienteAtual.parar().catch(() => undefined);
     };
-  }, [carregarDetalheLista, listaId]);
+  }, [listaId]);
 
   useEffect(() => {
     const termo = descricao.trim();
@@ -236,7 +321,13 @@ export default function ListaCompraDetalheTela() {
   }, [descricao, listaId]);
 
   const permissaoAtual = useMemo(() => obterPermissaoAtual(detalheLista, usuarioId), [detalheLista, usuarioId]);
-  const podeEditarItens = permissaoAtual === 'proprietario' || permissaoAtual === 'coproprietario';
+  const usuarioPodeEditarLista = useMemo(() => {
+    const possuiPapelEdicao = permissaoAtual === 'proprietario' || permissaoAtual === 'coproprietario';
+    const listaEditavel = detalheLista?.status === 'ativa';
+    return possuiPapelEdicao && listaEditavel;
+  }, [detalheLista?.status, permissaoAtual]);
+  const podeEditarItens = Boolean(detalheLista) && usuarioPodeEditarLista;
+  const deveAnimarResumo = useMemo(() => Boolean(detalheLista), [detalheLista]);
   const casasDecimaisQuantidade = useMemo(
     () => obterCasasDecimaisQuantidade(unidadeMedida),
     [unidadeMedida],
@@ -511,27 +602,71 @@ export default function ListaCompraDetalheTela() {
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1, padding: 16 }}>
         <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 12, padding: 16, marginBottom: 16 }}>
-          <Text style={{ color: COLORS.accent, fontWeight: '700', marginBottom: 12 }}>{t('compras.lista.resumo')}</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ color: COLORS.accent, fontWeight: '700' }}>{t('compras.lista.resumo')}</Text>
+            <TouchableOpacity
+              onPress={() => void carregarDetalheLista()}
+              accessibilityRole="button"
+              accessibilityLabel={t('compras.acoes.recarregar')}
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: COLORS.borderColor,
+                backgroundColor: COLORS.bgSecondary,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: COLORS.accent, fontSize: 18, lineHeight: 18 }}>{carregando ? '…' : '\u21BB'}</Text>
+            </TouchableOpacity>
+          </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 10, borderWidth: 1, borderColor: COLORS.borderColor, padding: 10, minWidth: 160 }}>
               <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.totalLista')}</Text>
-              <Text style={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}>{formatarValorPorIdioma(detalheLista?.valorTotal ?? 0)}</Text>
+              <NumeroResumoAnimado
+                valorFinal={detalheLista?.valorTotal ?? 0}
+                deveAnimar={deveAnimarResumo}
+                formatar={(valor) => formatarValorPorIdioma(valor)}
+                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}
+              />
             </View>
             <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 10, borderWidth: 1, borderColor: COLORS.borderColor, padding: 10, minWidth: 160 }}>
               <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.totalComprado')}</Text>
-              <Text style={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}>{formatarValorPorIdioma(detalheLista?.valorComprado ?? 0)}</Text>
+              <NumeroResumoAnimado
+                valorFinal={detalheLista?.valorComprado ?? 0}
+                deveAnimar={deveAnimarResumo}
+                formatar={(valor) => formatarValorPorIdioma(valor)}
+                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}
+              />
             </View>
             <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 10, borderWidth: 1, borderColor: COLORS.borderColor, padding: 10, minWidth: 160 }}>
               <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.percentualComprado')}</Text>
-              <Text style={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}>{(detalheLista?.percentualComprado ?? 0).toFixed(2)}%</Text>
+              <NumeroResumoAnimado
+                valorFinal={detalheLista?.percentualComprado ?? 0}
+                deveAnimar={deveAnimarResumo}
+                formatar={(valor) => `${valor.toFixed(2)}%`}
+                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}
+              />
             </View>
             <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 10, borderWidth: 1, borderColor: COLORS.borderColor, padding: 10, minWidth: 160 }}>
               <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.quantidadeItens')}</Text>
-              <Text style={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}>{detalheLista?.quantidadeItens ?? 0}</Text>
+              <NumeroResumoAnimado
+                valorFinal={detalheLista?.quantidadeItens ?? 0}
+                deveAnimar={deveAnimarResumo}
+                formatar={(valor) => `${Math.round(valor)}`}
+                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}
+              />
             </View>
             <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 10, borderWidth: 1, borderColor: COLORS.borderColor, padding: 10, minWidth: 160 }}>
               <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.quantidadeItensComprados')}</Text>
-              <Text style={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}>{detalheLista?.quantidadeItensComprados ?? 0}</Text>
+              <NumeroResumoAnimado
+                valorFinal={detalheLista?.quantidadeItensComprados ?? 0}
+                deveAnimar={deveAnimarResumo}
+                formatar={(valor) => `${Math.round(valor)}`}
+                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}
+              />
             </View>
           </View>
           <View style={{ marginTop: 12 }}>
@@ -544,9 +679,14 @@ export default function ListaCompraDetalheTela() {
           </View>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-          <Botao titulo={t('compras.acoes.recarregar')} tipo="secundario" onPress={() => void carregarDetalheLista()} />
-          {podeEditarItens ? <Botao titulo={t('compras.acoes.novoItem')} onPress={() => setModalNovoItem(true)} /> : null}
+        <View style={{ marginBottom: 10 }}>
+          {podeEditarItens ? (
+            <Botao
+              titulo={`+ ${t('compras.acoes.novoItem')}`}
+              onPress={() => setModalNovoItem(true)}
+              estilo={{ width: '100%' }}
+            />
+          ) : null}
         </View>
 
         <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 12, padding: 12, marginBottom: 12 }}>
@@ -657,6 +797,7 @@ export default function ListaCompraDetalheTela() {
                       value={String(item.quantidade)}
                       onChangeText={(valor) => void atualizarRapido(item, 'quantidade', valor)}
                       keyboardType="numeric"
+                      editavel={podeEditarItens}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -665,6 +806,7 @@ export default function ListaCompraDetalheTela() {
                       value={String(item.valorUnitario)}
                       onChangeText={(valor) => void atualizarRapido(item, 'valorUnitario', valor)}
                       keyboardType="numeric"
+                      editavel={podeEditarItens}
                     />
                   </View>
                 </View>
@@ -679,13 +821,28 @@ export default function ListaCompraDetalheTela() {
           {(detalheLista?.logs ?? []).length === 0 ? (
             <Text style={{ color: COLORS.textSecondary }}>{t('compras.logs.vazio')}</Text>
           ) : (
-            <View style={{ gap: 6 }}>
-              {(detalheLista?.logs ?? []).slice(0, 20).map((log) => (
-                <Text key={log.id} style={{ color: COLORS.textSecondary }}>
-                  {log.evento} - {formatarDataHoraPorIdioma(log.dataHoraUtc)}
-                </Text>
-              ))}
-            </View>
+            <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
+              <View style={{ gap: 8 }}>
+                {(detalheLista?.logs ?? []).slice(0, 20).map((log) => (
+                  <View
+                    key={log.id}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: COLORS.borderColor,
+                      borderRadius: 8,
+                      paddingHorizontal: 10,
+                      paddingVertical: 8,
+                      backgroundColor: COLORS.bgTertiary,
+                      gap: 4,
+                    }}
+                  >
+                    <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '600' }}>{log.evento}</Text>
+                    {log.descricao ? <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{log.descricao}</Text> : null}
+                    <Text style={{ color: COLORS.textSecondary, fontSize: 11 }}>{formatarDataHoraPorIdioma(log.dataHoraUtc)}</Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
           )}
         </View>
       </ScrollView>
