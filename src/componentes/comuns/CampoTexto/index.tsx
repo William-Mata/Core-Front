@@ -17,6 +17,8 @@ interface CampoTextoProps {
   obrigatorio?: boolean;
   forcarMaiusculo?: boolean;
   editavel?: boolean;
+  onBlur?: () => void;
+  onFocus?: () => void;
 }
 
 function formatarLabelObrigatorio(label: string, obrigatorio: boolean): string {
@@ -70,6 +72,8 @@ export function CampoTexto(props: CampoTextoProps) {
     obrigatorio,
     forcarMaiusculo,
     editavel = true,
+    onBlur,
+    onFocus,
   } = props;
   const valorFinal = value || valor;
   const [focado, setFocado] = useState(false);
@@ -87,8 +91,14 @@ export function CampoTexto(props: CampoTextoProps) {
         secureTextEntry={secureTextEntry}
         autoCapitalize={forcarMaiusculo ? 'characters' : undefined}
         keyboardType={keyboardType as any}
-        onFocus={() => setFocado(true)}
-        onBlur={() => setFocado(false)}
+        onFocus={() => {
+          setFocado(true);
+          onFocus?.();
+        }}
+        onBlur={() => {
+          setFocado(false);
+          onBlur?.();
+        }}
         editable={editavel}
         style={[
           estilos.input,

@@ -87,7 +87,10 @@ export interface HistoricoItemCompra {
 
 export interface SugestaoItemCompra {
   descricao: string;
+  observacao: string;
   unidadeMedida: UnidadeMedidaItemCompra;
+  quantidade: number;
+  valorUnitario: number;
   valorReferencia: number;
   marcadorCor: string;
 }

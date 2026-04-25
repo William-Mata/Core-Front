@@ -11,6 +11,7 @@ import { Modal } from '../../../src/componentes/comuns/Modal';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import {
   aplicarAcaoLoteItensCompraApi,
+  atualizarItemRapidoListaCompraApi,
   atualizarItemListaCompraApi,
   buscarSugestoesItensCompraApi,
   criarItemListaCompraApi,
@@ -71,19 +72,6 @@ const opcoesMarcadorCor = [
   '#ec4899',
 ] as const;
 
-const nomesMarcadorCorPorHex: Record<string, string> = {
-  '#ef4444': 'compras.item.cores.vermelho',
-  '#f97316': 'compras.item.cores.laranja',
-  '#f59e0b': 'compras.item.cores.amarelo',
-  '#84cc16': 'compras.item.cores.lima',
-  '#22c55e': 'compras.item.cores.verde',
-  '#14b8a6': 'compras.item.cores.turquesa',
-  '#0ea5e9': 'compras.item.cores.azulClaro',
-  '#6366f1': 'compras.item.cores.indigo',
-  '#a855f7': 'compras.item.cores.violeta',
-  '#ec4899': 'compras.item.cores.rosa',
-};
-
 const unidadesQuantidadeInteira = new Set<ItemListaCompra['unidadeMedida']>([
   'unidade',
   'kg',
@@ -109,9 +97,18 @@ interface SugestaoDescricaoAutoCompletar {
   id: string;
   rotulo: string;
   valor: string;
+  observacao: string;
   unidadeMedida: ItemListaCompra['unidadeMedida'];
-  valorReferencia: number;
+  quantidade: number;
+  valorUnitario: number;
   marcadorCor: string;
+}
+
+interface ValoresEdicaoRapidaItem {
+  quantidade: string;
+  valorUnitario: string;
+  valorTotal: string;
+  origemCalculo: 'unitario' | 'total';
 }
 
 const filtroItensInicial: FiltroItensValor = {
@@ -144,7 +141,7 @@ function converterHexEmRgba(corHex: string, opacidade: number): string {
     : semHash;
 
   if (!/^[\da-fA-F]{6}$/.test(hexNormalizado)) {
-    return COLORS.bgSecondary;
+    return COLORS.borderColor;
   }
 
   const r = Number.parseInt(hexNormalizado.slice(0, 2), 16);
@@ -280,12 +277,10 @@ export default function ListaCompraDetalheTela() {
   const [filtroStatusRascunho, setFiltroStatusRascunho] = useState<typeof filtroStatus>(filtroStatus);
   const [ordenacaoRascunho, setOrdenacaoRascunho] = useState<OrdenacaoItensCompra>(ordenacao);
   const [direcaoOrdenacaoRascunho, setDirecaoOrdenacaoRascunho] = useState<DirecaoOrdenacao>(direcaoOrdenacao);
+  const [valoresEdicaoRapidaPorItem, setValoresEdicaoRapidaPorItem] = useState<Record<number, ValoresEdicaoRapidaItem>>({});
+  const focoItemEdicaoRapidaRef = useRef<number | null>(null);
+  const temporizadoresBlurEdicaoRapidaRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
-  const obterNomeMarcadorCor = useCallback((corHex: string) => {
-    const chaveTraducaoCor = nomesMarcadorCorPorHex[corHex.toLowerCase()];
-    if (!chaveTraducaoCor) return t('compras.item.cores.personalizada');
-    return t(chaveTraducaoCor);
-  }, [t]);
   const carregarDetalheListaRef = useRef<() => Promise<void>>(async () => undefined);
 
   const carregarDetalheLista = useCallback(async () => {
@@ -393,6 +388,163 @@ export default function ListaCompraDetalheTela() {
     () => converterTextoNumeroPorLocale(valorTotal, localeAtivo),
     [localeAtivo, valorTotal],
   );
+  const limparValoresEdicaoRapidaItem = useCallback((itemId: number) => {
+    setValoresEdicaoRapidaPorItem((estadoAtual) => {
+      if (!estadoAtual[itemId]) return estadoAtual;
+      const proximoEstado = { ...estadoAtual };
+      delete proximoEstado[itemId];
+      return proximoEstado;
+    });
+  }, []);
+
+  const limparTemporizadorBlurEdicaoRapida = useCallback((itemId: number) => {
+    const temporizador = temporizadoresBlurEdicaoRapidaRef.current[itemId];
+    if (!temporizador) return;
+    clearTimeout(temporizador);
+    delete temporizadoresBlurEdicaoRapidaRef.current[itemId];
+  }, []);
+
+  const obterValorEdicaoRapidaQuantidade = useCallback((item: ItemListaCompra) => {
+    const valorSalvo = valoresEdicaoRapidaPorItem[item.id]?.quantidade;
+    if (valorSalvo !== undefined) return valorSalvo;
+    return formatarNumeroEntradaPorLocale(item.quantidade, localeAtivo, obterCasasDecimaisQuantidade(item.unidadeMedida));
+  }, [localeAtivo, valoresEdicaoRapidaPorItem]);
+
+  const obterValorEdicaoRapidaValorUnitario = useCallback((item: ItemListaCompra) => {
+    const valorSalvo = valoresEdicaoRapidaPorItem[item.id]?.valorUnitario;
+    if (valorSalvo !== undefined) return valorSalvo;
+    return formatarNumeroEntradaPorLocale(item.valorUnitario, localeAtivo, 2);
+  }, [localeAtivo, valoresEdicaoRapidaPorItem]);
+
+  const obterValorEdicaoRapidaValorTotal = useCallback((item: ItemListaCompra) => {
+    const valorSalvo = valoresEdicaoRapidaPorItem[item.id]?.valorTotal;
+    if (valorSalvo !== undefined) return valorSalvo;
+    return formatarNumeroEntradaPorLocale(item.valorTotal, localeAtivo, 2);
+  }, [localeAtivo, valoresEdicaoRapidaPorItem]);
+
+  const calcularValorTotalEdicaoRapida = useCallback((quantidadeTexto: string, valorUnitarioTexto: string) => {
+    const quantidadeConvertida = converterTextoNumeroPorLocale(quantidadeTexto, localeAtivo);
+    const valorUnitarioConvertido = converterTextoNumeroPorLocale(valorUnitarioTexto, localeAtivo);
+    const valorTotalConvertido = calcularValorTotalItemCompra(quantidadeConvertida, valorUnitarioConvertido);
+    return formatarNumeroEntradaPorLocale(valorTotalConvertido, localeAtivo, 2);
+  }, [localeAtivo]);
+
+  const calcularValorUnitarioEdicaoRapida = useCallback((quantidadeTexto: string, valorTotalTexto: string) => {
+    const quantidadeConvertida = converterTextoNumeroPorLocale(quantidadeTexto, localeAtivo);
+    const valorTotalConvertido = converterTextoNumeroPorLocale(valorTotalTexto, localeAtivo);
+    const valorUnitarioCalculado = quantidadeConvertida > 0 ? valorTotalConvertido / quantidadeConvertida : 0;
+    return formatarNumeroEntradaPorLocale(valorUnitarioCalculado, localeAtivo, 2);
+  }, [localeAtivo]);
+
+  const atualizarCampoEdicaoRapida = useCallback((item: ItemListaCompra, campo: 'quantidade' | 'valorUnitario' | 'valorTotal', valorDigitado: string) => {
+    const casasDecimais = campo === 'quantidade' ? obterCasasDecimaisQuantidade(item.unidadeMedida) : 2;
+    const valorFormatado = aplicarMascaraNumeroPorLocale(valorDigitado, localeAtivo, casasDecimais);
+    setValoresEdicaoRapidaPorItem((estadoAtual) => {
+      const valorQuantidadePadrao = formatarNumeroEntradaPorLocale(
+        item.quantidade,
+        localeAtivo,
+        obterCasasDecimaisQuantidade(item.unidadeMedida),
+      );
+      const valorUnitarioPadrao = formatarNumeroEntradaPorLocale(item.valorUnitario, localeAtivo, 2);
+      const valorTotalPadrao = formatarNumeroEntradaPorLocale(item.valorTotal, localeAtivo, 2);
+      const valorAnterior = estadoAtual[item.id] ?? {
+        quantidade: valorQuantidadePadrao,
+        valorUnitario: valorUnitarioPadrao,
+        valorTotal: valorTotalPadrao,
+        origemCalculo: 'unitario',
+      };
+      const proximoValor: ValoresEdicaoRapidaItem = {
+        ...valorAnterior,
+        [campo]: valorFormatado,
+      };
+
+      if (campo === 'valorUnitario') {
+        proximoValor.origemCalculo = 'unitario';
+        proximoValor.valorTotal = calcularValorTotalEdicaoRapida(proximoValor.quantidade, proximoValor.valorUnitario);
+      } else if (campo === 'valorTotal') {
+        proximoValor.origemCalculo = 'total';
+        proximoValor.valorUnitario = calcularValorUnitarioEdicaoRapida(proximoValor.quantidade, proximoValor.valorTotal);
+      } else if (proximoValor.origemCalculo === 'total') {
+        proximoValor.valorUnitario = calcularValorUnitarioEdicaoRapida(proximoValor.quantidade, proximoValor.valorTotal);
+      } else {
+        proximoValor.valorTotal = calcularValorTotalEdicaoRapida(proximoValor.quantidade, proximoValor.valorUnitario);
+      }
+
+      return {
+        ...estadoAtual,
+        [item.id]: proximoValor,
+      };
+    });
+  }, [calcularValorTotalEdicaoRapida, calcularValorUnitarioEdicaoRapida, localeAtivo]);
+
+  const salvarEdicaoRapidaItem = useCallback(async (item: ItemListaCompra) => {
+    if (!podeEditarItens) return;
+
+    const quantidadeTexto = obterValorEdicaoRapidaQuantidade(item);
+    const valorUnitarioTexto = obterValorEdicaoRapidaValorUnitario(item);
+    const quantidadeConvertida = converterTextoNumeroPorLocale(quantidadeTexto, localeAtivo);
+    const valorUnitarioConvertido = converterTextoNumeroPorLocale(valorUnitarioTexto, localeAtivo);
+    const quantidadeExigeInteiroItem = unidadesQuantidadeInteira.has(item.unidadeMedida);
+    const quantidadeValida = quantidadeConvertida > 0 && (!quantidadeExigeInteiroItem || Number.isInteger(quantidadeConvertida));
+    const valorUnitarioValido = valorUnitarioConvertido >= 0;
+
+    if (!quantidadeValida || !valorUnitarioValido) {
+      notificarErro(t('compras.mensagens.erroAtualizacaoRapida'));
+      limparValoresEdicaoRapidaItem(item.id);
+      return;
+    }
+
+    const quantidadeSemMudanca = Math.abs(quantidadeConvertida - item.quantidade) < 0.000001;
+    const valorUnitarioSemMudanca = Math.abs(valorUnitarioConvertido - item.valorUnitario) < 0.000001;
+    if (quantidadeSemMudanca && valorUnitarioSemMudanca) {
+      limparValoresEdicaoRapidaItem(item.id);
+      return;
+    }
+
+    try {
+      await atualizarItemRapidoListaCompraApi(
+        listaId,
+        item.id,
+        quantidadeConvertida,
+        valorUnitarioConvertido,
+        item.versao,
+      );
+      limparValoresEdicaoRapidaItem(item.id);
+      await carregarDetalheLista();
+    } catch {
+      notificarErro(t('compras.mensagens.erroAtualizacaoRapida'));
+      limparValoresEdicaoRapidaItem(item.id);
+    }
+  }, [
+    carregarDetalheLista,
+    limparValoresEdicaoRapidaItem,
+    listaId,
+    localeAtivo,
+    obterValorEdicaoRapidaQuantidade,
+    obterValorEdicaoRapidaValorUnitario,
+    podeEditarItens,
+    t,
+  ]);
+
+  const registrarFocoCampoEdicaoRapida = useCallback((itemId: number) => {
+    focoItemEdicaoRapidaRef.current = itemId;
+    limparTemporizadorBlurEdicaoRapida(itemId);
+  }, [limparTemporizadorBlurEdicaoRapida]);
+
+  const registrarBlurCampoEdicaoRapida = useCallback((item: ItemListaCompra) => {
+    focoItemEdicaoRapidaRef.current = null;
+    limparTemporizadorBlurEdicaoRapida(item.id);
+    temporizadoresBlurEdicaoRapidaRef.current[item.id] = setTimeout(() => {
+      delete temporizadoresBlurEdicaoRapidaRef.current[item.id];
+      if (focoItemEdicaoRapidaRef.current === item.id) return;
+      void salvarEdicaoRapidaItem(item);
+    }, 140);
+  }, [limparTemporizadorBlurEdicaoRapida, salvarEdicaoRapidaItem]);
+
+  useEffect(() => () => {
+    Object.values(temporizadoresBlurEdicaoRapidaRef.current).forEach((temporizador) => clearTimeout(temporizador));
+    temporizadoresBlurEdicaoRapidaRef.current = {};
+  }, []);
 
   const itensFiltradosOrdenados = useMemo(() => {
     const termoDescricao = filtroItensAplicado.descricao.trim().toLowerCase();
@@ -490,8 +642,10 @@ export default function ListaCompraDetalheTela() {
       id: `${sugestao.descricao}-${sugestao.unidadeMedida}-${indice}`,
       rotulo: sugestao.descricao,
       valor: sugestao.descricao,
+      observacao: sugestao.observacao,
       unidadeMedida: sugestao.unidadeMedida,
-      valorReferencia: sugestao.valorReferencia,
+      quantidade: sugestao.quantidade,
+      valorUnitario: sugestao.valorUnitario,
       marcadorCor: sugestao.marcadorCor,
     }));
   }, [listaId]);
@@ -667,11 +821,27 @@ export default function ListaCompraDetalheTela() {
 
   const selecionarSugestao = (sugestao: SugestaoDescricaoAutoCompletar) => {
     setDescricao(sugestao.valor);
-    atualizarUnidadeMedidaFormulario(sugestao.unidadeMedida);
-    const valorUnitarioSugestao = formatarNumeroEntradaPorLocale(sugestao.valorReferencia, localeAtivo, 2);
+    setObservacao(sugestao.observacao);
+    setUnidadeMedida(sugestao.unidadeMedida);
+
+    const quantidadeBase = Number.isFinite(sugestao.quantidade) && sugestao.quantidade > 0 ? sugestao.quantidade : 1;
+    const quantidadeAjustada = unidadesQuantidadeInteira.has(sugestao.unidadeMedida)
+      ? Math.max(1, Math.trunc(quantidadeBase))
+      : quantidadeBase;
+    const quantidadeSugestao = formatarNumeroEntradaPorLocale(
+      quantidadeAjustada,
+      localeAtivo,
+      obterCasasDecimaisQuantidade(sugestao.unidadeMedida),
+    );
+    setQuantidade(quantidadeSugestao);
+
+    const valorUnitarioNormalizado = Number.isFinite(sugestao.valorUnitario) && sugestao.valorUnitario > 0
+      ? sugestao.valorUnitario
+      : 0;
+    const valorUnitarioSugestao = formatarNumeroEntradaPorLocale(valorUnitarioNormalizado, localeAtivo, 2);
     setValorUnitario(valorUnitarioSugestao);
     setOrigemCalculoValor('unitario');
-    setValorTotal(calcularValorTotalFormatado(quantidade, valorUnitarioSugestao));
+    setValorTotal(calcularValorTotalFormatado(quantidadeSugestao, valorUnitarioSugestao));
     setMarcadorCor(sugestao.marcadorCor);
   };
 
@@ -1003,11 +1173,10 @@ export default function ListaCompraDetalheTela() {
         <View style={{ gap: 10, position: 'relative', zIndex: 2 }}>
           {itensFiltradosOrdenados.map((item) => {
             const menuAcoesAberto = menuAcoesItemAbertoId === item.id;
-            const quantidadeFormatada = formatarNumeroEntradaPorLocale(
-              item.quantidade,
-              localeAtivo,
-              Number.isInteger(item.quantidade) ? 0 : 2,
-            );
+            const quantidadeEdicaoRapida = obterValorEdicaoRapidaQuantidade(item);
+            const valorUnitarioEdicaoRapida = obterValorEdicaoRapidaValorUnitario(item);
+            const valorTotalEdicaoRapida = obterValorEdicaoRapidaValorTotal(item);
+            const quantidadeRapidaExigeInteiro = unidadesQuantidadeInteira.has(item.unidadeMedida);
 
             return (
               <View
@@ -1015,15 +1184,19 @@ export default function ListaCompraDetalheTela() {
                 style={{
                   position: 'relative',
                   zIndex: menuAcoesAberto ? 70 : 1,
-                  elevation: menuAcoesAberto ? 16 : 0,
+                  elevation: menuAcoesAberto ? 16 : 1,
                   overflow: 'visible',
                   borderRadius: 12,
                   borderWidth: 1,
-                  borderColor: COLORS.borderColor,
+                  borderColor: converterHexEmRgba(item.marcadorCor, 0.24),
                   borderLeftWidth: 4,
                   borderLeftColor: item.marcadorCor,
                   padding: 12,
-                  backgroundColor: converterHexEmRgba(item.marcadorCor, 0.08),
+                  backgroundColor: COLORS.bgSecondary,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: menuAcoesAberto ? 0.2 : 0.05,
+                  shadowRadius: menuAcoesAberto ? 10 : 4,
                 }}
               >
                 <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
@@ -1055,36 +1228,52 @@ export default function ListaCompraDetalheTela() {
                     </Text>
                     {item.observacao ? <Text style={{ color: COLORS.textSecondary, marginTop: 2 }}>{item.observacao}</Text> : null}
 
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
-                      <Text style={{ color: COLORS.textSecondary }}>
-                        {t('compras.item.quantidade')}: {quantidadeFormatada} {t(`compras.unidades.${item.unidadeMedida}`)}
-                      </Text>
-                      <Text style={{ color: COLORS.textSecondary }}>
-                        {t('compras.item.valorUnitario')}: {formatarValorPorIdioma(item.valorUnitario)}
-                      </Text>
-                      <Text style={{ color: COLORS.textSecondary }}>
-                        {t('compras.item.valorTotal')}: {formatarValorPorIdioma(item.valorTotal)}
-                      </Text>
-                    </View>
-
-                    <View
-                      style={{
-                        marginTop: 8,
-                        alignSelf: 'flex-start',
-                        borderRadius: 999,
-                        borderWidth: 1,
-                        borderColor: item.marcadorCor,
-                        backgroundColor: converterHexEmRgba(item.marcadorCor, 0.15),
-                        paddingHorizontal: 10,
-                        paddingVertical: 4,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                    >
-                      <View style={{ width: 8, height: 8, borderRadius: 99, backgroundColor: item.marcadorCor }} />
-                      <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{obterNomeMarcadorCor(item.marcadorCor)}</Text>
-                    </View>
+                    {podeEditarItens ? (
+                      <View
+                        style={{
+                          marginTop: 10,
+                          paddingTop: 10,
+                          borderTopWidth: 1,
+                          borderTopColor: COLORS.borderColor,
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <View style={{ flex: 1 }}>
+                            <CampoTexto
+                              label={`${t('compras.item.quantidade')} (${t(`compras.unidades.${item.unidadeMedida}`)})`}
+                              value={quantidadeEdicaoRapida}
+                              onChangeText={(valorDigitado) => atualizarCampoEdicaoRapida(item, 'quantidade', valorDigitado)}
+                              keyboardType={quantidadeRapidaExigeInteiro ? 'number-pad' : 'decimal-pad'}
+                              onFocus={() => registrarFocoCampoEdicaoRapida(item.id)}
+                              onBlur={() => registrarBlurCampoEdicaoRapida(item)}
+                              estilo={{ marginBottom: 0 }}
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <CampoTexto
+                              label={t('compras.item.valorUnitario')}
+                              value={valorUnitarioEdicaoRapida}
+                              onChangeText={(valorDigitado) => atualizarCampoEdicaoRapida(item, 'valorUnitario', valorDigitado)}
+                              keyboardType="decimal-pad"
+                              onFocus={() => registrarFocoCampoEdicaoRapida(item.id)}
+                              onBlur={() => registrarBlurCampoEdicaoRapida(item)}
+                              estilo={{ marginBottom: 0 }}
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <CampoTexto
+                              label={t('compras.item.valorTotal')}
+                              value={valorTotalEdicaoRapida}
+                              onChangeText={(valorDigitado) => atualizarCampoEdicaoRapida(item, 'valorTotal', valorDigitado)}
+                              keyboardType="decimal-pad"
+                              onFocus={() => registrarFocoCampoEdicaoRapida(item.id)}
+                              onBlur={() => registrarBlurCampoEdicaoRapida(item)}
+                              estilo={{ marginBottom: 0 }}
+                            />
+                          </View>
+                        </View>
+                      </View>
+                    ) : null}
                   </View>
 
                   {podeEditarItens ? (

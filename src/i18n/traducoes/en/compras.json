@@ -179,7 +179,7 @@
     "vazio": "No logs found."
   },
   "tempoReal": {
-    "sincronizando": "Syncing",
+    "sincronizando": "Synchronized",
     "conectado": "Real-time updates connected",
     "desconectado": "Disconnected",
     "erroConexao": "Could not connect real-time updates for this list.",

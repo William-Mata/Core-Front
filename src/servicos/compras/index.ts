@@ -300,10 +300,14 @@ function normalizarHistorico(entrada: unknown): HistoricoItemCompra {
 
 function normalizarSugestao(entrada: unknown): SugestaoItemCompra {
   const sugestao = (entrada ?? {}) as Record<string, unknown>;
+  const valorUnitario = Number(sugestao.precoUnitario ?? sugestao.valorUnitario ?? sugestao.ultimoPrecoUnitario ?? sugestao.ultimoPreco ?? 0);
   return {
     descricao: String(sugestao.descricao ?? ''),
+    observacao: String(sugestao.observacao ?? ''),
     unidadeMedida: normalizarUnidade(sugestao.unidadeMedida ?? sugestao.unidade),
-    valorReferencia: Number(sugestao.valorReferencia ?? sugestao.ultimoPrecoUnitario ?? sugestao.ultimoPreco ?? 0),
+    quantidade: Number(sugestao.quantidade ?? 1),
+    valorUnitario,
+    valorReferencia: Number(sugestao.valorReferencia ?? valorUnitario),
     marcadorCor: normalizarCorEtiqueta(sugestao.etiquetaCor ?? sugestao.marcadorCor),
   };
 }

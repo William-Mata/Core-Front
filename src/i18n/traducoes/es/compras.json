@@ -179,7 +179,7 @@
     "vazio": "No se encontraron registros."
   },
   "tempoReal": {
-    "sincronizando": "Sincronizando",
+    "sincronizando": "Sincronizado",
     "conectado": "Actualización en tiempo real conectada",
     "desconectado": "Desconectado",
     "erroConexao": "No se pudo conectar la actualización en tiempo real de esta lista.",

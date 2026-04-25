@@ -178,7 +178,7 @@
     "vazio": "Nenhum log encontrado."
   },
   "tempoReal": {
-    "sincronizando": "Sincronizando",
+    "sincronizando": "Sincronizado",
     "conectado": "Atualização em tempo real conectada",
     "desconectado": "Desconectado",
     "erroConexao": "Não foi possível conectar a atualização em tempo real desta lista.",
