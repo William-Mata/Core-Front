@@ -25,7 +25,10 @@
     "totalArquivadas": "Archived",
     "totalConcluidas": "Completed",
     "filtroStatus": "Planning status",
-    "ultimaAtualizacao": "Last update"
+    "ultimaAtualizacao": "Last update",
+    "valorTotal": "Total amount",
+    "valorComprado": "Purchased amount",
+    "quantidadeItensResumo": "Purchased items: {{comprados}}/{{total}}"
   },
   "lista": {
     "titulo": "Plans",
@@ -40,11 +43,12 @@
   },
   "modalNovaLista": {
     "titulo": "New Planning",
-    "nome": "Planning name",
-    "placeholderNome": "Type the planning name",
+    "nome": "Description",
+    "placeholderNome": "Enter description",
     "observacao": "Notes",
     "placeholderObservacao": "Enter additional notes",
-    "categoria": "Category"
+    "categoria": "Category",
+    "tituloEdicao": "Edit Planning"
   },
   "modalItem": {
     "novoTitulo": "New Item",
@@ -58,7 +62,20 @@
     "cor": "Color marker",
     "valorUnitario": "Unit price",
     "valorTotal": "Total price",
-    "corSelecionada": "Selected color: {{cor}}"
+    "corSelecionada": "Selected color: {{cor}}",
+    "cores": {
+      "vermelho": "Red",
+      "laranja": "Orange",
+      "amarelo": "Yellow",
+      "lima": "Lime",
+      "verde": "Green",
+      "turquesa": "Turquoise",
+      "azulClaro": "Light blue",
+      "indigo": "Indigo",
+      "violeta": "Violet",
+      "rosa": "Pink",
+      "personalizada": "Custom color"
+    }
   },
   "filtros": {
     "status": "Display mode",
@@ -153,15 +170,18 @@
     "somenteLeitura": "Only owner and co-owner can add or remove participants from this planning.",
     "listaAtual": "Current participants",
     "vazio": "No additional participants.",
-    "usuario": "User"
+    "usuario": "User",
+    "tituloFormulario": "Planning participants",
+    "proprietarioObrigatorio": "The list must contain exactly 1 Owner."
   },
   "logs": {
     "titulo": "Planning logs",
     "vazio": "No logs found."
   },
   "tempoReal": {
+    "sincronizando": "Syncing",
     "conectado": "Real-time updates connected",
-    "desconectado": "Real-time updates disconnected"
+    "desconectado": "Disconnected"
   },
   "status": {
     "ativa": "Active",
@@ -205,7 +225,9 @@
     "itemInvalido": "Please provide description, unit, quantity, color, unit price and total price.",
     "itemCriado": "Item created successfully.",
     "itemAtualizado": "Item updated successfully.",
+    "itemRemovido": "Item removed successfully.",
     "erroSalvarItem": "Could not save item.",
+    "erroRemoverItem": "Could not remove item.",
     "erroAtualizacaoRapida": "Could not quick-update item.",
     "acaoLoteSucesso": "Batch action completed successfully.",
     "acaoLoteErro": "Could not execute batch action.",
@@ -226,14 +248,19 @@
     "participanteAdicionado": "Participant added successfully.",
     "erroCompartilharLista": "Could not share the planning.",
     "participanteRemovido": "Participant removed successfully.",
-    "erroRemoverParticipante": "Could not remove participant."
+    "erroRemoverParticipante": "Could not remove participant.",
+    "listaAtualizada": "Planning updated successfully.",
+    "participanteDuplicado": "Participant already added to the list.",
+    "proprietarioObrigatorio": "The list must contain exactly 1 Owner."
   },
   "confirmacoes": {
     "removerLista": "Do you want to remove this planning?",
+    "removerItem": "Do you want to remove this item?",
     "arquivarLista": "Do you want to archive this planning?",
     "acaoLote": "Do you want to execute the \"{{acao}}\" action?",
     "converterDesejos": "Do you want to convert selected wishes into a planning?",
     "removerParticipante": "Do you want to remove this participant from the planning?",
-    "removerDesejo": "Do you want to remove this wish?"
+    "removerDesejo": "Do you want to remove this wish?",
+    "arquivarListaImpacto": "This action changes the list status to archived."
   }
 }

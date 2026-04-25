@@ -70,7 +70,7 @@ export interface PayloadAtualizarItemListaCompra {
 
 export interface PayloadAcaoLoteItensCompra {
   acao: AcaoLoteItensCompra;
-  itemIds?: number[];
+  itensIds?: number[];
 }
 
 export interface PayloadCriarDesejoCompra {
@@ -116,6 +116,11 @@ function montarConfigConsulta(opcoes?: OpcoesRequisicao): { signal?: AbortSignal
 
 function normalizarTextoSemAcento(valor: string): string {
   return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function normalizarCorEtiqueta(cor: unknown): string {
+  const valor = String(cor ?? '').trim().toLowerCase();
+  return /^#[\da-f]{6}$/.test(valor) ? valor : '#9ca3af';
 }
 
 function normalizarPermissao(permissao: unknown): PermissaoParticipanteLista {
@@ -220,7 +225,7 @@ function normalizarItem(entrada: unknown): ItemListaCompra {
     observacao: String(item.observacao ?? ''),
     unidadeMedida: normalizarUnidade(item.unidadeMedida ?? item.unidade),
     quantidade: Number.isFinite(quantidade) ? quantidade : 0,
-    marcadorCor: String(item.marcadorCor ?? item.etiquetaCor ?? '#9ca3af'),
+    marcadorCor: normalizarCorEtiqueta(item.etiquetaCor ?? item.marcadorCor),
     valorUnitario: Number.isFinite(valorUnitario) ? valorUnitario : 0,
     valorTotal: Number.isFinite(valorTotal) ? valorTotal : 0,
     comprado: Boolean(item.comprado),
@@ -299,7 +304,7 @@ function normalizarSugestao(entrada: unknown): SugestaoItemCompra {
     descricao: String(sugestao.descricao ?? ''),
     unidadeMedida: normalizarUnidade(sugestao.unidadeMedida ?? sugestao.unidade),
     valorReferencia: Number(sugestao.valorReferencia ?? sugestao.ultimoPrecoUnitario ?? sugestao.ultimoPreco ?? 0),
-    marcadorCor: String(sugestao.marcadorCor ?? '#9ca3af'),
+    marcadorCor: normalizarCorEtiqueta(sugestao.etiquetaCor ?? sugestao.marcadorCor),
   };
 }
 
@@ -401,7 +406,7 @@ export async function criarItemListaCompraApi(listaId: number, payload: PayloadC
     observacao: payload.observacao,
     unidade: payload.unidadeMedida,
     quantidade: payload.quantidade,
-    marcadorCor: payload.marcadorCor,
+    etiquetaCor: payload.marcadorCor,
     precoUnitario: payload.valorUnitario,
   });
   return normalizarItem(extrairDados(data));
@@ -417,12 +422,16 @@ export async function atualizarItemListaCompraApi(
     ...(payload.observacao !== undefined ? { observacao: payload.observacao } : {}),
     ...(payload.unidadeMedida !== undefined ? { unidade: payload.unidadeMedida } : {}),
     ...(payload.quantidade !== undefined ? { quantidade: payload.quantidade } : {}),
-    ...(payload.marcadorCor !== undefined ? { marcadorCor: payload.marcadorCor } : {}),
+    ...(payload.marcadorCor !== undefined ? { etiquetaCor: payload.marcadorCor } : {}),
     ...(payload.valorUnitario !== undefined ? { precoUnitario: payload.valorUnitario } : {}),
     ...(payload.comprado !== undefined ? { comprado: payload.comprado } : {}),
     ...(payload.versao !== undefined ? { versao: payload.versao } : {}),
   });
   return normalizarItem(extrairDados(data));
+}
+
+export async function removerItemListaCompraApi(listaId: number, itemId: number): Promise<void> {
+  await api.delete(`/compras/listas/${listaId}/itens/${itemId}`);
 }
 
 export async function atualizarItemRapidoListaCompraApi(

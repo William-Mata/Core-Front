@@ -1,4 +1,5 @@
 import { api } from '../api';
+import { Platform } from 'react-native';
 import { EventoTempoRealCompra } from '../../tipos/compras.tipos';
 import { obterTokenAcesso } from '../../utils/armazenamento';
 
@@ -20,7 +21,19 @@ interface OpcoesClienteTempoRealCompras {
 }
 
 type ConstrutorConexaoBuilder = new () => {
-  withUrl: (url: string, opcoes?: { accessTokenFactory?: () => string }) => {
+  withUrl: (url: string, opcoes?: { accessTokenFactory?: () => string; transport?: unknown }) => {
+    withAutomaticReconnect: () => {
+      build: () => ConexaoTempoReal;
+    };
+    build: () => ConexaoTempoReal;
+  };
+  configureLogging?: (nivel: unknown) => {
+    withUrl: (url: string, opcoes?: { accessTokenFactory?: () => string; transport?: unknown }) => {
+      withAutomaticReconnect: () => {
+        build: () => ConexaoTempoReal;
+      };
+      build: () => ConexaoTempoReal;
+    };
     withAutomaticReconnect: () => {
       build: () => ConexaoTempoReal;
     };
@@ -61,14 +74,27 @@ export async function criarClienteTempoRealCompras(opcoes: OpcoesClienteTempoRea
   try {
     const modulo = (await import('@microsoft/signalr')) as unknown as {
       HubConnectionBuilder: ConstrutorConexaoBuilder;
+      HttpTransportType?: { LongPolling?: unknown };
+      LogLevel?: { None?: unknown };
     };
 
     const builder = new modulo.HubConnectionBuilder();
+    if (builder.configureLogging && modulo.LogLevel?.None !== undefined) {
+      builder.configureLogging(modulo.LogLevel.None);
+    }
+
     const urlHub = opcoes.urlHub ?? obterUrlHubCompras();
+    const opcoesConexao: { accessTokenFactory: () => Promise<string>; transport?: unknown } = {
+      accessTokenFactory: async () => (await obterTokenAcesso()) ?? '',
+    };
+
+    // No web, evita token em query string do WebSocket ao usar long polling.
+    if (Platform.OS === 'web' && modulo.HttpTransportType?.LongPolling !== undefined) {
+      opcoesConexao.transport = modulo.HttpTransportType.LongPolling;
+    }
+
     conexao = builder
-      .withUrl(urlHub, {
-        accessTokenFactory: async () => (await obterTokenAcesso()) ?? '',
-      })
+      .withUrl(urlHub, opcoesConexao)
       .withAutomaticReconnect()
       .build();
 

@@ -1,5 +1,5 @@
 ﻿import { ReactNode } from 'react';
-import { Modal as RNModal, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { Modal as RNModal, ScrollView, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { COLORS, LAYOUT } from '../../../styles/variables';
 
 interface ModalProps {
@@ -22,7 +22,9 @@ export function Modal({ visivel, onFechar, titulo, children }: ModalProps) {
               </TouchableOpacity>
             </View>
           ) : null}
-          {children}
+          <ScrollView style={estilos.conteudo} contentContainerStyle={estilos.conteudoContainer} keyboardShouldPersistTaps="handled">
+            {children}
+          </ScrollView>
         </View>
       </View>
     </RNModal>
@@ -40,9 +42,16 @@ const estilos = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 640,
+    maxHeight: '88%',
     backgroundColor: COLORS.bgSecondary,
     borderRadius: LAYOUT.radiusLg,
     padding: 24,
+  },
+  conteudo: {
+    flexGrow: 0,
+  },
+  conteudoContainer: {
+    paddingBottom: 4,
   },
   header: {
     flexDirection: 'row',

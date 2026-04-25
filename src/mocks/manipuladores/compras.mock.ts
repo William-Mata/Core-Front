@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import { calcularValorTotalItemCompra } from '../../utils/compras.util';
-import { DesejoCompra, ItemListaCompra, ListaCompra, ListaCompraLog } from '../../tipos/compras.tipos';
+import { DesejoCompra, ItemListaCompra, ListaCompra, ListaCompraLog, ParticipanteListaCompra } from '../../tipos/compras.tipos';
 
 const usuarioAtualId = 1;
 
@@ -13,7 +13,7 @@ let listasCompra: ListaCompra[] = [
     criadoPorUsuarioId: usuarioAtualId,
     participantes: [
       { usuarioId: 1, nomeUsuario: 'William', permissao: 'proprietario' },
-      { usuarioId: 2, nomeUsuario: 'Maria', permissao: 'editor' },
+      { usuarioId: 2, nomeUsuario: 'Maria', permissao: 'coproprietario' },
     ],
     criadoEm: '2026-04-20',
     atualizadoEm: '2026-04-20',
@@ -88,8 +88,54 @@ function respostaComDados<T>(dados: T) {
   return HttpResponse.json({ sucesso: true, dados });
 }
 
+function calcularResumoLista(lista: ListaCompra) {
+  const itens = itensListaCompra.filter((item) => item.listaId === lista.id);
+  const quantidadeItensComprados = itens.filter((item) => item.comprado).length;
+  const valorTotal = Number(itens.reduce((soma, item) => soma + item.valorTotal, 0).toFixed(2));
+  const valorComprado = Number(
+    itens.filter((item) => item.comprado).reduce((soma, item) => soma + item.valorTotal, 0).toFixed(2),
+  );
+  const percentualComprado = itens.length > 0 ? Number(((quantidadeItensComprados / itens.length) * 100).toFixed(2)) : 0;
+  return {
+    itens,
+    valorTotal,
+    valorComprado,
+    percentualComprado,
+    quantidadeItens: itens.length,
+    quantidadeItensComprados,
+  };
+}
+
+function mapearListaResumo(lista: ListaCompra) {
+  const resumo = calcularResumoLista(lista);
+  const papelUsuario = lista.participantes.find((participante) => participante.usuarioId === usuarioAtualId)?.permissao ?? 'leitor';
+
+  return {
+    id: lista.id,
+    nome: lista.nome,
+    categoria: lista.categoria,
+    observacao: lista.observacao ?? '',
+    status: lista.status,
+    papelUsuario: papelUsuario === 'proprietario' ? 'Proprietario' : papelUsuario === 'coproprietario' ? 'CoProprietario' : 'Leitor',
+    valorTotal: resumo.valorTotal,
+    valorComprado: resumo.valorComprado,
+    percentualComprado: resumo.percentualComprado,
+    quantidadeItens: resumo.quantidadeItens,
+    quantidadeItensComprados: resumo.quantidadeItensComprados,
+    quantidadeParticipantes: lista.participantes.length,
+    dataHoraAtualizacao: `${lista.atualizadoEm}T00:00:00Z`,
+  };
+}
+
+function mapearPapelPayload(papel?: string): ParticipanteListaCompra['permissao'] {
+  const valor = String(papel ?? '').toLowerCase();
+  if (valor === 'proprietario') return 'proprietario';
+  if (valor === 'coproprietario') return 'coproprietario';
+  return 'leitor';
+}
+
 export const manipuladorCompras = [
-  http.get('/api/compras/listas', () => respostaComDados(listasCompra)),
+  http.get('/api/compras/listas', () => respostaComDados(listasCompra.map(mapearListaResumo))),
 
   http.get('/api/compras/listas/:listaId', ({ params }) => {
     const listaId = Number(params.listaId);
@@ -98,39 +144,85 @@ export const manipuladorCompras = [
       return HttpResponse.json({ sucesso: false, codigo: 'lista_compra_nao_encontrada' }, { status: 404 });
     }
 
-    const itens = itensListaCompra.filter((item) => item.listaId === listaId);
-    const quantidadeItensComprados = itens.filter((item) => item.comprado).length;
-    const valorTotal = Number(itens.reduce((soma, item) => soma + item.valorTotal, 0).toFixed(2));
-    const valorComprado = Number(
-      itens.filter((item) => item.comprado).reduce((soma, item) => soma + item.valorTotal, 0).toFixed(2),
-    );
-    const percentualComprado = itens.length > 0 ? Number(((quantidadeItensComprados / itens.length) * 100).toFixed(2)) : 0;
+    const resumo = calcularResumoLista(lista);
 
     return respostaComDados({
       id: lista.id,
       nome: lista.nome,
+      observacao: lista.observacao ?? '',
       categoria: lista.categoria,
       status: lista.status,
-      valorTotal,
-      valorComprado,
-      percentualComprado,
-      quantidadeItens: itens.length,
-      quantidadeItensComprados,
-      itens,
+      valorTotal: resumo.valorTotal,
+      valorComprado: resumo.valorComprado,
+      percentualComprado: resumo.percentualComprado,
+      quantidadeItens: resumo.quantidadeItens,
+      quantidadeItensComprados: resumo.quantidadeItensComprados,
+      itens: resumo.itens,
       participantes: lista.participantes,
-      logs: logsListasCompra.filter((log) => log.listaId === listaId),
+      dataHoraAtualizacao: `${lista.atualizadoEm}T00:00:00Z`,
+    });
+  }),
+
+  http.get('/api/compras/listas/:listaId/detalhe', ({ params }) => {
+    const listaId = Number(params.listaId);
+    const lista = listasCompra.find((item) => item.id === listaId);
+    if (!lista) {
+      return HttpResponse.json({ sucesso: false, codigo: 'lista_compra_nao_encontrada' }, { status: 404 });
+    }
+
+    return respostaComDados({
+      id: lista.id,
+      nome: lista.nome,
+      observacao: lista.observacao ?? '',
+      categoria: lista.categoria,
+      status: lista.status,
+      participantes: lista.participantes.map((participante) => ({
+        usuarioId: participante.usuarioId,
+        nome: participante.nomeUsuario,
+        papel: participante.permissao === 'proprietario'
+          ? 'Proprietario'
+          : participante.permissao === 'coproprietario'
+            ? 'CoProprietario'
+            : 'Leitor',
+      })),
+      logs: logsListasCompra.filter((log) => log.listaId === listaId).map((log) => ({
+        id: log.id,
+        dataHoraCadastro: log.dataHoraUtc,
+        usuarioCadastroId: log.usuarioId,
+        itemListaCompraId: log.itemListaCompraId ?? null,
+        acao: log.evento,
+        descricao: log.descricao ?? '',
+        valorAnterior: log.valorAnterior ?? '',
+        valorNovo: log.valorNovo ?? '',
+      })),
+      dataHoraAtualizacao: `${lista.atualizadoEm}T00:00:00Z`,
     });
   }),
 
   http.post('/api/compras/listas', async ({ request }) => {
-    const payload = (await request.json()) as { nome: string; categoria: ListaCompra['categoria'] };
+    const payload = (await request.json()) as {
+      nome: string;
+      categoria: ListaCompra['categoria'];
+      observacao?: string;
+      participantes?: Array<{ usuarioId: number; papel: 'Proprietario' | 'CoProprietario' | 'Leitor' }>;
+    };
+    const participantesPayload = Array.isArray(payload.participantes) ? payload.participantes : [];
+    const participantes = participantesPayload.length > 0
+      ? participantesPayload.map((participante) => ({
+          usuarioId: participante.usuarioId,
+          nomeUsuario: participante.usuarioId === usuarioAtualId ? 'William' : `Usuario ${participante.usuarioId}`,
+          permissao: mapearPapelPayload(participante.papel),
+        }))
+      : [{ usuarioId: usuarioAtualId, nomeUsuario: 'William', permissao: 'proprietario' as const }];
+
     const novaLista: ListaCompra = {
       id: Date.now(),
       nome: payload.nome,
+      observacao: payload.observacao ?? '',
       categoria: payload.categoria,
       status: 'ativa',
       criadoPorUsuarioId: usuarioAtualId,
-      participantes: [{ usuarioId: usuarioAtualId, nomeUsuario: 'William', permissao: 'proprietario' }],
+      participantes,
       criadoEm: '2026-04-21',
       atualizadoEm: '2026-04-21',
     };
@@ -140,10 +232,27 @@ export const manipuladorCompras = [
 
   http.put('/api/compras/listas/:listaId', async ({ params, request }) => {
     const listaId = Number(params.listaId);
-    const payload = (await request.json()) as Partial<ListaCompra>;
-    listasCompra = listasCompra.map((lista) =>
-      lista.id === listaId ? { ...lista, ...payload, atualizadoEm: '2026-04-21' } : lista,
-    );
+    const payload = (await request.json()) as Partial<ListaCompra> & {
+      participantes?: Array<{ usuarioId: number; papel: 'Proprietario' | 'CoProprietario' | 'Leitor' }>;
+    };
+    listasCompra = listasCompra.map((lista) => {
+      if (lista.id !== listaId) return lista;
+
+      const participantesAtualizados = Array.isArray(payload.participantes)
+        ? payload.participantes.map((participante) => ({
+            usuarioId: participante.usuarioId,
+            nomeUsuario: participante.usuarioId === usuarioAtualId ? 'William' : `Usuario ${participante.usuarioId}`,
+            permissao: mapearPapelPayload(participante.papel),
+          }))
+        : lista.participantes;
+
+      return {
+        ...lista,
+        ...payload,
+        participantes: participantesAtualizados,
+        atualizadoEm: '2026-04-21',
+      };
+    });
     const listaAtualizada = listasCompra.find((lista) => lista.id === listaId);
     logsListasCompra = [
       ...logsListasCompra,
@@ -171,18 +280,34 @@ export const manipuladorCompras = [
     return respostaComDados(listasCompra.find((item) => item.id === listaId));
   }),
 
-  http.post('/api/compras/listas/:listaId/duplicar', ({ params }) => {
+  http.post('/api/compras/listas/:listaId/duplicar', async ({ params, request }) => {
     const listaId = Number(params.listaId);
+    const payload = (await request.json()) as {
+      nome?: string;
+      categoria?: ListaCompra['categoria'];
+      observacao?: string;
+      participantes?: Array<{ usuarioId: number; papel: 'Proprietario' | 'CoProprietario' | 'Leitor' }>;
+    };
     const listaBase = listasCompra.find((lista) => lista.id === listaId);
     if (!listaBase) {
       return HttpResponse.json({ sucesso: false, mensagem: 'Lista nao encontrada.' }, { status: 404 });
     }
 
     const novaListaId = Date.now();
+    const participantes = Array.isArray(payload.participantes) && payload.participantes.length > 0
+      ? payload.participantes.map((participante) => ({
+          usuarioId: participante.usuarioId,
+          nomeUsuario: participante.usuarioId === usuarioAtualId ? 'William' : `Usuario ${participante.usuarioId}`,
+          permissao: mapearPapelPayload(participante.papel),
+        }))
+      : listaBase.participantes;
     const listaDuplicada: ListaCompra = {
       ...listaBase,
       id: novaListaId,
-      nome: `${listaBase.nome} (copia)`,
+      nome: payload.nome ?? `${listaBase.nome} (copia)`,
+      observacao: payload.observacao ?? listaBase.observacao ?? '',
+      categoria: payload.categoria ?? listaBase.categoria,
+      participantes,
       criadoEm: '2026-04-21',
       atualizadoEm: '2026-04-21',
     };
@@ -218,54 +343,13 @@ export const manipuladorCompras = [
     return HttpResponse.json({ sucesso: true });
   }),
 
-  http.post('/api/compras/listas/:listaId/participantes', async ({ params, request }) => {
-    const listaId = Number(params.listaId);
-    const payload = (await request.json()) as { participanteId: number; permissao: 'editor' | 'leitor' };
-    if (payload.participanteId === usuarioAtualId) {
-      return HttpResponse.json({ sucesso: false, codigo: 'participante_invalido' }, { status: 400 });
-    }
-    listasCompra = listasCompra.map((lista) => {
-      if (lista.id !== listaId) return lista;
-      const jaExiste = lista.participantes.some((p) => p.usuarioId === payload.participanteId);
-      if (jaExiste) return lista;
-      return {
-        ...lista,
-        participantes: [
-          ...lista.participantes,
-          { usuarioId: payload.participanteId, nomeUsuario: `Usuario ${payload.participanteId}`, permissao: payload.permissao },
-        ],
-      };
-    });
-    logsListasCompra = [
-      ...logsListasCompra,
-      { id: Date.now(), listaId, evento: 'lista_compartilhada', usuarioId: usuarioAtualId, dataHoraUtc: '2026-04-21T12:04:00Z' },
-    ];
-    return respostaComDados(listasCompra.find((lista) => lista.id === listaId));
-  }),
-
-  http.delete('/api/compras/listas/:listaId/participantes/:participanteId', ({ params }) => {
-    const listaId = Number(params.listaId);
-    const participanteId = Number(params.participanteId);
-    listasCompra = listasCompra.map((lista) => {
-      if (lista.id !== listaId) return lista;
-      return {
-        ...lista,
-        participantes: lista.participantes.filter((participante) => participante.usuarioId !== participanteId),
-      };
-    });
-    logsListasCompra = [
-      ...logsListasCompra,
-      { id: Date.now(), listaId, evento: 'participante_removido', usuarioId: usuarioAtualId, dataHoraUtc: '2026-04-21T12:05:00Z' },
-    ];
-    return HttpResponse.json({ sucesso: true });
-  }),
-
   http.post('/api/compras/listas/:listaId/itens', async ({ params, request }) => {
     const listaId = Number(params.listaId);
     const payload = (await request.json()) as Omit<ItemListaCompra, 'id' | 'listaId' | 'valorTotal' | 'comprado' | 'versao' | 'atualizadoEm'> & {
       precoUnitario: number;
       quantidade: number;
       marcadorCor?: string;
+      etiquetaCor?: string;
       observacao?: string;
       unidade?: ItemListaCompra['unidadeMedida'];
     };
@@ -277,7 +361,7 @@ export const manipuladorCompras = [
       observacao: payload.observacao ?? '',
       unidadeMedida: payload.unidade ?? payload.unidadeMedida,
       quantidade: payload.quantidade,
-      marcadorCor: payload.marcadorCor ?? '#9ca3af',
+      marcadorCor: payload.etiquetaCor ?? payload.marcadorCor ?? '#9ca3af',
       valorUnitario: payload.precoUnitario,
       valorTotal: calcularValorTotalItemCompra(payload.quantidade, payload.precoUnitario),
       comprado: false,
@@ -294,16 +378,23 @@ export const manipuladorCompras = [
 
   http.put('/api/compras/listas/:listaId/itens/:itemId', async ({ params, request }) => {
     const itemId = Number(params.itemId);
-    const payload = (await request.json()) as Partial<ItemListaCompra>;
+    const payload = (await request.json()) as Partial<ItemListaCompra> & {
+      precoUnitario?: number;
+      unidade?: ItemListaCompra['unidadeMedida'];
+      etiquetaCor?: string;
+    };
     let itemAtualizado: ItemListaCompra | null = null;
     itensListaCompra = itensListaCompra.map((item) => {
       if (item.id !== itemId) return item;
       itemAtualizado = {
         ...item,
-        ...payload,
         valorTotal: calcularValorTotalItemCompra(payload.quantidade ?? item.quantidade, payload.precoUnitario ?? item.valorUnitario),
-        valorUnitario: (payload.precoUnitario as number | undefined) ?? item.valorUnitario,
-        unidadeMedida: (payload.unidade as ItemListaCompra['unidadeMedida'] | undefined) ?? item.unidadeMedida,
+        valorUnitario: payload.precoUnitario ?? item.valorUnitario,
+        unidadeMedida: payload.unidade ?? item.unidadeMedida,
+        marcadorCor: payload.etiquetaCor ?? payload.marcadorCor ?? item.marcadorCor,
+        descricao: payload.descricao ?? item.descricao,
+        observacao: payload.observacao ?? item.observacao,
+        comprado: payload.comprado ?? item.comprado,
         versao: item.versao + 1,
         atualizadoEm: '2026-04-21',
       };
@@ -314,6 +405,17 @@ export const manipuladorCompras = [
       { id: Date.now(), listaId: Number(params.listaId), evento: 'item_atualizado', usuarioId: usuarioAtualId, dataHoraUtc: '2026-04-21T12:07:00Z' },
     ];
     return respostaComDados(itemAtualizado);
+  }),
+
+  http.delete('/api/compras/listas/:listaId/itens/:itemId', ({ params }) => {
+    const itemId = Number(params.itemId);
+    const listaId = Number(params.listaId);
+    itensListaCompra = itensListaCompra.filter((item) => item.id !== itemId);
+    logsListasCompra = [
+      ...logsListasCompra,
+      { id: Date.now(), listaId, evento: 'item_excluido', usuarioId: usuarioAtualId, dataHoraUtc: '2026-04-21T12:07:30Z' },
+    ];
+    return HttpResponse.json({ sucesso: true });
   }),
 
   http.patch('/api/compras/listas/:listaId/itens/:itemId/edicao-rapida', async ({ params, request }) => {
@@ -381,8 +483,12 @@ export const manipuladorCompras = [
       payload.acao === 'desmarcarSelecionados'
     ) {
       const alvo = payload.acao === 'MarcarSelecionadosComprados' || payload.acao === 'marcarSelecionadosComprados';
-      const payloadComIds = payload as { itemIds?: number[] };
-      const idsSelecionados = Array.isArray(payloadComIds.itemIds) ? payloadComIds.itemIds : [];
+      const payloadComIds = payload as { itensIds?: number[]; itemIds?: number[] };
+      const idsSelecionados = Array.isArray(payloadComIds.itensIds)
+        ? payloadComIds.itensIds
+        : Array.isArray(payloadComIds.itemIds)
+          ? payloadComIds.itemIds
+          : [];
       itensListaCompra = itensListaCompra.map((item) =>
         item.listaId === listaId && idsSelecionados.includes(item.id)
           ? { ...item, comprado: alvo, versao: item.versao + 1, atualizadoEm: '2026-04-21' }
@@ -542,11 +648,6 @@ export const manipuladorCompras = [
     return respostaComDados(historico);
   }),
 
-  http.get('/api/compras/listas/:listaId/logs', ({ params }) => {
-    const listaId = Number(params.listaId);
-    return respostaComDados(logsListasCompra.filter((item) => item.listaId === listaId));
-  }),
-
   http.get('/api/compras/listas/:listaId/sugestoes-itens', ({ request }) => {
     const url = new URL(request.url);
     const termo = (url.searchParams.get('descricao') ?? '').trim().toLowerCase();
@@ -559,7 +660,7 @@ export const manipuladorCompras = [
         descricao: item.descricao,
         unidadeMedida: item.unidadeMedida,
         valorReferencia: item.valorUnitario,
-        marcadorCor: item.marcadorCor,
+        etiquetaCor: item.marcadorCor,
       }));
 
     const deduplicadas = Array.from(

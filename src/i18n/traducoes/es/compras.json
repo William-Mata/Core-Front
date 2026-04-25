@@ -25,7 +25,10 @@
     "totalArquivadas": "Archivadas",
     "totalConcluidas": "Concluidas",
     "filtroStatus": "Estado de la planificación",
-    "ultimaAtualizacao": "Última actualización"
+    "ultimaAtualizacao": "Última actualización",
+    "valorTotal": "Valor total",
+    "valorComprado": "Valor comprado",
+    "quantidadeItensResumo": "Articulos comprados: {{comprados}}/{{total}}"
   },
   "lista": {
     "titulo": "Planificaciones",
@@ -40,11 +43,12 @@
   },
   "modalNovaLista": {
     "titulo": "Nueva Planificación",
-    "nome": "Nombre de la planificación",
-    "placeholderNome": "Ingrese el nombre de la planificación",
+    "nome": "Descripcion",
+    "placeholderNome": "Ingrese la descripcion",
     "observacao": "Observacion",
     "placeholderObservacao": "Ingrese observaciones adicionales",
-    "categoria": "Categoria"
+    "categoria": "Categoria",
+    "tituloEdicao": "Editar Planificacion"
   },
   "modalItem": {
     "novoTitulo": "Nuevo Articulo",
@@ -58,7 +62,20 @@
     "cor": "Marcador de color",
     "valorUnitario": "Valor unitario",
     "valorTotal": "Valor total",
-    "corSelecionada": "Color seleccionado: {{cor}}"
+    "corSelecionada": "Color seleccionado: {{cor}}",
+    "cores": {
+      "vermelho": "Rojo",
+      "laranja": "Naranja",
+      "amarelo": "Amarillo",
+      "lima": "Lima",
+      "verde": "Verde",
+      "turquesa": "Turquesa",
+      "azulClaro": "Azul claro",
+      "indigo": "Índigo",
+      "violeta": "Violeta",
+      "rosa": "Rosa",
+      "personalizada": "Color personalizado"
+    }
   },
   "filtros": {
     "status": "Modo de visualización",
@@ -153,15 +170,18 @@
     "somenteLeitura": "Solo propietario y copropietario pueden agregar o remover participantes de esta planificación.",
     "listaAtual": "Participantes actuales",
     "vazio": "No hay participantes adicionales.",
-    "usuario": "Usuario"
+    "usuario": "Usuario",
+    "tituloFormulario": "Participantes de la planificacion",
+    "proprietarioObrigatorio": "La lista debe contener exactamente 1 Propietario."
   },
   "logs": {
     "titulo": "Registros de la planificación",
     "vazio": "No se encontraron registros."
   },
   "tempoReal": {
+    "sincronizando": "Sincronizando",
     "conectado": "Actualización en tiempo real conectada",
-    "desconectado": "Actualización en tiempo real desconectada"
+    "desconectado": "Desconectado"
   },
   "status": {
     "ativa": "Activa",
@@ -205,7 +225,9 @@
     "itemInvalido": "Informe descripción, unidad, cantidad, color, valor unitario y valor total.",
     "itemCriado": "Articulo creado con exito.",
     "itemAtualizado": "Articulo actualizado con exito.",
+    "itemRemovido": "Articulo eliminado con exito.",
     "erroSalvarItem": "No fue posible guardar el articulo.",
+    "erroRemoverItem": "No fue posible eliminar el articulo.",
     "erroAtualizacaoRapida": "No fue posible actualizar rápidamente el artículo.",
     "acaoLoteSucesso": "Accion en lote ejecutada con exito.",
     "acaoLoteErro": "No fue posible ejecutar la accion en lote.",
@@ -226,15 +248,19 @@
     "participanteAdicionado": "Participante agregado con exito.",
     "erroCompartilharLista": "No fue posible compartir la planificación.",
     "participanteRemovido": "Participante removido con exito.",
-    "erroRemoverParticipante": "No fue posible remover participante."
+    "erroRemoverParticipante": "No fue posible remover participante.",
+    "listaAtualizada": "Planificacion actualizada con exito.",
+    "participanteDuplicado": "Participante ya agregado en la lista.",
+    "proprietarioObrigatorio": "La lista debe contener exactamente 1 Propietario."
   },
   "confirmacoes": {
     "removerLista": "Desea eliminar esta planificación?",
+    "removerItem": "Desea eliminar este articulo?",
     "arquivarLista": "Desea archivar esta planificación?",
     "acaoLote": "¿Desea ejecutar la acción \"{{acao}}\"?",
     "converterDesejos": "Desea convertir los deseos seleccionados en una planificación?",
     "removerParticipante": "Desea remover este participante de la planificación?",
-    "removerDesejo": "Desea eliminar este deseo?"
+    "removerDesejo": "Desea eliminar este deseo?",
+    "arquivarListaImpacto": "Esta accion cambia el estado de la lista a archivada."
   }
 }
-

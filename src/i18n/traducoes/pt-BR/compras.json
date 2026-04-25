@@ -12,7 +12,7 @@
     "historicoItens": "Histórico de Preços",
     "recarregar": "Recarregar",
     "arquivarLista": "Arquivar Planejamento",
-    "menuAcoes": "Opcoes do planejamento",
+    "menuAcoes": "Opções",
     "selecionarAcao": "Selecionar acao"
   },
   "listas": {
@@ -25,7 +25,10 @@
     "totalArquivadas": "Arquivadas",
     "totalConcluidas": "Concluídas",
     "filtroStatus": "Status do planejamento",
-    "ultimaAtualizacao": "Última atualização"
+    "ultimaAtualizacao": "Última atualização",
+    "valorTotal": "Valor total",
+    "valorComprado": "Valor comprado",
+    "quantidadeItensResumo": "Itens comprados: {{comprados}}/{{total}}"
   },
   "lista": {
     "titulo": "Planejamentos",
@@ -40,11 +43,12 @@
   },
   "modalNovaLista": {
     "titulo": "Novo Planejamento",
-    "nome": "Nome do planejamento",
-    "placeholderNome": "Digite o nome do planejamento",
-    "observacao": "Observacao",
-    "placeholderObservacao": "Digite observacoes adicionais",
-    "categoria": "Categoria"
+    "nome": "Descrição",
+    "placeholderNome": "Digite a descrição",
+    "observacao": "Observação",
+    "placeholderObservacao": "Digite observações adicionais",
+    "categoria": "Categoria",
+    "tituloEdicao": "Editar Planejamento"
   },
   "modalItem": {
     "novoTitulo": "Novo Item",
@@ -58,7 +62,20 @@
     "cor": "Marcador de cor",
     "valorUnitario": "Valor unitário",
     "valorTotal": "Valor total",
-    "corSelecionada": "Cor selecionada: {{cor}}"
+    "corSelecionada": "Cor selecionada: {{cor}}",
+    "cores": {
+      "vermelho": "Vermelho",
+      "laranja": "Laranja",
+      "amarelo": "Amarelo",
+      "lima": "Lima",
+      "verde": "Verde",
+      "turquesa": "Turquesa",
+      "azulClaro": "Azul claro",
+      "indigo": "Índigo",
+      "violeta": "Violeta",
+      "rosa": "Rosa",
+      "personalizada": "Cor personalizada"
+    }
   },
   "filtros": {
     "status": "Modo de Exibição",
@@ -152,15 +169,18 @@
     "somenteLeitura": "Somente Propriet�rio e Copropriet�rio podem adicionar ou remover participantes deste planejamento.",
     "listaAtual": "Participantes atuais",
     "vazio": "Nenhum participante adicional.",
-    "usuario": "Usuário"
+    "usuario": "Usuário",
+    "tituloFormulario": "Participantes do planejamento",
+    "proprietarioObrigatorio": "A lista deve conter exatamente 1 Proprietario."
   },
   "logs": {
     "titulo": "Logs do planejamento",
     "vazio": "Nenhum log encontrado."
   },
   "tempoReal": {
+    "sincronizando": "Sincronizando",
     "conectado": "Atualização em tempo real conectada",
-    "desconectado": "Atualização em tempo real desconectada"
+    "desconectado": "Desconectado"
   },
   "status": {
     "ativa": "Ativa",
@@ -204,7 +224,9 @@
     "itemInvalido": "Preencha descrição, unidade, quantidade, cor, valor unitário e valor total.",
     "itemCriado": "Item criado com sucesso.",
     "itemAtualizado": "Item atualizado com sucesso.",
+    "itemRemovido": "Item removido com sucesso.",
     "erroSalvarItem": "Não foi possível salvar o item.",
+    "erroRemoverItem": "Não foi possível remover o item.",
     "erroAtualizacaoRapida": "Não foi possível atualizar rapidamente o item.",
     "acaoLoteSucesso": "Ação em lote executada com sucesso.",
     "acaoLoteErro": "Não foi possível executar a ação em lote.",
@@ -225,15 +247,19 @@
     "participanteAdicionado": "Participante adicionado com sucesso.",
     "erroCompartilharLista": "Não foi possível compartilhar o planejamento.",
     "participanteRemovido": "Participante removido com sucesso.",
-    "erroRemoverParticipante": "Não foi possível remover o participante."
+    "erroRemoverParticipante": "Não foi possível remover o participante.",
+    "listaAtualizada": "Planejamento atualizado com sucesso.",
+    "participanteDuplicado": "Participante ja adicionado na lista.",
+    "proprietarioObrigatorio": "A lista deve conter exatamente 1 Proprietario."
   },
   "confirmacoes": {
     "removerLista": "Deseja remover este planejamento?",
+    "removerItem": "Deseja remover este item?",
     "arquivarLista": "Deseja arquivar este planejamento?",
     "acaoLote": "Deseja executar a ação \"{{acao}}\"?",
     "converterDesejos": "Deseja converter os desejos selecionados para lista de compras?",
     "removerParticipante": "Deseja remover este participante da lista?",
-    "removerDesejo": "Deseja remover este desejo?"
+    "removerDesejo": "Deseja remover este desejo?",
+    "arquivarListaImpacto": "Esta acao altera o status da lista para arquivada."
   }
 }
-

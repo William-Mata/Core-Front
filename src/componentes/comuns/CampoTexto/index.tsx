@@ -16,6 +16,7 @@ interface CampoTextoProps {
   numberOfLines?: number;
   obrigatorio?: boolean;
   forcarMaiusculo?: boolean;
+  editavel?: boolean;
 }
 
 function formatarLabelObrigatorio(label: string, obrigatorio: boolean): string {
@@ -43,6 +44,9 @@ const estilos = StyleSheet.create({
     borderColor: COLORS.borderColor,
     fontSize: 14,
   },
+  inputDesabilitado: {
+    opacity: 0.7,
+  },
   error: {
     color: COLORS.error,
     fontSize: 12,
@@ -65,6 +69,7 @@ export function CampoTexto(props: CampoTextoProps) {
     numberOfLines,
     obrigatorio,
     forcarMaiusculo,
+    editavel = true,
   } = props;
   const valorFinal = value || valor;
   const [focado, setFocado] = useState(false);
@@ -84,8 +89,10 @@ export function CampoTexto(props: CampoTextoProps) {
         keyboardType={keyboardType as any}
         onFocus={() => setFocado(true)}
         onBlur={() => setFocado(false)}
+        editable={editavel}
         style={[
           estilos.input,
+          !editavel ? estilos.inputDesabilitado : null,
           error ? { borderColor: COLORS.accent } : focado ? { borderColor: COLORS.borderAccent } : null,
           Platform.OS === 'web'
             ? ({

@@ -7,7 +7,7 @@ export type CategoriaListaCompra =
   | 'outros';
 
 export type StatusListaCompra = 'ativa' | 'arquivada' | 'concluida';
-export type PermissaoParticipanteLista = 'proprietario' | 'editor' | 'leitor';
+export type PermissaoParticipanteLista = 'proprietario' | 'coproprietario' | 'leitor';
 export type FiltroStatusCompra = 'todos' | 'comprados' | 'naoComprados';
 export type OrdenacaoItensCompra = 'alfabetica' | 'preco' | 'cor';
 export type DirecaoOrdenacao = 'asc' | 'desc';
@@ -31,10 +31,18 @@ export interface ParticipanteListaCompra {
 export interface ListaCompra {
   id: number;
   nome: string;
+  observacao?: string;
   categoria: CategoriaListaCompra;
   status: StatusListaCompra;
+  papelUsuario?: PermissaoParticipanteLista;
   criadoPorUsuarioId: number;
   participantes: ParticipanteListaCompra[];
+  valorTotal?: number;
+  valorComprado?: number;
+  percentualComprado?: number;
+  quantidadeItens?: number;
+  quantidadeItensComprados?: number;
+  quantidadeParticipantes?: number;
   criadoEm: string;
   atualizadoEm: string;
 }
@@ -114,6 +122,10 @@ export interface ListaCompraLog {
   listaId: number;
   evento: string;
   usuarioId: number;
+  itemListaCompraId?: number;
+  descricao?: string;
+  valorAnterior?: string;
+  valorNovo?: string;
   dataHoraUtc: string;
 }
 

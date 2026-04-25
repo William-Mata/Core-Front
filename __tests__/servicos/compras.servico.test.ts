@@ -1,4 +1,5 @@
 import {
+  aplicarAcaoLoteItensCompraApi,
   atualizarItemRapidoListaCompraApi,
   atualizarListaCompraApi,
   buscarSugestoesItensCompraApi,
@@ -8,12 +9,14 @@ import {
   listarHistoricoItensCompraApi,
   listarListasCompraApi,
   obterListaCompraApi,
+  removerItemListaCompraApi,
 } from '../../src/servicos/compras';
 
 const mockGet = jest.fn();
 const mockPost = jest.fn();
 const mockPatch = jest.fn();
 const mockPut = jest.fn();
+const mockDelete = jest.fn();
 
 jest.mock('../../src/servicos/api', () => ({
   api: {
@@ -21,6 +24,7 @@ jest.mock('../../src/servicos/api', () => ({
     post: (...args: unknown[]) => mockPost(...args),
     patch: (...args: unknown[]) => mockPatch(...args),
     put: (...args: unknown[]) => mockPut(...args),
+    delete: (...args: unknown[]) => mockDelete(...args),
   },
 }));
 
@@ -220,6 +224,30 @@ describe('servico compras', () => {
       acaoPosConversao: 'MarcarComoConvertido',
     });
     expect(resultado).toEqual({ listaId: 500, itensCriados: 2, desejosProcessados: 2 });
+  });
+
+  it('deve aplicar acao em lote enviando campo itensIds', async () => {
+    mockPost.mockResolvedValueOnce({
+      data: [{ id: 10, descricao: 'Arroz', unidade: 'kg', quantidade: 1, precoUnitario: 7 }],
+    });
+
+    await aplicarAcaoLoteItensCompraApi(100, {
+      acao: 'ExcluirSelecionados',
+      itensIds: [10],
+    });
+
+    expect(mockPost).toHaveBeenCalledWith('/compras/listas/100/acoes-lote', {
+      acao: 'ExcluirSelecionados',
+      itensIds: [10],
+    });
+  });
+
+  it('deve remover item unico pelo endpoint de item', async () => {
+    mockDelete.mockResolvedValueOnce({ data: { sucesso: true } });
+
+    await removerItemListaCompraApi(100, 10);
+
+    expect(mockDelete).toHaveBeenCalledWith('/compras/listas/100/itens/10');
   });
 
   it('deve consultar historico de precos com filtros opcionais', async () => {

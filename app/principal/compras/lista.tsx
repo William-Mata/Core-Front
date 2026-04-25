@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Keyboard, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, Keyboard, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Botao } from '../../../src/componentes/comuns/Botao';
+import { CampoAutoCompletar } from '../../../src/componentes/comuns/CampoAutoCompletar';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoDataIntervalo } from '../../../src/componentes/comuns/CampoData';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
+import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
 import { Modal } from '../../../src/componentes/comuns/Modal';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import {
   aplicarAcaoLoteItensCompraApi,
   atualizarItemListaCompraApi,
-  atualizarItemRapidoListaCompraApi,
   buscarSugestoesItensCompraApi,
   criarItemListaCompraApi,
   marcarItemListaCompraApi,
   obterListaCompraApi,
+  removerItemListaCompraApi,
 } from '../../../src/servicos/compras';
 import { criarClienteTempoRealCompras } from '../../../src/servicos/compras/tempoReal';
 import { usarAutenticacaoStore } from '../../../src/store/usarAutenticacaoStore';
@@ -26,6 +28,7 @@ import {
   PermissaoParticipanteLista,
   DirecaoOrdenacao,
   OrdenacaoItensCompra,
+  SugestaoItemCompra,
 } from '../../../src/tipos/compras.tipos';
 import {
   aplicarMascaraNumeroPorLocale,
@@ -37,7 +40,7 @@ import {
 } from '../../../src/utils/compras.util';
 import { solicitarConfirmacao } from '../../../src/utils/confirmacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
-import { formatarDataHoraPorIdioma, formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
+import { formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { COLORS } from '../../../src/styles/variables';
 
@@ -68,7 +71,29 @@ const opcoesMarcadorCor = [
   '#ec4899',
 ] as const;
 
-const unidadesQuantidadeInteira = new Set<ItemListaCompra['unidadeMedida']>(['unidade', 'pacote', 'caixa']);
+const nomesMarcadorCorPorHex: Record<string, string> = {
+  '#ef4444': 'compras.item.cores.vermelho',
+  '#f97316': 'compras.item.cores.laranja',
+  '#f59e0b': 'compras.item.cores.amarelo',
+  '#84cc16': 'compras.item.cores.lima',
+  '#22c55e': 'compras.item.cores.verde',
+  '#14b8a6': 'compras.item.cores.turquesa',
+  '#0ea5e9': 'compras.item.cores.azulClaro',
+  '#6366f1': 'compras.item.cores.indigo',
+  '#a855f7': 'compras.item.cores.violeta',
+  '#ec4899': 'compras.item.cores.rosa',
+};
+
+const unidadesQuantidadeInteira = new Set<ItemListaCompra['unidadeMedida']>([
+  'unidade',
+  'kg',
+  'g',
+  'mg',
+  'l',
+  'ml',
+  'pacote',
+  'caixa',
+]);
 
 function obterCasasDecimaisQuantidade(unidade: ItemListaCompra['unidadeMedida']): number {
   return unidadesQuantidadeInteira.has(unidade) ? 0 : 2;
@@ -80,6 +105,15 @@ interface FiltroItensValor {
   dataFim: string;
 }
 
+interface SugestaoDescricaoAutoCompletar {
+  id: string;
+  rotulo: string;
+  valor: string;
+  unidadeMedida: ItemListaCompra['unidadeMedida'];
+  valorReferencia: number;
+  marcadorCor: string;
+}
+
 const filtroItensInicial: FiltroItensValor = {
   descricao: '',
   dataInicio: '',
@@ -89,22 +123,35 @@ const filtroItensInicial: FiltroItensValor = {
 const opcoesAcaoLote: Array<{
   value: AcaoLoteItensCompra;
   chaveLabel: string;
-  requerSelecao: boolean;
+  perigosa?: boolean;
 }> = [
-  { value: 'MarcarSelecionadosComprados', chaveLabel: 'marcarSelecionadosComprados', requerSelecao: true },
-  { value: 'DesmarcarSelecionados', chaveLabel: 'desmarcarSelecionados', requerSelecao: true },
-  { value: 'ExcluirSelecionados', chaveLabel: 'excluirSelecionados', requerSelecao: true },
-  { value: 'ExcluirComprados', chaveLabel: 'excluirComprados', requerSelecao: false },
-  { value: 'ExcluirNaoComprados', chaveLabel: 'excluirNaoComprados', requerSelecao: false },
-  { value: 'ExcluirSemPreco', chaveLabel: 'excluirSemPreco', requerSelecao: false },
-  { value: 'LimparLista', chaveLabel: 'limparLista', requerSelecao: false },
-  { value: 'ResetarPrecos', chaveLabel: 'resetarPrecos', requerSelecao: false },
-  { value: 'ResetarCores', chaveLabel: 'resetarCores', requerSelecao: false },
-  { value: 'CriarNovaListaComComprados', chaveLabel: 'criarNovaListaComComprados', requerSelecao: false },
-  { value: 'CriarNovaListaComNaoComprados', chaveLabel: 'criarNovaListaComNaoComprados', requerSelecao: false },
-  { value: 'DuplicarLista', chaveLabel: 'duplicarLista', requerSelecao: false },
-  { value: 'MesclarDuplicados', chaveLabel: 'mesclarDuplicados', requerSelecao: false },
+  { value: 'CriarNovaListaComComprados', chaveLabel: 'criarNovaListaComComprados' },
+  { value: 'CriarNovaListaComNaoComprados', chaveLabel: 'criarNovaListaComNaoComprados' },
+  { value: 'DuplicarLista', chaveLabel: 'duplicarLista' },
+  { value: 'MesclarDuplicados', chaveLabel: 'mesclarDuplicados' },
+  { value: 'ExcluirComprados', chaveLabel: 'excluirComprados', perigosa: true },
+  { value: 'ExcluirNaoComprados', chaveLabel: 'excluirNaoComprados', perigosa: true },
+  { value: 'ExcluirSemPreco', chaveLabel: 'excluirSemPreco', perigosa: true },
+  { value: 'LimparLista', chaveLabel: 'limparLista', perigosa: true },
+  { value: 'ResetarPrecos', chaveLabel: 'resetarPrecos', perigosa: true },
+  { value: 'ResetarCores', chaveLabel: 'resetarCores', perigosa: true },
 ];
+
+function converterHexEmRgba(corHex: string, opacidade: number): string {
+  const semHash = corHex.trim().replace('#', '');
+  const hexNormalizado = semHash.length === 3
+    ? semHash.split('').map((digito) => `${digito}${digito}`).join('')
+    : semHash;
+
+  if (!/^[\da-fA-F]{6}$/.test(hexNormalizado)) {
+    return COLORS.bgSecondary;
+  }
+
+  const r = Number.parseInt(hexNormalizado.slice(0, 2), 16);
+  const g = Number.parseInt(hexNormalizado.slice(2, 4), 16);
+  const b = Number.parseInt(hexNormalizado.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacidade})`;
+}
 
 function obterPermissaoAtual(detalhe: ListaCompraDetalhe | null, usuarioId?: number): PermissaoParticipanteLista {
   if (!detalhe) return 'leitor';
@@ -206,19 +253,17 @@ export default function ListaCompraDetalheTela() {
     direcaoOrdenacao,
     definirFiltroStatus,
     definirOrdenacao,
-    itensSelecionadosIds,
-    alternarSelecaoItem,
-    limparSelecaoItens,
   } = usarComprasStore();
 
   const [detalheLista, setDetalheLista] = useState<ListaCompraDetalhe | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [salvandoLote, setSalvandoLote] = useState(false);
   const [conectadoTempoReal, setConectadoTempoReal] = useState(false);
+  const [menuAcoesLoteAberto, setMenuAcoesLoteAberto] = useState(false);
+  const [menuAcoesItemAbertoId, setMenuAcoesItemAbertoId] = useState<number | null>(null);
   const [modalNovoItem, setModalNovoItem] = useState(false);
   const [modalEditarItem, setModalEditarItem] = useState(false);
   const [itemEdicao, setItemEdicao] = useState<ItemListaCompra | null>(null);
-  const [acaoLoteSelecionada, setAcaoLoteSelecionada] = useState<AcaoLoteItensCompra>('MarcarSelecionadosComprados');
   const [descricao, setDescricao] = useState('');
   const [observacao, setObservacao] = useState('');
   const [unidadeMedida, setUnidadeMedida] = useState<ItemListaCompra['unidadeMedida']>('unidade');
@@ -227,15 +272,20 @@ export default function ListaCompraDetalheTela() {
     formatarNumeroEntradaPorLocale(1, localeAtivo, obterCasasDecimaisQuantidade('unidade')),
   );
   const [valorUnitario, setValorUnitario] = useState(() => formatarNumeroEntradaPorLocale(0, localeAtivo, 2));
+  const [valorTotal, setValorTotal] = useState(() => formatarNumeroEntradaPorLocale(0, localeAtivo, 2));
+  const [origemCalculoValor, setOrigemCalculoValor] = useState<'unitario' | 'total'>('unitario');
   const [marcadorCor, setMarcadorCor] = useState<string>(opcoesMarcadorCor[0]);
-  const [sugestoesDescricao, setSugestoesDescricao] = useState<
-    Array<{ descricao: string; unidadeMedida: ItemListaCompra['unidadeMedida']; valorReferencia: number; marcadorCor: string }>
-  >([]);
   const [filtroItens, setFiltroItens] = useState<FiltroItensValor>(filtroItensInicial);
   const [filtroItensAplicado, setFiltroItensAplicado] = useState<FiltroItensValor>(filtroItensInicial);
   const [filtroStatusRascunho, setFiltroStatusRascunho] = useState<typeof filtroStatus>(filtroStatus);
   const [ordenacaoRascunho, setOrdenacaoRascunho] = useState<OrdenacaoItensCompra>(ordenacao);
   const [direcaoOrdenacaoRascunho, setDirecaoOrdenacaoRascunho] = useState<DirecaoOrdenacao>(direcaoOrdenacao);
+
+  const obterNomeMarcadorCor = useCallback((corHex: string) => {
+    const chaveTraducaoCor = nomesMarcadorCorPorHex[corHex.toLowerCase()];
+    if (!chaveTraducaoCor) return t('compras.item.cores.personalizada');
+    return t(chaveTraducaoCor);
+  }, [t]);
   const carregarDetalheListaRef = useRef<() => Promise<void>>(async () => undefined);
 
   const carregarDetalheLista = useCallback(async () => {
@@ -306,20 +356,6 @@ export default function ListaCompraDetalheTela() {
     };
   }, [listaId]);
 
-  useEffect(() => {
-    const termo = descricao.trim();
-    if (termo.length < 3 || !Number.isFinite(listaId)) {
-      setSugestoesDescricao([]);
-      return;
-    }
-    const timeout = setTimeout(() => {
-      void buscarSugestoesItensCompraApi(listaId, { termo, limite: 8 })
-        .then(setSugestoesDescricao)
-        .catch(() => setSugestoesDescricao([]));
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [descricao, listaId]);
-
   const permissaoAtual = useMemo(() => obterPermissaoAtual(detalheLista, usuarioId), [detalheLista, usuarioId]);
   const usuarioPodeEditarLista = useMemo(() => {
     const possuiPapelEdicao = permissaoAtual === 'proprietario' || permissaoAtual === 'coproprietario';
@@ -342,9 +378,9 @@ export default function ListaCompraDetalheTela() {
     () => converterTextoNumeroPorLocale(valorUnitario, localeAtivo),
     [localeAtivo, valorUnitario],
   );
-  const valorTotalCalculado = useMemo(
-    () => calcularValorTotalItemCompra(quantidadeNumero, valorUnitarioNumero),
-    [quantidadeNumero, valorUnitarioNumero],
+  const valorTotalNumero = useMemo(
+    () => converterTextoNumeroPorLocale(valorTotal, localeAtivo),
+    [localeAtivo, valorTotal],
   );
 
   const itensFiltradosOrdenados = useMemo(() => {
@@ -370,18 +406,84 @@ export default function ListaCompraDetalheTela() {
     setUnidadeMedida('unidade');
     setQuantidade(formatarNumeroEntradaPorLocale(1, localeAtivo, obterCasasDecimaisQuantidade('unidade')));
     setValorUnitario(formatarNumeroEntradaPorLocale(0, localeAtivo, 2));
+    setValorTotal(formatarNumeroEntradaPorLocale(0, localeAtivo, 2));
+    setOrigemCalculoValor('unitario');
     setMarcadorCor(opcoesMarcadorCor[0]);
-    setSugestoesDescricao([]);
   };
+
+  const calcularValorTotalFormatado = useCallback((quantidadeTexto: string, valorUnitarioTexto: string) => {
+    const quantidadeConvertida = converterTextoNumeroPorLocale(quantidadeTexto, localeAtivo);
+    const valorUnitarioConvertido = converterTextoNumeroPorLocale(valorUnitarioTexto, localeAtivo);
+    const totalConvertido = calcularValorTotalItemCompra(quantidadeConvertida, valorUnitarioConvertido);
+    return formatarNumeroEntradaPorLocale(totalConvertido, localeAtivo, 2);
+  }, [localeAtivo]);
+
+  const calcularValorUnitarioFormatado = useCallback((quantidadeTexto: string, valorTotalTexto: string) => {
+    const quantidadeConvertida = converterTextoNumeroPorLocale(quantidadeTexto, localeAtivo);
+    const valorTotalConvertido = converterTextoNumeroPorLocale(valorTotalTexto, localeAtivo);
+    const valorUnitarioCalculado = quantidadeConvertida > 0 ? valorTotalConvertido / quantidadeConvertida : 0;
+    return formatarNumeroEntradaPorLocale(valorUnitarioCalculado, localeAtivo, 2);
+  }, [localeAtivo]);
+
+  const atualizarQuantidadeFormulario = useCallback((valorDigitado: string, casasDecimais: number) => {
+    const quantidadeFormatada = aplicarMascaraNumeroPorLocale(valorDigitado, localeAtivo, casasDecimais);
+    setQuantidade(quantidadeFormatada);
+
+    if (origemCalculoValor === 'total') {
+      setValorUnitario(calcularValorUnitarioFormatado(quantidadeFormatada, valorTotal));
+      return;
+    }
+
+    setValorTotal(calcularValorTotalFormatado(quantidadeFormatada, valorUnitario));
+  }, [calcularValorTotalFormatado, calcularValorUnitarioFormatado, localeAtivo, origemCalculoValor, valorTotal, valorUnitario]);
+
+  const atualizarValorUnitarioFormulario = useCallback((valorDigitado: string) => {
+    const valorUnitarioFormatado = aplicarMascaraNumeroPorLocale(valorDigitado, localeAtivo, 2);
+    setOrigemCalculoValor('unitario');
+    setValorUnitario(valorUnitarioFormatado);
+    setValorTotal(calcularValorTotalFormatado(quantidade, valorUnitarioFormatado));
+  }, [calcularValorTotalFormatado, localeAtivo, quantidade]);
+
+  const atualizarValorTotalFormulario = useCallback((valorDigitado: string) => {
+    const valorTotalFormatado = aplicarMascaraNumeroPorLocale(valorDigitado, localeAtivo, 2);
+    setOrigemCalculoValor('total');
+    setValorTotal(valorTotalFormatado);
+    setValorUnitario(calcularValorUnitarioFormatado(quantidade, valorTotalFormatado));
+  }, [calcularValorUnitarioFormatado, localeAtivo, quantidade]);
 
   const atualizarUnidadeMedidaFormulario = (proximaUnidade: ItemListaCompra['unidadeMedida']) => {
     setUnidadeMedida(proximaUnidade);
     setQuantidade((valorAtual) => {
       const numeroAtual = converterTextoNumeroPorLocale(valorAtual, localeAtivo);
       const numeroAjustado = unidadesQuantidadeInteira.has(proximaUnidade) ? Math.trunc(numeroAtual) : numeroAtual;
-      return formatarNumeroEntradaPorLocale(numeroAjustado, localeAtivo, obterCasasDecimaisQuantidade(proximaUnidade));
+      const quantidadeFormatada = formatarNumeroEntradaPorLocale(
+        numeroAjustado,
+        localeAtivo,
+        obterCasasDecimaisQuantidade(proximaUnidade),
+      );
+
+      if (origemCalculoValor === 'total') {
+        setValorUnitario(calcularValorUnitarioFormatado(quantidadeFormatada, valorTotal));
+        return quantidadeFormatada;
+      }
+
+      setValorTotal(calcularValorTotalFormatado(quantidadeFormatada, valorUnitario));
+      return quantidadeFormatada;
     });
   };
+
+  const buscarSugestoesDescricao = useCallback(async (termo: string): Promise<SugestaoDescricaoAutoCompletar[]> => {
+    if (!Number.isFinite(listaId)) return [];
+    const sugestoesApi = await buscarSugestoesItensCompraApi(listaId, { termo, limite: 8 });
+    return sugestoesApi.map((sugestao: SugestaoItemCompra, indice) => ({
+      id: `${sugestao.descricao}-${sugestao.unidadeMedida}-${indice}`,
+      rotulo: sugestao.descricao,
+      valor: sugestao.descricao,
+      unidadeMedida: sugestao.unidadeMedida,
+      valorReferencia: sugestao.valorReferencia,
+      marcadorCor: sugestao.marcadorCor,
+    }));
+  }, [listaId]);
 
   const consultarFiltrosItens = () => {
     definirFiltroStatus(filtroStatusRascunho);
@@ -402,7 +504,7 @@ export default function ListaCompraDetalheTela() {
       || quantidadeNumero <= 0
       || !quantidadeEhValidaParaUnidade
       || valorUnitarioNumero <= 0
-      || valorTotalCalculado <= 0
+      || valorTotalNumero <= 0
     ) {
       notificarErro(t('compras.mensagens.itemInvalido'));
       return;
@@ -435,6 +537,8 @@ export default function ListaCompraDetalheTela() {
       formatarNumeroEntradaPorLocale(item.quantidade, localeAtivo, obterCasasDecimaisQuantidade(item.unidadeMedida)),
     );
     setValorUnitario(formatarNumeroEntradaPorLocale(item.valorUnitario, localeAtivo, 2));
+    setValorTotal(formatarNumeroEntradaPorLocale(item.valorTotal, localeAtivo, 2));
+    setOrigemCalculoValor('unitario');
     setMarcadorCor(item.marcadorCor);
     setModalEditarItem(true);
   };
@@ -448,7 +552,7 @@ export default function ListaCompraDetalheTela() {
       || quantidadeNumero <= 0
       || !quantidadeEhValidaParaUnidade
       || valorUnitarioNumero <= 0
-      || valorTotalCalculado <= 0
+      || valorTotalNumero <= 0
     ) {
       notificarErro(t('compras.mensagens.itemInvalido'));
       return;
@@ -473,24 +577,6 @@ export default function ListaCompraDetalheTela() {
     }
   };
 
-  const atualizarRapido = async (item: ItemListaCompra, campo: 'quantidade' | 'valorUnitario', valor: string) => {
-    if (!podeEditarItens) return;
-    const numero = Number(valor.replace(',', '.'));
-    if (!Number.isFinite(numero) || numero < 0) return;
-    try {
-      await atualizarItemRapidoListaCompraApi(
-        listaId,
-        item.id,
-        campo === 'quantidade' ? numero : item.quantidade,
-        campo === 'valorUnitario' ? numero : item.valorUnitario,
-        item.versao,
-      );
-      await carregarDetalheLista();
-    } catch {
-      notificarErro(t('compras.mensagens.erroAtualizacaoRapida'));
-    }
-  };
-
   const alternarComprado = async (item: ItemListaCompra, comprado: boolean) => {
     if (!podeEditarItens) return;
     try {
@@ -501,25 +587,14 @@ export default function ListaCompraDetalheTela() {
     }
   };
 
-  const executarAcaoLote = async () => {
+  const executarAcaoLote = async (acaoSelecionada: AcaoLoteItensCompra) => {
     if (!podeEditarItens) return;
-    const opcaoSelecionada = opcoesAcaoLote.find((item) => item.value === acaoLoteSelecionada);
+    const opcaoSelecionada = opcoesAcaoLote.find((item) => item.value === acaoSelecionada);
     if (!opcaoSelecionada) return;
-    const rotuloAcaoSelecionada = t(`compras.acoesLote.${opcaoSelecionada.chaveLabel}`);
-    const acaoDestrutiva = [
-      'ExcluirSelecionados',
-      'ExcluirComprados',
-      'ExcluirNaoComprados',
-      'ExcluirSemPreco',
-      'LimparLista',
-      'ResetarPrecos',
-      'ResetarCores',
-    ].includes(opcaoSelecionada.value);
 
-    if (opcaoSelecionada.requerSelecao && itensSelecionadosIds.length === 0) {
-      notificarErro(t('compras.mensagens.selecioneItensLote'));
-      return;
-    }
+    setMenuAcoesLoteAberto(false);
+    const rotuloAcaoSelecionada = t(`compras.acoesLote.${opcaoSelecionada.chaveLabel}`);
+    const acaoDestrutiva = Boolean(opcaoSelecionada.perigosa);
 
     const confirmar = await solicitarConfirmacao(t('compras.confirmacoes.acaoLote', { acao: rotuloAcaoSelecionada }), {
       titulo: t('comum.confirmacoes.tituloAcaoCritica'),
@@ -533,10 +608,8 @@ export default function ListaCompraDetalheTela() {
     try {
       setSalvandoLote(true);
       await aplicarAcaoLoteItensCompraApi(listaId, {
-        acao: acaoLoteSelecionada,
-        ...(opcaoSelecionada.requerSelecao ? { itemIds: itensSelecionadosIds } : {}),
+        acao: acaoSelecionada,
       });
-      limparSelecaoItens();
       notificarSucesso(t('compras.mensagens.acaoLoteSucesso'));
       await carregarDetalheLista();
     } catch {
@@ -546,12 +619,49 @@ export default function ListaCompraDetalheTela() {
     }
   };
 
-  const selecionarSugestao = (sugestao: (typeof sugestoesDescricao)[number]) => {
-    setDescricao(sugestao.descricao);
+  const removerItem = async (item: ItemListaCompra) => {
+    if (!podeEditarItens) return;
+    setMenuAcoesItemAbertoId(null);
+
+    const confirmar = await solicitarConfirmacao(
+      t('compras.confirmacoes.removerItem'),
+      {
+        titulo: t('comum.confirmacoes.tituloAcaoCritica'),
+        textoConfirmar: t('comum.acoes.excluir'),
+        textoCancelar: t('comum.acoes.cancelar'),
+        mensagemImpacto: t('comum.confirmacoes.alertaAcaoIrreversivel'),
+        tipoConfirmar: 'perigo',
+      },
+    );
+    if (!confirmar) return;
+
+    try {
+      await removerItemListaCompraApi(listaId, item.id);
+      notificarSucesso(t('compras.mensagens.itemRemovido'));
+      await carregarDetalheLista();
+    } catch {
+      notificarErro(t('compras.mensagens.erroRemoverItem'));
+    }
+  };
+
+  const executarAcaoItem = (item: ItemListaCompra, acao: 'editar' | 'excluir') => {
+    if (acao === 'editar') {
+      setMenuAcoesItemAbertoId(null);
+      abrirEditarItem(item);
+      return;
+    }
+
+    void removerItem(item);
+  };
+
+  const selecionarSugestao = (sugestao: SugestaoDescricaoAutoCompletar) => {
+    setDescricao(sugestao.valor);
     atualizarUnidadeMedidaFormulario(sugestao.unidadeMedida);
-    setValorUnitario(formatarNumeroEntradaPorLocale(sugestao.valorReferencia, localeAtivo, 2));
+    const valorUnitarioSugestao = formatarNumeroEntradaPorLocale(sugestao.valorReferencia, localeAtivo, 2);
+    setValorUnitario(valorUnitarioSugestao);
+    setOrigemCalculoValor('unitario');
+    setValorTotal(calcularValorTotalFormatado(quantidade, valorUnitarioSugestao));
     setMarcadorCor(sugestao.marcadorCor);
-    setSugestoesDescricao([]);
   };
 
   if (!Number.isFinite(listaId)) {
@@ -601,95 +711,34 @@ export default function ListaCompraDetalheTela() {
         </TouchableOpacity>
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1, padding: 16 }}>
-        <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 12, padding: 16, marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={{ color: COLORS.accent, fontWeight: '700' }}>{t('compras.lista.resumo')}</Text>
-            <TouchableOpacity
-              onPress={() => void carregarDetalheLista()}
-              accessibilityRole="button"
-              accessibilityLabel={t('compras.acoes.recarregar')}
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: COLORS.borderColor,
-                backgroundColor: COLORS.bgSecondary,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ color: COLORS.accent, fontSize: 18, lineHeight: 18 }}>{carregando ? '…' : '\u21BB'}</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 10, borderWidth: 1, borderColor: COLORS.borderColor, padding: 10, minWidth: 160 }}>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.totalLista')}</Text>
-              <NumeroResumoAnimado
-                valorFinal={detalheLista?.valorTotal ?? 0}
-                deveAnimar={deveAnimarResumo}
-                formatar={(valor) => formatarValorPorIdioma(valor)}
-                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}
-              />
-            </View>
-            <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 10, borderWidth: 1, borderColor: COLORS.borderColor, padding: 10, minWidth: 160 }}>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.totalComprado')}</Text>
-              <NumeroResumoAnimado
-                valorFinal={detalheLista?.valorComprado ?? 0}
-                deveAnimar={deveAnimarResumo}
-                formatar={(valor) => formatarValorPorIdioma(valor)}
-                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}
-              />
-            </View>
-            <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 10, borderWidth: 1, borderColor: COLORS.borderColor, padding: 10, minWidth: 160 }}>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.percentualComprado')}</Text>
-              <NumeroResumoAnimado
-                valorFinal={detalheLista?.percentualComprado ?? 0}
-                deveAnimar={deveAnimarResumo}
-                formatar={(valor) => `${valor.toFixed(2)}%`}
-                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}
-              />
-            </View>
-            <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 10, borderWidth: 1, borderColor: COLORS.borderColor, padding: 10, minWidth: 160 }}>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.quantidadeItens')}</Text>
-              <NumeroResumoAnimado
-                valorFinal={detalheLista?.quantidadeItens ?? 0}
-                deveAnimar={deveAnimarResumo}
-                formatar={(valor) => `${Math.round(valor)}`}
-                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}
-              />
-            </View>
-            <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 10, borderWidth: 1, borderColor: COLORS.borderColor, padding: 10, minWidth: 160 }}>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.quantidadeItensComprados')}</Text>
-              <NumeroResumoAnimado
-                valorFinal={detalheLista?.quantidadeItensComprados ?? 0}
-                deveAnimar={deveAnimarResumo}
-                formatar={(valor) => `${Math.round(valor)}`}
-                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 2 }}
-              />
-            </View>
-          </View>
-          <View style={{ marginTop: 12 }}>
-            <Text style={{ color: COLORS.textSecondary }}>
-              {t('compras.lista.permissaoAtual')}: {t(`compras.permissoes.${permissaoAtual}`)}
-            </Text>
-            <Text style={{ color: conectadoTempoReal ? COLORS.success : COLORS.warning }}>
-              {conectadoTempoReal ? t('compras.tempoReal.conectado') : t('compras.tempoReal.desconectado')}
-            </Text>
-          </View>
-        </View>
-
         <View style={{ marginBottom: 10 }}>
           {podeEditarItens ? (
             <Botao
               titulo={`+ ${t('compras.acoes.novoItem')}`}
-              onPress={() => setModalNovoItem(true)}
+              onPress={() => {
+                setMenuAcoesItemAbertoId(null);
+                limparFormularioItem();
+                setModalNovoItem(true);
+              }}
               estilo={{ width: '100%' }}
             />
           ) : null}
         </View>
 
-        <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 12, padding: 12, marginBottom: 12 }}>
+        <View
+          style={{
+            position: 'relative',
+            zIndex: 4,
+            elevation: 0,
+            overflow: 'visible',
+            backgroundColor: COLORS.bgTertiary,
+            borderWidth: 1,
+            borderColor: COLORS.borderColor,
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12,
+          }}
+        >
           <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 10 }}>{t('comum.filtros.titulo')}</Text>
           <CampoTexto
             label={t('comum.filtros.descricao')}
@@ -741,125 +790,397 @@ export default function ListaCompraDetalheTela() {
           />
         </View>
 
-        {podeEditarItens ? (
-          <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 12, padding: 12, marginBottom: 12 }}>
-            <CampoSelect
-              label={t('compras.acoesLote.titulo')}
-              value={acaoLoteSelecionada}
-              onChange={(valor) => setAcaoLoteSelecionada(valor as AcaoLoteItensCompra)}
-              options={opcoesAcaoLote.map((item) => ({ value: item.value, label: t(`compras.acoesLote.${item.chaveLabel}`) }))}
-            />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <Text style={{ color: COLORS.textSecondary }}>
-                {t('compras.acoesLote.itensSelecionados')}: {itensSelecionadosIds.length}
+        <View
+          style={{
+            position: 'relative',
+            zIndex: menuAcoesLoteAberto ? 160 : 6,
+            elevation: menuAcoesLoteAberto ? 20 : 0,
+            overflow: 'visible',
+            backgroundColor: COLORS.bgTertiary,
+            borderWidth: 1,
+            borderColor: COLORS.borderColor,
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12,
+          }}
+        >
+          <View
+            style={{
+              position: 'relative',
+              zIndex: 210,
+              elevation: 22,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              gap: 10,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: COLORS.accent, fontWeight: '700' }}>{t('compras.lista.resumo')}</Text>
+              <Text style={{ color: COLORS.textSecondary, marginTop: 4 }}>
+                {t('compras.lista.permissaoAtual')}: {t(`compras.permissoes.${permissaoAtual}`)}
               </Text>
-              <Botao
-                titulo={t('compras.acoesLote.executar')}
-                tipo="perigo"
-                onPress={() => void executarAcaoLote()}
-                carregando={salvandoLote}
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => void carregarDetalheLista()}
+                accessibilityRole="button"
+                accessibilityLabel={t('compras.acoes.recarregar')}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: COLORS.borderColor,
+                  backgroundColor: COLORS.bgSecondary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: COLORS.accent, fontSize: 18, lineHeight: 18 }}>{carregando ? '...' : '\u21BB'}</Text>
+              </TouchableOpacity>
+
+              {podeEditarItens ? (
+                <View style={{ position: 'relative', zIndex: 170 }}>
+                  <TouchableOpacity
+                    onPress={() => setMenuAcoesLoteAberto((atual) => !atual)}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: menuAcoesLoteAberto ? COLORS.borderAccent : COLORS.borderColor,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: menuAcoesLoteAberto ? COLORS.accentSubtle : COLORS.bgSecondary,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: menuAcoesLoteAberto ? COLORS.accent : COLORS.textPrimary,
+                        fontSize: 18,
+                        fontWeight: '700',
+                        lineHeight: 18,
+                      }}
+                    >
+                      {'\u22EE'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {menuAcoesLoteAberto ? (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: 36,
+                        right: 0,
+                        zIndex: 180,
+                        width: 280,
+                        borderWidth: 1,
+                        borderColor: COLORS.borderAccent,
+                        borderRadius: 12,
+                        overflow: 'hidden',
+                        backgroundColor: COLORS.bgSecondary,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 8 },
+                        shadowOpacity: 0.35,
+                        shadowRadius: 12,
+                      }}
+                    >
+                      <View
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                          borderBottomWidth: 1,
+                          borderBottomColor: COLORS.borderColor,
+                          backgroundColor: COLORS.accentSubtle,
+                        }}
+                      >
+                        <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700' }}>{t('compras.acoesLote.titulo')}</Text>
+                      </View>
+
+                      {opcoesAcaoLote.map((opcao, indice) => (
+                        <TouchableOpacity
+                          key={opcao.value}
+                          onPress={() => void executarAcaoLote(opcao.value)}
+                          disabled={salvandoLote}
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 11,
+                            borderTopWidth: indice === 0 ? 0 : 1,
+                            borderTopColor: COLORS.borderColor,
+                            backgroundColor: COLORS.bgSecondary,
+                            opacity: salvandoLote ? 0.6 : 1,
+                          }}
+                        >
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            {opcao.perigosa ? (
+                              <View
+                                style={{
+                                  width: 6,
+                                  height: 6,
+                                  borderRadius: 999,
+                                  backgroundColor: COLORS.borderAccent,
+                                }}
+                              />
+                            ) : null}
+                            <Text style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '600' }}>
+                              {t(`compras.acoesLote.${opcao.chaveLabel}`)}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={{ position: 'relative', zIndex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
+            <View style={{ backgroundColor: COLORS.accentSubtle, borderRadius: 12, borderWidth: 1, borderColor: COLORS.borderAccent, padding: 12, minWidth: 160, flex: 1 }}>
+              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.totalLista')}</Text>
+              <NumeroResumoAnimado
+                valorFinal={detalheLista?.valorTotal ?? 0}
+                deveAnimar={deveAnimarResumo}
+                formatar={(valor) => formatarValorPorIdioma(valor)}
+                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 4 }}
+              />
+            </View>
+            <View style={{ backgroundColor: COLORS.successSoft, borderRadius: 12, borderWidth: 1, borderColor: COLORS.success, padding: 12, minWidth: 160, flex: 1 }}>
+              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.totalComprado')}</Text>
+              <NumeroResumoAnimado
+                valorFinal={detalheLista?.valorComprado ?? 0}
+                deveAnimar={deveAnimarResumo}
+                formatar={(valor) => formatarValorPorIdioma(valor)}
+                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 4 }}
+              />
+            </View>
+            <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 12, borderWidth: 1, borderColor: COLORS.borderColor, padding: 12, minWidth: 160, flex: 1 }}>
+              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.percentualComprado')}</Text>
+              <NumeroResumoAnimado
+                valorFinal={detalheLista?.percentualComprado ?? 0}
+                deveAnimar={deveAnimarResumo}
+                formatar={(valor) => `${valor.toFixed(2)}%`}
+                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 4 }}
+              />
+            </View>
+            <View style={{ backgroundColor: COLORS.bgSecondary, borderRadius: 12, borderWidth: 1, borderColor: COLORS.borderColor, padding: 12, minWidth: 160, flex: 1 }}>
+              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.lista.quantidadeItens')}</Text>
+              <NumeroResumoAnimado
+                valorFinal={detalheLista?.quantidadeItens ?? 0}
+                deveAnimar={deveAnimarResumo}
+                formatar={(valor) => `${Math.round(valor)}`}
+                estilo={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 4 }}
               />
             </View>
           </View>
-        ) : null}
+
+          <View style={{ marginTop: 10 }}>
+            <DistintivoStatus
+              rotulo={conectadoTempoReal ? t('compras.tempoReal.sincronizando') : t('compras.tempoReal.desconectado')}
+              corTexto={conectadoTempoReal ? COLORS.success : COLORS.error}
+              corBorda={conectadoTempoReal ? COLORS.success : COLORS.error}
+              corFundo={conectadoTempoReal ? COLORS.successSoft : COLORS.errorSoft}
+            />
+          </View>
+        </View>
 
         {carregando ? <Text style={{ color: COLORS.textSecondary }}>{t('comum.carregando')}</Text> : null}
         {!carregando && itensFiltradosOrdenados.length === 0 ? <Text style={{ color: COLORS.textSecondary }}>{t('compras.lista.vazio')}</Text> : null}
 
-        <View style={{ gap: 10 }}>
+        <View style={{ gap: 10, position: 'relative', zIndex: 2 }}>
           {itensFiltradosOrdenados.map((item) => {
-            const selecionado = itensSelecionadosIds.includes(item.id);
+            const menuAcoesAberto = menuAcoesItemAbertoId === item.id;
+            const quantidadeFormatada = formatarNumeroEntradaPorLocale(
+              item.quantidade,
+              localeAtivo,
+              Number.isInteger(item.quantidade) ? 0 : 2,
+            );
+
             return (
-              <View key={item.id} style={{ backgroundColor: COLORS.bgSecondary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                    {podeEditarItens ? (
-                      <Switch value={selecionado} onValueChange={() => alternarSelecaoItem(item.id)} />
-                    ) : null}
-                    <Text style={{ color: COLORS.textPrimary, flexShrink: 1 }}>{item.descricao}</Text>
+              <View
+                key={item.id}
+                style={{
+                  position: 'relative',
+                  zIndex: menuAcoesAberto ? 70 : 1,
+                  elevation: menuAcoesAberto ? 16 : 0,
+                  overflow: 'visible',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: COLORS.borderColor,
+                  borderLeftWidth: 4,
+                  borderLeftColor: item.marcadorCor,
+                  padding: 12,
+                  backgroundColor: converterHexEmRgba(item.marcadorCor, 0.08),
+                }}
+              >
+                <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                  <TouchableOpacity
+                    onPress={() => void alternarComprado(item, !item.comprado)}
+                    disabled={!podeEditarItens}
+                    style={{ marginTop: 2 }}
+                  >
+                    <View
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 6,
+                        borderWidth: 1,
+                        borderColor: item.comprado ? COLORS.success : COLORS.borderColor,
+                        backgroundColor: item.comprado ? COLORS.successSoft : COLORS.bgSecondary,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: podeEditarItens ? 1 : 0.7,
+                      }}
+                    >
+                      {item.comprado ? <Text style={{ color: COLORS.success, fontSize: 13, fontWeight: '700' }}>{'\u2713'}</Text> : null}
+                    </View>
+                  </TouchableOpacity>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: COLORS.textPrimary, fontWeight: '700', textDecorationLine: item.comprado ? 'line-through' : 'none' }}>
+                      {item.descricao}
+                    </Text>
+                    {item.observacao ? <Text style={{ color: COLORS.textSecondary, marginTop: 2 }}>{item.observacao}</Text> : null}
+
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+                      <Text style={{ color: COLORS.textSecondary }}>
+                        {t('compras.item.quantidade')}: {quantidadeFormatada} {t(`compras.unidades.${item.unidadeMedida}`)}
+                      </Text>
+                      <Text style={{ color: COLORS.textSecondary }}>
+                        {t('compras.item.valorUnitario')}: {formatarValorPorIdioma(item.valorUnitario)}
+                      </Text>
+                      <Text style={{ color: COLORS.textSecondary }}>
+                        {t('compras.item.valorTotal')}: {formatarValorPorIdioma(item.valorTotal)}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={{
+                        marginTop: 8,
+                        alignSelf: 'flex-start',
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: item.marcadorCor,
+                        backgroundColor: converterHexEmRgba(item.marcadorCor, 0.15),
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <View style={{ width: 8, height: 8, borderRadius: 99, backgroundColor: item.marcadorCor }} />
+                      <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{obterNomeMarcadorCor(item.marcadorCor)}</Text>
+                    </View>
                   </View>
+
                   {podeEditarItens ? (
-                    <TouchableOpacity onPress={() => abrirEditarItem(item)}>
-                      <Text style={{ color: COLORS.accent }}>{t('comum.acoes.editar')}</Text>
-                    </TouchableOpacity>
+                    <View style={{ position: 'relative', zIndex: 75 }}>
+                      <TouchableOpacity
+                        onPress={() => setMenuAcoesItemAbertoId((atual) => (atual === item.id ? null : item.id))}
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: 10,
+                          borderWidth: 1,
+                          borderColor: menuAcoesAberto ? COLORS.borderAccent : COLORS.borderColor,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: menuAcoesAberto ? COLORS.accentSubtle : COLORS.bgSecondary,
+                        }}
+                      >
+                        <Text style={{ color: menuAcoesAberto ? COLORS.accent : COLORS.textPrimary, fontSize: 18, fontWeight: '700', lineHeight: 18 }}>
+                          {'\u22EE'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {menuAcoesAberto ? (
+                        <View
+                          style={{
+                            position: 'absolute',
+                            top: 34,
+                            right: 0,
+                            zIndex: 140,
+                            width: 170,
+                            borderWidth: 1,
+                            borderColor: COLORS.borderAccent,
+                            borderRadius: 12,
+                            overflow: 'hidden',
+                            backgroundColor: COLORS.bgSecondary,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 8 },
+                            shadowOpacity: 0.35,
+                            shadowRadius: 12,
+                          }}
+                        >
+                          <View
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingVertical: 8,
+                              borderBottomWidth: 1,
+                              borderBottomColor: COLORS.borderColor,
+                              backgroundColor: COLORS.accentSubtle,
+                            }}
+                          >
+                            <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700' }}>{t('compras.acoes.menuAcoes')}</Text>
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => executarAcaoItem(item, 'editar')}
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingVertical: 11,
+                              backgroundColor: COLORS.bgSecondary,
+                            }}
+                          >
+                            <Text style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '600' }}>{t('comum.acoes.editar')}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => executarAcaoItem(item, 'excluir')}
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingVertical: 11,
+                              borderTopWidth: 1,
+                              borderTopColor: COLORS.borderColor,
+                              backgroundColor: COLORS.bgSecondary,
+                            }}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <View
+                                style={{
+                                  width: 6,
+                                  height: 6,
+                                  borderRadius: 999,
+                                  backgroundColor: COLORS.borderAccent,
+                                }}
+                              />
+                              <Text style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '600' }}>{t('comum.acoes.excluir')}</Text>
+                            </View>
+                          </TouchableOpacity>
+                        </View>
+                      ) : null}
+                    </View>
                   ) : null}
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                  <Text style={{ color: COLORS.textSecondary }}>
-                    {t('compras.item.unidade')}: {t(`compras.unidades.${item.unidadeMedida}`)} | {t('compras.item.cor')}: {item.marcadorCor}
-                  </Text>
-                  <Switch value={item.comprado} onValueChange={(valor) => void alternarComprado(item, valor)} disabled={!podeEditarItens} />
-                </View>
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                  <View style={{ flex: 1 }}>
-                    <CampoTexto
-                      label={t('compras.item.quantidade')}
-                      value={String(item.quantidade)}
-                      onChangeText={(valor) => void atualizarRapido(item, 'quantidade', valor)}
-                      keyboardType="numeric"
-                      editavel={podeEditarItens}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <CampoTexto
-                      label={t('compras.item.valorUnitario')}
-                      value={String(item.valorUnitario)}
-                      onChangeText={(valor) => void atualizarRapido(item, 'valorUnitario', valor)}
-                      keyboardType="numeric"
-                      editavel={podeEditarItens}
-                    />
-                  </View>
-                </View>
-                <Text style={{ color: COLORS.textSecondary }}>{t('compras.item.valorTotal')}: {formatarValorPorIdioma(item.valorTotal)}</Text>
               </View>
             );
           })}
         </View>
 
-        <View style={{ backgroundColor: COLORS.bgSecondary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginTop: 12 }}>
-          <Text style={{ color: COLORS.accent, fontWeight: '700', marginBottom: 8 }}>{t('compras.logs.titulo')}</Text>
-          {(detalheLista?.logs ?? []).length === 0 ? (
-            <Text style={{ color: COLORS.textSecondary }}>{t('compras.logs.vazio')}</Text>
-          ) : (
-            <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
-              <View style={{ gap: 8 }}>
-                {(detalheLista?.logs ?? []).slice(0, 20).map((log) => (
-                  <View
-                    key={log.id}
-                    style={{
-                      borderWidth: 1,
-                      borderColor: COLORS.borderColor,
-                      borderRadius: 8,
-                      paddingHorizontal: 10,
-                      paddingVertical: 8,
-                      backgroundColor: COLORS.bgTertiary,
-                      gap: 4,
-                    }}
-                  >
-                    <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '600' }}>{log.evento}</Text>
-                    {log.descricao ? <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{log.descricao}</Text> : null}
-                    <Text style={{ color: COLORS.textSecondary, fontSize: 11 }}>{formatarDataHoraPorIdioma(log.dataHoraUtc)}</Text>
-                  </View>
-                ))}
-              </View>
-            </ScrollView>
-          )}
-        </View>
       </ScrollView>
 
       <Modal visivel={modalNovoItem} onFechar={() => setModalNovoItem(false)} titulo={t('compras.modalItem.novoTitulo')}>
-        <CampoTexto label={t('compras.item.descricao')} value={descricao} onChangeText={setDescricao} />
-        {sugestoesDescricao.length > 0 ? (
-          <View style={{ maxHeight: 120, marginBottom: 8 }}>
-            <ScrollView>
-              {sugestoesDescricao.map((sugestao) => (
-                <TouchableOpacity key={`${sugestao.descricao}-${sugestao.unidadeMedida}`} onPress={() => selecionarSugestao(sugestao)} style={{ paddingVertical: 8 }}>
-                  <Text style={{ color: COLORS.accent }}>{sugestao.descricao}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
+        <CampoAutoCompletar<SugestaoDescricaoAutoCompletar>
+          label={t('compras.item.descricao')}
+          value={descricao}
+          onChange={setDescricao}
+          buscarSugestoes={buscarSugestoesDescricao}
+          onSelecionarSugestao={selecionarSugestao}
+          minimoCaracteresBusca={3}
+          aguardarBuscaMs={300}
+          mensagemSemSugestoes={t('comum.autocomplete.semSugestoes')}
+        />
         <CampoTexto
           label={t('compras.item.observacao')}
           value={observacao}
@@ -876,7 +1197,7 @@ export default function ListaCompraDetalheTela() {
         <CampoTexto
           label={t('compras.item.quantidade')}
           value={quantidade}
-          onChangeText={(valor) => setQuantidade(aplicarMascaraNumeroPorLocale(valor, localeAtivo, casasDecimaisQuantidade))}
+          onChangeText={(valor) => atualizarQuantidadeFormulario(valor, casasDecimaisQuantidade)}
           keyboardType={quantidadeExigeInteiro ? 'number-pad' : 'decimal-pad'}
         />
         <View style={{ marginBottom: 12 }}>
@@ -900,20 +1221,23 @@ export default function ListaCompraDetalheTela() {
               );
             })}
           </View>
-          <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 8 }}>
-            {t('compras.item.corSelecionada', { cor: marcadorCor })}
-          </Text>
         </View>
-        <CampoTexto
-          label={t('compras.item.valorUnitario')}
-          value={valorUnitario}
-          onChangeText={(valor) => setValorUnitario(aplicarMascaraNumeroPorLocale(valor, localeAtivo, 2))}
-          keyboardType="decimal-pad"
-        />
-        <View style={{ marginBottom: 10 }}>
-          <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>{t('compras.item.valorTotal')}</Text>
-          <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 }}>
-            <Text style={{ color: COLORS.textPrimary }}>{formatarValorPorIdioma(valorTotalCalculado)}</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <CampoTexto
+              label={t('compras.item.valorUnitario')}
+              value={valorUnitario}
+              onChangeText={atualizarValorUnitarioFormulario}
+              keyboardType="decimal-pad"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <CampoTexto
+              label={t('compras.item.valorTotal')}
+              value={valorTotal}
+              onChangeText={atualizarValorTotalFormulario}
+              keyboardType="decimal-pad"
+            />
           </View>
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
@@ -923,7 +1247,16 @@ export default function ListaCompraDetalheTela() {
       </Modal>
 
       <Modal visivel={modalEditarItem} onFechar={() => setModalEditarItem(false)} titulo={t('compras.modalItem.editarTitulo')}>
-        <CampoTexto label={t('compras.item.descricao')} value={descricao} onChangeText={setDescricao} />
+        <CampoAutoCompletar<SugestaoDescricaoAutoCompletar>
+          label={t('compras.item.descricao')}
+          value={descricao}
+          onChange={setDescricao}
+          buscarSugestoes={buscarSugestoesDescricao}
+          onSelecionarSugestao={selecionarSugestao}
+          minimoCaracteresBusca={3}
+          aguardarBuscaMs={300}
+          mensagemSemSugestoes={t('comum.autocomplete.semSugestoes')}
+        />
         <CampoTexto
           label={t('compras.item.observacao')}
           value={observacao}
@@ -940,7 +1273,7 @@ export default function ListaCompraDetalheTela() {
         <CampoTexto
           label={t('compras.item.quantidade')}
           value={quantidade}
-          onChangeText={(valor) => setQuantidade(aplicarMascaraNumeroPorLocale(valor, localeAtivo, casasDecimaisQuantidade))}
+          onChangeText={(valor) => atualizarQuantidadeFormulario(valor, casasDecimaisQuantidade)}
           keyboardType={quantidadeExigeInteiro ? 'number-pad' : 'decimal-pad'}
         />
         <View style={{ marginBottom: 12 }}>
@@ -964,20 +1297,23 @@ export default function ListaCompraDetalheTela() {
               );
             })}
           </View>
-          <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 8 }}>
-            {t('compras.item.corSelecionada', { cor: marcadorCor })}
-          </Text>
         </View>
-        <CampoTexto
-          label={t('compras.item.valorUnitario')}
-          value={valorUnitario}
-          onChangeText={(valor) => setValorUnitario(aplicarMascaraNumeroPorLocale(valor, localeAtivo, 2))}
-          keyboardType="decimal-pad"
-        />
-        <View style={{ marginBottom: 10 }}>
-          <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>{t('compras.item.valorTotal')}</Text>
-          <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 }}>
-            <Text style={{ color: COLORS.textPrimary }}>{formatarValorPorIdioma(valorTotalCalculado)}</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <CampoTexto
+              label={t('compras.item.valorUnitario')}
+              value={valorUnitario}
+              onChangeText={atualizarValorUnitarioFormulario}
+              keyboardType="decimal-pad"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <CampoTexto
+              label={t('compras.item.valorTotal')}
+              value={valorTotal}
+              onChangeText={atualizarValorTotalFormulario}
+              keyboardType="decimal-pad"
+            />
           </View>
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
@@ -989,3 +1325,4 @@ export default function ListaCompraDetalheTela() {
     </View>
   );
 }
+

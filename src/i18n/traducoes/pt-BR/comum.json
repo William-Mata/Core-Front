@@ -1,6 +1,9 @@
 {
   "saudacao": "Olá",
   "carregando": "Carregando...",
+  "autocomplete": {
+    "semSugestoes": "Nenhuma sugestao encontrada"
+  },
   "carregamento": {
     "textoPrincipal": "Core"
   },
@@ -55,7 +58,9 @@
     "excluir": "Excluir",
     "confirmar": "Confirmar",
     "novo": "Novo",
-    "consultar": "Consultar"
+    "consultar": "Consultar",
+    "arquivar": "Arquivar",
+    "fechar": "Fechar"
   },
   "filtros": {
     "titulo": "Filtros",
