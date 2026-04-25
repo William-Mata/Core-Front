@@ -181,7 +181,10 @@
   "tempoReal": {
     "sincronizando": "Syncing",
     "conectado": "Real-time updates connected",
-    "desconectado": "Disconnected"
+    "desconectado": "Disconnected",
+    "erroConexao": "Could not connect real-time updates for this list.",
+    "erroAutenticacao": "Your session expired for real-time updates. Please sign in again.",
+    "erroPermissao": "You do not have permission to follow this list in real time."
   },
   "status": {
     "ativa": "Active",

@@ -1,10 +1,19 @@
 import { api } from '../api';
 import { Platform } from 'react-native';
+import {
+  HubConnection,
+  HubConnectionBuilder,
+  HubConnectionState,
+  HttpTransportType,
+  IHttpConnectionOptions,
+  LogLevel,
+} from '@microsoft/signalr';
 import { EventoTempoRealCompra } from '../../tipos/compras.tipos';
 import { obterTokenAcesso } from '../../utils/armazenamento';
 
 type FuncaoAoReceberEvento = (evento: EventoTempoRealCompra) => void;
 type FuncaoAoConexaoAlterada = (conectado: boolean) => void;
+export type CodigoErroTempoRealCompras = 'nao_autenticado' | 'sem_permissao_visualizacao' | 'desconhecido';
 
 interface ClienteTempoRealCompras {
   iniciar: () => Promise<void>;
@@ -20,39 +29,21 @@ interface OpcoesClienteTempoRealCompras {
   aoConexaoAlterada?: FuncaoAoConexaoAlterada;
 }
 
-type ConstrutorConexaoBuilder = new () => {
-  withUrl: (url: string, opcoes?: { accessTokenFactory?: () => string; transport?: unknown }) => {
-    withAutomaticReconnect: () => {
-      build: () => ConexaoTempoReal;
-    };
-    build: () => ConexaoTempoReal;
-  };
-  configureLogging?: (nivel: unknown) => {
-    withUrl: (url: string, opcoes?: { accessTokenFactory?: () => string; transport?: unknown }) => {
-      withAutomaticReconnect: () => {
-        build: () => ConexaoTempoReal;
-      };
-      build: () => ConexaoTempoReal;
-    };
-    withAutomaticReconnect: () => {
-      build: () => ConexaoTempoReal;
-    };
-    build: () => ConexaoTempoReal;
-  };
-  withAutomaticReconnect: () => {
-    build: () => ConexaoTempoReal;
-  };
-  build: () => ConexaoTempoReal;
-};
+function extrairMensagemErro(erro: unknown): string {
+  if (erro instanceof Error) return erro.message;
+  if (typeof erro === 'string') return erro;
+  if (typeof erro === 'object' && erro !== null) {
+    const valorMensagem = (erro as { message?: unknown }).message;
+    if (typeof valorMensagem === 'string') return valorMensagem;
+  }
+  return '';
+}
 
-interface ConexaoTempoReal {
-  start: () => Promise<void>;
-  stop: () => Promise<void>;
-  invoke: (metodo: string, ...args: unknown[]) => Promise<void>;
-  on: (nomeEvento: string, callback: (payload: EventoTempoRealCompra) => void) => void;
-  onclose: ((erro?: Error) => void) | null;
-  onreconnected: ((connectionId?: string) => void) | null;
-  state?: unknown;
+export function obterCodigoErroTempoRealCompras(erro: unknown): CodigoErroTempoRealCompras {
+  const mensagem = extrairMensagemErro(erro).toLowerCase();
+  if (mensagem.includes('usuario_nao_autenticado')) return 'nao_autenticado';
+  if (mensagem.includes('lista_compra_sem_permissao_visualizacao')) return 'sem_permissao_visualizacao';
+  return 'desconhecido';
 }
 
 export function obterUrlHubCompras(): string {
@@ -62,56 +53,63 @@ export function obterUrlHubCompras(): string {
   return `${baseSemApi}/hubs/compras`;
 }
 
+function montarOpcoesConexao(): IHttpConnectionOptions {
+  const opcoesConexao: IHttpConnectionOptions = {
+    accessTokenFactory: async () => (await obterTokenAcesso()) ?? '',
+  };
+
+  if (Platform.OS === 'web') {
+    // Backend aceita access_token em query string no fluxo do hub.
+    opcoesConexao.transport = HttpTransportType.WebSockets;
+    opcoesConexao.skipNegotiation = true;
+    opcoesConexao.withCredentials = true;
+  }
+
+  return opcoesConexao;
+}
+
 export async function criarClienteTempoRealCompras(opcoes: OpcoesClienteTempoRealCompras): Promise<ClienteTempoRealCompras> {
-  let conexao: ConexaoTempoReal | null = null;
+  let conexao: HubConnection | null = null;
   let conectado = false;
+  const listasInscritas = new Set<number>();
 
   const notificarConexao = (status: boolean) => {
     conectado = status;
     opcoes.aoConexaoAlterada?.(status);
   };
 
-  try {
-    const modulo = (await import('@microsoft/signalr')) as unknown as {
-      HubConnectionBuilder: ConstrutorConexaoBuilder;
-      HttpTransportType?: { LongPolling?: unknown };
-      LogLevel?: { None?: unknown };
-    };
-
-    const builder = new modulo.HubConnectionBuilder();
-    if (builder.configureLogging && modulo.LogLevel?.None !== undefined) {
-      builder.configureLogging(modulo.LogLevel.None);
+  const sincronizarListasInscritas = async () => {
+    if (!conexao || !conectado || listasInscritas.size === 0) return;
+    for (const listaId of listasInscritas) {
+      await conexao.invoke('EntrarLista', listaId);
     }
+  };
 
-    const urlHub = opcoes.urlHub ?? obterUrlHubCompras();
-    const opcoesConexao: { accessTokenFactory: () => Promise<string>; transport?: unknown } = {
-      accessTokenFactory: async () => (await obterTokenAcesso()) ?? '',
-    };
+  const urlHub = opcoes.urlHub ?? obterUrlHubCompras();
+  const opcoesConexao = montarOpcoesConexao();
 
-    // No web, evita token em query string do WebSocket ao usar long polling.
-    if (Platform.OS === 'web' && modulo.HttpTransportType?.LongPolling !== undefined) {
-      opcoesConexao.transport = modulo.HttpTransportType.LongPolling;
-    }
+  conexao = new HubConnectionBuilder()
+    .configureLogging(LogLevel.None)
+    .withUrl(urlHub, opcoesConexao)
+    .withAutomaticReconnect()
+    .build();
 
-    conexao = builder
-      .withUrl(urlHub, opcoesConexao)
-      .withAutomaticReconnect()
-      .build();
+  conexao.on('listaAtualizada', (evento: EventoTempoRealCompra) => {
+    opcoes.aoReceberEvento(evento);
+  });
 
-    conexao.on('listaAtualizada', (evento: EventoTempoRealCompra) => {
-      opcoes.aoReceberEvento(evento);
-    });
+  conexao.onclose(() => {
+    notificarConexao(false);
+  });
 
-    conexao.onclose = () => {
-      notificarConexao(false);
-    };
+  conexao.onreconnecting(() => {
+    notificarConexao(false);
+  });
 
-    conexao.onreconnected = () => {
-      notificarConexao(true);
-    };
-  } catch {
-    conexao = null;
-  }
+  conexao.onreconnected(() => {
+    notificarConexao(true);
+    void sincronizarListasInscritas();
+  });
 
   return {
     iniciar: async () => {
@@ -119,8 +117,14 @@ export async function criarClienteTempoRealCompras(opcoes: OpcoesClienteTempoRea
         notificarConexao(false);
         return;
       }
+      if (conexao.state === HubConnectionState.Connected) {
+        notificarConexao(true);
+        await sincronizarListasInscritas();
+        return;
+      }
       await conexao.start();
       notificarConexao(true);
+      await sincronizarListasInscritas();
     },
     parar: async () => {
       if (!conexao) {
@@ -128,13 +132,16 @@ export async function criarClienteTempoRealCompras(opcoes: OpcoesClienteTempoRea
         return;
       }
       await conexao.stop();
+      listasInscritas.clear();
       notificarConexao(false);
     },
     entrarLista: async (listaId) => {
+      listasInscritas.add(listaId);
       if (!conexao || !conectado) return;
       await conexao.invoke('EntrarLista', listaId);
     },
     sairLista: async (listaId) => {
+      listasInscritas.delete(listaId);
       if (!conexao || !conectado) return;
       await conexao.invoke('SairLista', listaId);
     },

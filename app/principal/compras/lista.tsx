@@ -18,7 +18,7 @@ import {
   obterListaCompraApi,
   removerItemListaCompraApi,
 } from '../../../src/servicos/compras';
-import { criarClienteTempoRealCompras } from '../../../src/servicos/compras/tempoReal';
+import { criarClienteTempoRealCompras, obterCodigoErroTempoRealCompras } from '../../../src/servicos/compras/tempoReal';
 import { usarAutenticacaoStore } from '../../../src/store/usarAutenticacaoStore';
 import { usarComprasStore } from '../../../src/store/usarComprasStore';
 import {
@@ -340,8 +340,19 @@ export default function ListaCompraDetalheTela() {
           return;
         }
         await cliente.entrarLista(listaId);
-      } catch {
-        if (ativo) setConectadoTempoReal(false);
+      } catch (erro) {
+        if (!ativo) return;
+        setConectadoTempoReal(false);
+        const codigoErro = obterCodigoErroTempoRealCompras(erro);
+        if (codigoErro === 'sem_permissao_visualizacao') {
+          notificarErro(t('compras.tempoReal.erroPermissao'));
+          return;
+        }
+        if (codigoErro === 'nao_autenticado') {
+          notificarErro(t('compras.tempoReal.erroAutenticacao'));
+          return;
+        }
+        notificarErro(t('compras.tempoReal.erroConexao'));
       }
     };
 

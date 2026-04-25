@@ -180,7 +180,10 @@
   "tempoReal": {
     "sincronizando": "Sincronizando",
     "conectado": "Atualização em tempo real conectada",
-    "desconectado": "Desconectado"
+    "desconectado": "Desconectado",
+    "erroConexao": "Não foi possível conectar a atualização em tempo real desta lista.",
+    "erroAutenticacao": "Sua sessão expirou para atualização em tempo real. Faça login novamente.",
+    "erroPermissao": "Você não possui permissão para acompanhar esta lista em tempo real."
   },
   "status": {
     "ativa": "Ativa",
