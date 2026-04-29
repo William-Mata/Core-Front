@@ -16,9 +16,14 @@ import {
   atualizarDesejoCompraApi,
 } from '../../../src/servicos/compras';
 import { DesejoCompra, ListaCompra } from '../../../src/tipos/compras.tipos';
+import {
+  aplicarMascaraNumeroPorLocale,
+  converterTextoNumeroPorLocale,
+  formatarNumeroEntradaPorLocale,
+} from '../../../src/utils/compras.util';
 import { solicitarConfirmacao } from '../../../src/utils/confirmacao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
-import { formatarValorPorIdioma } from '../../../src/utils/formatacaoLocale';
+import { formatarValorPorIdioma, obterLocaleAtivo } from '../../../src/utils/formatacaoLocale';
 import { notificarErro, notificarSucesso } from '../../../src/utils/notificacao';
 import { COLORS } from '../../../src/styles/variables';
 
@@ -43,7 +48,8 @@ export default function DesejosCompraTela() {
   const [desejoEdicao, setDesejoEdicao] = useState<DesejoCompra | null>(null);
   const [descricao, setDescricao] = useState('');
   const [quantidade, setQuantidade] = useState('1');
-  const [valorAlvo, setValorAlvo] = useState('0');
+  const localeAtivo = obterLocaleAtivo();
+  const [valorAlvo, setValorAlvo] = useState(() => formatarNumeroEntradaPorLocale(0, localeAtivo, 2));
   const [observacao, setObservacao] = useState('');
   const [unidadeMedida, setUnidadeMedida] = useState<DesejoCompra['unidadeMedida']>('unidade');
   const [selecionados, setSelecionados] = useState<number[]>([]);
@@ -115,7 +121,7 @@ export default function DesejosCompraTela() {
     setDescricao('');
     setObservacao('');
     setQuantidade('1');
-    setValorAlvo('0');
+    setValorAlvo(formatarNumeroEntradaPorLocale(0, localeAtivo, 2));
     setUnidadeMedida('unidade');
   };
 
@@ -129,7 +135,7 @@ export default function DesejosCompraTela() {
     setDescricao(desejo.descricao);
     setObservacao(desejo.observacao);
     setQuantidade(String(desejo.quantidade));
-    setValorAlvo(String(desejo.valorAlvo));
+    setValorAlvo(formatarNumeroEntradaPorLocale(desejo.valorAlvo, localeAtivo, 2));
     setUnidadeMedida(desejo.unidadeMedida);
     setModalDesejo(true);
   };
@@ -139,8 +145,8 @@ export default function DesejosCompraTela() {
   };
 
   const salvarDesejo = async () => {
-    const quantidadeNumero = Number(quantidade.replace(',', '.'));
-    const valorAlvoNumero = Number(valorAlvo.replace(',', '.'));
+    const quantidadeNumero = converterTextoNumeroPorLocale(quantidade, localeAtivo);
+    const valorAlvoNumero = converterTextoNumeroPorLocale(valorAlvo, localeAtivo);
     if (!descricao.trim() || quantidadeNumero <= 0) {
       notificarErro(t('compras.mensagens.itemInvalido'));
       return;
@@ -361,7 +367,13 @@ export default function DesejosCompraTela() {
 
       <Modal visivel={modalDesejo} onFechar={() => setModalDesejo(false)} titulo={tituloModalDesejo}>
         <CampoTexto label={t('compras.item.descricao')} value={descricao} onChangeText={setDescricao} />
-        <CampoTexto label={t('compras.item.observacao')} value={observacao} onChangeText={setObservacao} />
+        <CampoTexto
+          label={t('compras.item.observacao')}
+          value={observacao}
+          onChangeText={setObservacao}
+          multiline
+          numberOfLines={4}
+        />
         <CampoSelect
           label={t('compras.item.unidade')}
           value={unidadeMedida}
@@ -369,7 +381,12 @@ export default function DesejosCompraTela() {
           options={opcoesUnidade.map((opcao) => ({ value: opcao, label: t(`compras.unidades.${opcao}`) }))}
         />
         <CampoTexto label={t('compras.item.quantidade')} value={quantidade} onChangeText={setQuantidade} keyboardType="numeric" />
-        <CampoTexto label={t('compras.desejos.valorAlvo')} value={valorAlvo} onChangeText={setValorAlvo} keyboardType="numeric" />
+        <CampoTexto
+          label={t('compras.desejos.valorAlvo')}
+          value={valorAlvo}
+          onChangeText={(valorDigitado) => setValorAlvo(aplicarMascaraNumeroPorLocale(valorDigitado, localeAtivo, 2))}
+          keyboardType="numeric"
+        />
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
           <Botao titulo={t('comum.acoes.cancelar')} tipo="secundario" onPress={() => setModalDesejo(false)} />
           <Botao titulo={t('comum.acoes.salvar')} onPress={() => void salvarDesejo()} />
