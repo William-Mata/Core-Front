@@ -9,6 +9,7 @@ import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
 import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
+import { MenuAcoesItem, type OpcaoMenuAcoesItem } from '../../../src/componentes/comuns/MenuAcoesItem';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { usarAutenticacaoStore } from '../../../src/store/usarAutenticacaoStore';
 import { COLORS } from '../../../src/styles/variables';
@@ -693,6 +694,7 @@ export default function TelaReceita() {
   const [faturasExpandidas, setFaturasExpandidas] = useState<number[]>([]);
   const [salvandoReceita, setSalvandoReceita] = useState(false);
   const [cancelandoReceita, setCancelandoReceita] = useState(false);
+  const [menuAcoesAbertoReceitaId, setMenuAcoesAbertoReceitaId] = useState<number | null>(null);
   const definirTipoRateioAmigos = (valor: TipoRateioAmigos) => {
     tipoRateioAmigosRef.current = valor;
     setTipoRateioAmigos(valor);
@@ -1918,21 +1920,75 @@ export default function TelaReceita() {
     opcoes?: { ocultarAcoesOperacionais?: boolean; podeEfetivar?: boolean; ocultarTodasAcoes?: boolean; ocultarEfetivacaoEstorno?: boolean },
   ) => {
     const podeAlterar = podeAlterarTransacaoVinculadaAFatura(receita.faturaCartaoId, receita.id, receita.statusFaturaCartao);
+    const opcoesMenu: OpcaoMenuAcoesItem[] = [];
+
+    if (!(receita.ehFatura && !receita.faturaCartaoId)) {
+      opcoesMenu.push({
+        id: `receita-${receita.id}-visualizar`,
+        rotulo: t('financeiro.receita.acoes.visualizar'),
+        aoPressionar: () => abrirVisualizacao(receita),
+      });
+      opcoesMenu.push({
+        id: `receita-${receita.id}-duplicar`,
+        rotulo: t('comum.acoes.duplicar'),
+        aoPressionar: () => abrirDuplicacao(receita),
+      });
+
+      if (receita.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar) {
+        opcoesMenu.push({
+          id: `receita-${receita.id}-editar`,
+          rotulo: t('comum.acoes.editar'),
+          aoPressionar: () => abrirEdicao(receita),
+        });
+      }
+      if (receita.status === 'pendente' && (opcoes?.podeEfetivar ?? true) && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar) {
+        opcoesMenu.push({
+          id: `receita-${receita.id}-efetivar`,
+          rotulo: t('financeiro.receita.acoes.efetivar'),
+          aoPressionar: () => abrirEfetivacao(receita),
+        });
+      }
+      if (receita.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar) {
+        opcoesMenu.push({
+          id: `receita-${receita.id}-cancelar`,
+          rotulo: t('comum.acoes.cancelar'),
+          perigosa: true,
+          aoPressionar: () => void cancelarReceita(receita),
+        });
+      }
+      if (receita.status === 'pendenteAprovacao' && !receita.faturaCartaoId) {
+        opcoesMenu.push({
+          id: `receita-${receita.id}-aceitar`,
+          rotulo: t('financeiro.comum.acoes.aceitar'),
+          aoPressionar: () => void aceitarReceitaPendenteAprovacao(receita),
+        });
+        opcoesMenu.push({
+          id: `receita-${receita.id}-rejeitar`,
+          rotulo: t('financeiro.comum.acoes.rejeitar'),
+          perigosa: true,
+          aoPressionar: () => void rejeitarReceitaPendenteAprovacao(receita),
+        });
+      }
+      if (receita.status === 'efetivada' && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar) {
+        opcoesMenu.push({
+          id: `receita-${receita.id}-estornar`,
+          rotulo: t('financeiro.receita.acoes.estornar'),
+          perigosa: true,
+          aoPressionar: () => abrirEstorno(receita),
+        });
+      }
+    }
+
     return (
     opcoes?.ocultarTodasAcoes ? null : (
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
-        {receita.ehFatura && !receita.faturaCartaoId ? null : (
-          <>
-            <TouchableOpacity onPress={() => abrirVisualizacao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('financeiro.receita.acoes.visualizar')}</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => abrirDuplicacao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.duplicar')}</Text></TouchableOpacity>
-            {receita.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar ? <TouchableOpacity onPress={() => abrirEdicao(receita)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
-            {receita.status === 'pendente' && (opcoes?.podeEfetivar ?? true) && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar ? <TouchableOpacity onPress={() => abrirEfetivacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.receita.acoes.efetivar')}</Text></TouchableOpacity> : null}
-            {receita.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar ? <TouchableOpacity onPress={() => cancelarReceita(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('comum.acoes.cancelar')}</Text></TouchableOpacity> : null}
-            {receita.status === 'pendenteAprovacao' && !receita.faturaCartaoId ? <TouchableOpacity onPress={() => aceitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
-            {receita.status === 'pendenteAprovacao' && !receita.faturaCartaoId ? <TouchableOpacity onPress={() => rejeitarReceitaPendenteAprovacao(receita)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
-            {receita.status === 'efetivada' && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar ? <TouchableOpacity onPress={() => abrirEstorno(receita)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.receita.acoes.estornar')}</Text></TouchableOpacity> : null}
-          </>
-        )}
+      <View style={{ alignItems: 'flex-end' }}>
+        <MenuAcoesItem
+          aberto={menuAcoesAbertoReceitaId === receita.id}
+          aoAlternar={() => setMenuAcoesAbertoReceitaId((atual) => (atual === receita.id ? null : receita.id))}
+          aoFechar={() => setMenuAcoesAbertoReceitaId(null)}
+          tituloMenu={t('compras.acoes.menuAcoes')}
+          opcoes={opcoesMenu}
+        />
       </View>
     )
     );
@@ -1953,26 +2009,68 @@ export default function TelaReceita() {
       : obterEstiloBadgeStatusReceita(receita.status);
 
     return (
-      <View key={receita.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginBottom: opcoes?.margemInferior ?? 10 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-          <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{receita.id} {receita.descricao}</Text>
-          <DistintivoStatus
-            rotulo={rotuloStatus}
-            corTexto={estiloBadge.corTexto}
-            corBorda={estiloBadge.corBorda}
-            corFundo={estiloBadge.corFundo}
-          />
+      <View
+        key={receita.id}
+        style={{
+          position: 'relative',
+          zIndex: menuAcoesAbertoReceitaId === receita.id ? 80 : 1,
+          elevation: menuAcoesAbertoReceitaId === receita.id ? 24 : 1,
+          overflow: 'visible',
+          backgroundColor: COLORS.bgTertiary,
+          borderWidth: 1,
+          borderColor: COLORS.borderColor,
+          borderRadius: 8,
+          paddingVertical: 10,
+          paddingHorizontal: 10,
+          marginBottom: opcoes?.margemInferior ?? 8,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 10,
+            position: 'relative',
+            zIndex: menuAcoesAbertoReceitaId === receita.id ? 90 : 1,
+            elevation: menuAcoesAbertoReceitaId === receita.id ? 26 : 1,
+          }}
+        >
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text numberOfLines={1} style={{ color: COLORS.textPrimary, fontWeight: '700', fontSize: 14 }}>
+              #{receita.id} {receita.descricao}
+            </Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 4 }}>
+              {[t(`financeiro.receita.tipoReceita.${receita.tipoReceita}`), receita.tipoRecebimento === 'cartaoCredito' ? null : formatarDataPorIdioma(receita.dataVencimento)].filter(Boolean).join(' | ')}
+            </Text>
+            <Text numberOfLines={1} style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 3 }}>
+              {receita.observacao || t('financeiro.receita.mensagens.semObservacao')}
+            </Text>
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 30, alignSelf: 'flex-end' }}>
+              <View style={{ height: 30, justifyContent: 'center' }}>
+                <DistintivoStatus
+                  rotulo={rotuloStatus}
+                  corTexto={estiloBadge.corTexto}
+                  corBorda={estiloBadge.corBorda}
+                  corFundo={estiloBadge.corFundo}
+                />
+              </View>
+              <View style={{ height: 30, justifyContent: 'center' }}>
+                {renderAcoesReceita(receita, {
+                  ocultarAcoesOperacionais: opcoes?.ocultarAcoesOperacionais,
+                  podeEfetivar: opcoes?.podeEfetivar,
+                  ocultarTodasAcoes: opcoes?.ocultarTodasAcoes,
+                  ocultarEfetivacaoEstorno: opcoes?.ocultarEfetivacaoEstorno,
+                })}
+              </View>
+            </View>
+            <Text style={{ color: COLORS.accent, fontSize: 17, fontWeight: '800' }}>
+              {formatarValorPorIdioma(receita.valorLiquido)}
+            </Text>
+          </View>
         </View>
-        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>
-          {[t(`financeiro.receita.tipoReceita.${receita.tipoReceita}`), receita.tipoRecebimento === 'cartaoCredito' ? null : formatarDataPorIdioma(receita.dataVencimento), formatarValorPorIdioma(receita.valorLiquido)].filter(Boolean).join(' | ')}
-        </Text>
-        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>{receita.observacao || t('financeiro.receita.mensagens.semObservacao')}</Text>
-        {renderAcoesReceita(receita, {
-          ocultarAcoesOperacionais: opcoes?.ocultarAcoesOperacionais,
-          podeEfetivar: opcoes?.podeEfetivar,
-          ocultarTodasAcoes: opcoes?.ocultarTodasAcoes,
-          ocultarEfetivacaoEstorno: opcoes?.ocultarEfetivacaoEstorno,
-        })}
       </View>
     );
   };
@@ -2303,7 +2401,7 @@ export default function TelaReceita() {
             </View>
 	            <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
 	            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo='secundario' estilo={{ marginBottom: 12 }} />
-	            <View>
+	            <View style={{ position: 'relative', zIndex: 2, overflow: 'visible' }}>
 	              {receitasListaPrincipal.length === 0 ? <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 24 }}>{t('financeiro.receita.vazio')}</Text> : receitasListaPrincipal.map((receita) => {
 	                const grupoFatura = mapaGrupoPorFaturaId.get(receita.id);
 	                if (!grupoFatura) return renderCartaoReceita(receita);

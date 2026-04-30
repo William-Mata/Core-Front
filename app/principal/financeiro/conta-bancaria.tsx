@@ -7,6 +7,7 @@ import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
 import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
+import { MenuAcoesItem } from '../../../src/componentes/comuns/MenuAcoesItem';
 import { ValorMonetarioAnimado } from '../../../src/componentes/comuns/ValorMonetarioAnimado';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import {
@@ -182,6 +183,7 @@ export default function TelaContaBancaria() {
   const [camposInvalidos, setCamposInvalidos] = useState<Record<string, boolean>>({});
   const [carregando, setCarregando] = useState(false);
   const [deveAnimarValoresIniciais, setDeveAnimarValoresIniciais] = useState(true);
+  const [menuAcoesAbertoContaId, setMenuAcoesAbertoContaId] = useState<number | null>(null);
   const primeiraConsultaConcluida = useRef(false);
   const timeoutAnimacaoInicial = useRef<ReturnType<typeof setTimeout> | null>(null);
   const opcoesBanco = useMemo(() => obterOpcoesBancos(), []);
@@ -519,41 +521,103 @@ export default function TelaContaBancaria() {
             <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
             <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo="secundario" estilo={{ marginBottom: 12 }} />
 
-            <View>
+            <View style={{ position: 'relative', zIndex: 2, overflow: 'visible' }}>
               {contasFiltradas.length === 0 ? (
                 <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 20 }}>{t('financeiro.contaBancaria.vazio')}</Text>
               ) : (
                 contasFiltradas.map((conta) => (
-                  <View key={conta.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                        {renderIconeBanco(conta.referenciaBanco || conta.banco)}
-                        <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{conta.id} {conta.descricao}</Text>
+                  <View
+                    key={conta.id}
+                    style={{
+                      position: 'relative',
+                      zIndex: menuAcoesAbertoContaId === conta.id || contaExtratoAberta === conta.id ? 80 : 1,
+                      elevation: menuAcoesAbertoContaId === conta.id || contaExtratoAberta === conta.id ? 24 : 1,
+                      overflow: 'visible',
+                      backgroundColor: COLORS.bgTertiary,
+                      borderWidth: 1,
+                      borderColor: COLORS.borderColor,
+                      borderRadius: 10,
+                      padding: 12,
+                      marginBottom: 10,
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'flex-start',
+                        gap: 8,
+                        position: 'relative',
+                        zIndex: menuAcoesAbertoContaId === conta.id ? 90 : 1,
+                        elevation: menuAcoesAbertoContaId === conta.id ? 26 : 1,
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                          {renderIconeBanco(conta.referenciaBanco || conta.banco)}
+                          <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{conta.id} {conta.descricao}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                          <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>{conta.banco} | {t('financeiro.contaBancaria.campos.agencia')}: {conta.agencia} | {t('financeiro.contaBancaria.campos.numero')}: {conta.numero}</Text>
+                        </View>
+                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
+                          {t('financeiro.contaBancaria.campos.saldoAtual')}:{' '}
+                          <ValorMonetarioAnimado
+                            valorFinal={conta.saldoAtual}
+                            deveAnimar={deveAnimarValoresIniciais}
+                            estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
+                          />
+                        </Text>
                       </View>
-                      <DistintivoStatus
-                        rotulo={t(`financeiro.contaBancaria.status.${conta.status}`)}
-                        corTexto={conta.status === 'ativa' ? COLORS.success : COLORS.warning}
-                        corBorda={conta.status === 'ativa' ? '#86efac' : '#fde68a'}
-                        corFundo={conta.status === 'ativa' ? '#14532d' : '#78350f'}
-                      />
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                      <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>{conta.banco} | {t('financeiro.contaBancaria.campos.agencia')}: {conta.agencia} | {t('financeiro.contaBancaria.campos.numero')}: {conta.numero}</Text>
-                    </View>
-                    <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
-                      {t('financeiro.contaBancaria.campos.saldoAtual')}:{' '}
-                      <ValorMonetarioAnimado
-                        valorFinal={conta.saldoAtual}
-                        deveAnimar={deveAnimarValoresIniciais}
-                        estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
-                      />
-                    </Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
-                      <TouchableOpacity onPress={() => abrirVisualizacao(conta)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.visualizar')}</Text></TouchableOpacity>
-                      <TouchableOpacity onPress={() => abrirEdicao(conta)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity>
-                      {conta.status === 'ativa' ? <TouchableOpacity onPress={() => void alternarStatusConta(conta, 'inativa')} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.contaBancaria.acoes.inativar')}</Text></TouchableOpacity> : null}
-                      {conta.status === 'inativa' ? <TouchableOpacity onPress={() => void alternarStatusConta(conta, 'ativa')} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.contaBancaria.acoes.ativar')}</Text></TouchableOpacity> : null}
-                      <TouchableOpacity onPress={() => void alternarExtratoConta(conta)} style={{ backgroundColor: COLORS.accentSubtle, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.accent, fontSize: 12 }}>{t('financeiro.contaBancaria.acoes.extrato')}</Text></TouchableOpacity>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
+                        <View style={{ height: 30, justifyContent: 'center' }}>
+                          <DistintivoStatus
+                            rotulo={t(`financeiro.contaBancaria.status.${conta.status}`)}
+                            corTexto={conta.status === 'ativa' ? COLORS.success : COLORS.warning}
+                            corBorda={conta.status === 'ativa' ? '#86efac' : '#fde68a'}
+                            corFundo={conta.status === 'ativa' ? '#14532d' : '#78350f'}
+                          />
+                        </View>
+                        <View style={{ height: 30, justifyContent: 'center' }}>
+                          <MenuAcoesItem
+                            aberto={menuAcoesAbertoContaId === conta.id}
+                            aoAlternar={() => setMenuAcoesAbertoContaId((atual) => (atual === conta.id ? null : conta.id))}
+                            aoFechar={() => setMenuAcoesAbertoContaId(null)}
+                            tituloMenu={t('compras.acoes.menuAcoes')}
+                            opcoes={[
+                              {
+                                id: `conta-${conta.id}-visualizar`,
+                                rotulo: t('comum.acoes.visualizar'),
+                                aoPressionar: () => abrirVisualizacao(conta),
+                              },
+                              {
+                                id: `conta-${conta.id}-editar`,
+                                rotulo: t('comum.acoes.editar'),
+                                aoPressionar: () => abrirEdicao(conta),
+                              },
+                              ...(conta.status === 'ativa'
+                                ? [{
+                                    id: `conta-${conta.id}-inativar`,
+                                    rotulo: t('financeiro.contaBancaria.acoes.inativar'),
+                                    perigosa: true,
+                                    aoPressionar: () => void alternarStatusConta(conta, 'inativa'),
+                                  }]
+                                : []),
+                              ...(conta.status === 'inativa'
+                                ? [{
+                                    id: `conta-${conta.id}-ativar`,
+                                    rotulo: t('financeiro.contaBancaria.acoes.ativar'),
+                                    aoPressionar: () => void alternarStatusConta(conta, 'ativa'),
+                                  }]
+                                : []),
+                              {
+                                id: `conta-${conta.id}-extrato`,
+                                rotulo: t('financeiro.contaBancaria.acoes.extrato'),
+                                aoPressionar: () => void alternarExtratoConta(conta),
+                              },
+                            ]}
+                          />
+                        </View>
+                      </View>
                     </View>
 
                     {contaExtratoAberta === conta.id ? (
@@ -639,10 +703,5 @@ export default function TelaContaBancaria() {
     </View>
   );
 }
-
-
-
-
-
 
 

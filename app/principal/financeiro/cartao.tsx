@@ -7,6 +7,7 @@ import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
 import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
+import { MenuAcoesItem } from '../../../src/componentes/comuns/MenuAcoesItem';
 import { ValorMonetarioAnimado } from '../../../src/componentes/comuns/ValorMonetarioAnimado';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import {
@@ -314,6 +315,7 @@ export default function TelaCartao() {
   const [contasBancarias, setContasBancarias] = useState<ContaBancariaOpcaoApi[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [deveAnimarValoresIniciais, setDeveAnimarValoresIniciais] = useState(true);
+  const [menuAcoesAbertoCartaoId, setMenuAcoesAbertoCartaoId] = useState<number | null>(null);
   const primeiraConsultaConcluida = useRef(false);
   const timeoutAnimacaoInicial = useRef<ReturnType<typeof setTimeout> | null>(null);
   const opcoesBandeiras = useMemo(() => obterOpcoesBandeirasCartao(), []);
@@ -876,66 +878,127 @@ export default function TelaCartao() {
             <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
             <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo="secundario" estilo={{ marginBottom: 12 }} />
 
-            <View>
+            <View style={{ position: 'relative', zIndex: 2, overflow: 'visible' }}>
               {cartoesFiltrados.length === 0 ? (
                 <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 20 }}>{t('financeiro.cartao.vazio')}</Text>
               ) : (
                 cartoesFiltrados.map((cartao) => (
-                  <View key={cartao.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                        {renderIconeBandeira(cartao.referenciaBandeira || cartao.bandeira)}
-                        <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{cartao.id} {cartao.descricao}</Text>
+                  <View
+                    key={cartao.id}
+                    style={{
+                      position: 'relative',
+                      zIndex: menuAcoesAbertoCartaoId === cartao.id || cartaoDetalheAberto === cartao.id ? 80 : 1,
+                      elevation: menuAcoesAbertoCartaoId === cartao.id || cartaoDetalheAberto === cartao.id ? 24 : 1,
+                      overflow: 'visible',
+                      backgroundColor: COLORS.bgTertiary,
+                      borderWidth: 1,
+                      borderColor: COLORS.borderColor,
+                      borderRadius: 10,
+                      padding: 12,
+                      marginBottom: 10,
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'flex-start',
+                        gap: 8,
+                        position: 'relative',
+                        zIndex: menuAcoesAbertoCartaoId === cartao.id ? 90 : 1,
+                        elevation: menuAcoesAbertoCartaoId === cartao.id ? 26 : 1,
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                          {renderIconeBandeira(cartao.referenciaBandeira || cartao.bandeira)}
+                          <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{cartao.id} {cartao.descricao}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                          <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>
+                            {cartao.bandeira} | {t(`financeiro.cartao.tipos.${cartao.tipo}`)}
+                          </Text>
+                        </View>
+                        {cartao.tipo === 'credito' ? (
+                          <>
+                            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>
+                              {t('financeiro.cartao.campos.limite')}:{' '}
+                              <ValorMonetarioAnimado
+                                valorFinal={cartao.limite}
+                                deveAnimar={deveAnimarValoresIniciais}
+                                estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
+                              />{' '}
+                              | {t('financeiro.cartao.campos.saldoDisponivel')}:{' '}
+                              <ValorMonetarioAnimado
+                                valorFinal={cartao.saldoDisponivel}
+                                deveAnimar={deveAnimarValoresIniciais}
+                                estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
+                              />
+                            </Text>
+                            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
+                              {t('financeiro.cartao.campos.diaVencimento')}: {formatarDataPorIdioma(cartao.diaVencimento)} | {t('financeiro.cartao.campos.dataVencimentoCartao')}: {formatarDataPorIdioma(cartao.dataVencimentoCartao)}
+                            </Text>
+                          </>
+                        ) : (
+                          <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
+                            {t('financeiro.cartao.campos.saldoDisponivel')}:{' '}
+                            <ValorMonetarioAnimado
+                              valorFinal={cartao.saldoDisponivel}
+                              deveAnimar={deveAnimarValoresIniciais}
+                              estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
+                            />
+                          </Text>
+                        )}
                       </View>
-                      <DistintivoStatus
-                        rotulo={t(`financeiro.cartao.status.${cartao.status}`)}
-                        corTexto={cartao.status === 'ativo' ? COLORS.success : COLORS.warning}
-                        corBorda={cartao.status === 'ativo' ? '#86efac' : '#fde68a'}
-                        corFundo={cartao.status === 'ativo' ? '#14532d' : '#78350f'}
-                      />
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                      <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>
-                        {cartao.bandeira} | {t(`financeiro.cartao.tipos.${cartao.tipo}`)}
-                      </Text>
-                    </View>
-                    {cartao.tipo === 'credito' ? (
-                      <>
-                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>
-                          {t('financeiro.cartao.campos.limite')}:{' '}
-                          <ValorMonetarioAnimado
-                            valorFinal={cartao.limite}
-                            deveAnimar={deveAnimarValoresIniciais}
-                            estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
-                          />{' '}
-                          | {t('financeiro.cartao.campos.saldoDisponivel')}:{' '}
-                          <ValorMonetarioAnimado
-                            valorFinal={cartao.saldoDisponivel}
-                            deveAnimar={deveAnimarValoresIniciais}
-                            estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
+                        <View style={{ height: 30, justifyContent: 'center' }}>
+                          <DistintivoStatus
+                            rotulo={t(`financeiro.cartao.status.${cartao.status}`)}
+                            corTexto={cartao.status === 'ativo' ? COLORS.success : COLORS.warning}
+                            corBorda={cartao.status === 'ativo' ? '#86efac' : '#fde68a'}
+                            corFundo={cartao.status === 'ativo' ? '#14532d' : '#78350f'}
                           />
-                        </Text>
-                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
-                          {t('financeiro.cartao.campos.diaVencimento')}: {formatarDataPorIdioma(cartao.diaVencimento)} | {t('financeiro.cartao.campos.dataVencimentoCartao')}: {formatarDataPorIdioma(cartao.dataVencimentoCartao)}
-                        </Text>
-                      </>
-                    ) : (
-                      <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
-                        {t('financeiro.cartao.campos.saldoDisponivel')}:{' '}
-                        <ValorMonetarioAnimado
-                          valorFinal={cartao.saldoDisponivel}
-                          deveAnimar={deveAnimarValoresIniciais}
-                          estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
-                        />
-                      </Text>
-                    )}
-
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
-                      <TouchableOpacity onPress={() => abrirVisualizacao(cartao)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.visualizar')}</Text></TouchableOpacity>
-                      <TouchableOpacity onPress={() => abrirEdicao(cartao)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity>
-                      {cartao.status === 'ativo' ? <TouchableOpacity onPress={() => void alternarStatusCartao(cartao, 'inativo')} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.cartao.acoes.inativar')}</Text></TouchableOpacity> : null}
-                      {cartao.status === 'inativo' ? <TouchableOpacity onPress={() => void alternarStatusCartao(cartao, 'ativo')} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.cartao.acoes.ativar')}</Text></TouchableOpacity> : null}
-                      <TouchableOpacity onPress={() => void alternarDetalheCartao(cartao)} style={{ backgroundColor: COLORS.accentSubtle, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.accent, fontSize: 12 }}>{cartao.tipo === 'credito' ? t('financeiro.cartao.acoes.fatura') : t('financeiro.cartao.acoes.extrato')}</Text></TouchableOpacity>
+                        </View>
+                        <View style={{ height: 30, justifyContent: 'center' }}>
+                          <MenuAcoesItem
+                            aberto={menuAcoesAbertoCartaoId === cartao.id}
+                            aoAlternar={() => setMenuAcoesAbertoCartaoId((atual) => (atual === cartao.id ? null : cartao.id))}
+                            aoFechar={() => setMenuAcoesAbertoCartaoId(null)}
+                            tituloMenu={t('compras.acoes.menuAcoes')}
+                            opcoes={[
+                              {
+                                id: `cartao-${cartao.id}-visualizar`,
+                                rotulo: t('comum.acoes.visualizar'),
+                                aoPressionar: () => abrirVisualizacao(cartao),
+                              },
+                              {
+                                id: `cartao-${cartao.id}-editar`,
+                                rotulo: t('comum.acoes.editar'),
+                                aoPressionar: () => abrirEdicao(cartao),
+                              },
+                              ...(cartao.status === 'ativo'
+                                ? [{
+                                    id: `cartao-${cartao.id}-inativar`,
+                                    rotulo: t('financeiro.cartao.acoes.inativar'),
+                                    perigosa: true,
+                                    aoPressionar: () => void alternarStatusCartao(cartao, 'inativo'),
+                                  }]
+                                : []),
+                              ...(cartao.status === 'inativo'
+                                ? [{
+                                    id: `cartao-${cartao.id}-ativar`,
+                                    rotulo: t('financeiro.cartao.acoes.ativar'),
+                                    aoPressionar: () => void alternarStatusCartao(cartao, 'ativo'),
+                                  }]
+                                : []),
+                              {
+                                id: `cartao-${cartao.id}-detalhe`,
+                                rotulo: cartao.tipo === 'credito' ? t('financeiro.cartao.acoes.fatura') : t('financeiro.cartao.acoes.extrato'),
+                                aoPressionar: () => void alternarDetalheCartao(cartao),
+                              },
+                            ]}
+                          />
+                        </View>
+                      </View>
                     </View>
 
                     {cartaoDetalheAberto === cartao.id ? (
@@ -1143,6 +1206,3 @@ export default function TelaCartao() {
     </View>
   );
 }
-
-
-

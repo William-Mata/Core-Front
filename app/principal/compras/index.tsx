@@ -6,6 +6,7 @@ import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
+import { MenuAcoesItem } from '../../../src/componentes/comuns/MenuAcoesItem';
 import { Modal } from '../../../src/componentes/comuns/Modal';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import {
@@ -588,32 +589,20 @@ export default function ComprasIndex() {
                     </View>
                   </TouchableOpacity>
 
-                  {opcoesAcoesLista.length > 0 ? (
-                    <TouchableOpacity
-                      onPress={() => setMenuAcoesAbertoListaId((atual) => (atual === lista.id ? null : lista.id))}
-                      style={{
-                        width: 30,
-                        height: 30,
-                        borderRadius: 10,
-                        borderWidth: 1,
-                        borderColor: menuAcoesAbertoListaId === lista.id ? COLORS.borderAccent : COLORS.textPrimary,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: menuAcoesAbertoListaId === lista.id ? COLORS.accentSubtle : COLORS.bgSecondary,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: menuAcoesAbertoListaId === lista.id ? COLORS.accent : COLORS.textPrimary,
-                          fontSize: 18,
-                          fontWeight: '700',
-                          lineHeight: 18,
-                        }}
-                      >
-                        {'\u22EE'}
-                      </Text>
-                    </TouchableOpacity>
-                  ) : null}
+                  <MenuAcoesItem
+                    aberto={menuAcoesAbertoListaId === lista.id}
+                    aoAlternar={() => setMenuAcoesAbertoListaId((atual) => (atual === lista.id ? null : lista.id))}
+                    aoFechar={() => setMenuAcoesAbertoListaId(null)}
+                    tituloMenu={t('compras.acoes.menuAcoes')}
+                    opcoes={opcoesAcoesLista.map((opcao) => ({
+                      id: `${lista.id}-${opcao.value}`,
+                      rotulo: opcao.label,
+                      perigosa: opcao.perigosa,
+                      aoPressionar: () => {
+                        void executarAcaoLista(lista, opcao.value);
+                      },
+                    }))}
+                  />
                 </View>
 
                 <TouchableOpacity onPress={() => abrirTelaItensLista(lista)} activeOpacity={0.85}>
@@ -645,79 +634,7 @@ export default function ComprasIndex() {
                   </View>
                 </TouchableOpacity>
 
-                {opcoesAcoesLista.length > 0 && menuAcoesAbertoListaId === lista.id ? (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 50,
-                      right: 14,
-                      zIndex: 60,
-                      elevation: 14,
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 240,
-                        borderWidth: 1,
-                        borderColor: COLORS.borderAccent,
-                        borderRadius: 12,
-                        backgroundColor: COLORS.bgSecondary,
-                        overflow: 'hidden',
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 8 },
-                        shadowOpacity: 0.35,
-                        shadowRadius: 12,
-                      }}
-                    >
-                      <View
-                        style={{
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          borderBottomWidth: 1,
-                          borderBottomColor: COLORS.borderColor,
-                          backgroundColor: COLORS.accentSubtle,
-                        }}
-                      >
-                        <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700' }}>
-                          {t('compras.acoes.menuAcoes')}
-                        </Text>
-                      </View>
-
-                      {opcoesAcoesLista.map((opcao, indice) => (
-                        <TouchableOpacity
-                          key={`${lista.id}-${opcao.value}`}
-                          onPress={() => {
-                            setMenuAcoesAbertoListaId(null);
-                            void executarAcaoLista(lista, opcao.value);
-                          }}
-                          style={{
-                            paddingHorizontal: 12,
-                            paddingVertical: 11,
-                            borderTopWidth: indice === 0 ? 0 : 1,
-                            borderTopColor: COLORS.borderColor,
-                            backgroundColor: COLORS.bgSecondary,
-                          }}
-                        >
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            {opcao.perigosa ? (
-                              <View
-                                style={{
-                                  width: 6,
-                                  height: 6,
-                                  borderRadius: 999,
-                                  backgroundColor: COLORS.borderAccent,
-                                }}
-                              />
-                            ) : null}
-                            <Text style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '600' }}>
-                              {opcao.label}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                ) : null}
+                
               </View>
             );
           })}

@@ -5,6 +5,7 @@ import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
+import { MenuAcoesItem } from '../../../src/componentes/comuns/MenuAcoesItem';
 import { Modal } from '../../../src/componentes/comuns/Modal';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import {
@@ -58,6 +59,7 @@ export default function DesejosCompraTela() {
   const [nomeNovaLista, setNomeNovaLista] = useState('');
   const [categoriaNovaLista, setCategoriaNovaLista] = useState<ListaCompra['categoria']>('outros');
   const [acaoPosConversao, setAcaoPosConversao] = useState<'Manter' | 'Arquivar' | 'MarcarComoConvertido'>('MarcarComoConvertido');
+  const [menuAcoesAbertoDesejoId, setMenuAcoesAbertoDesejoId] = useState<number | null>(null);
   const [filtro, setFiltro] = useState<FiltroPadraoValor>(filtroInicial);
   const [filtroAplicado, setFiltroAplicado] = useState<FiltroPadraoValor>(filtroInicial);
   const [filtroUnidade, setFiltroUnidade] = useState<UnidadeFiltroDesejos>('todas');
@@ -320,6 +322,10 @@ export default function DesejosCompraTela() {
               <View
                 key={desejo.id}
                 style={{
+                  position: 'relative',
+                  zIndex: menuAcoesAbertoDesejoId === desejo.id ? 60 : 1,
+                  elevation: menuAcoesAbertoDesejoId === desejo.id ? 18 : 1,
+                  overflow: 'visible',
                   backgroundColor: COLORS.bgTertiary,
                   borderWidth: 1,
                   borderColor: ativo ? COLORS.borderAccent : COLORS.borderColor,
@@ -327,37 +333,54 @@ export default function DesejosCompraTela() {
                   padding: 14,
                 }}
               >
-                <TouchableOpacity onPress={() => alternarSelecao(desejo.id)} activeOpacity={0.85}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>{desejo.descricao}</Text>
-                    <View
-                      style={{
-                        backgroundColor: ativo ? COLORS.accent : COLORS.bgSecondary,
-                        borderColor: ativo ? COLORS.borderAccent : COLORS.borderColor,
-                        borderWidth: 1,
-                        borderRadius: 6,
-                        paddingHorizontal: 10,
-                        paddingVertical: 4,
-                      }}
-                    >
-                      <Text style={{ color: ativo ? COLORS.textPrimary : COLORS.textSecondary, fontSize: 11, fontWeight: '700' }}>
-                        #{desejo.id}
-                      </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                  <TouchableOpacity onPress={() => alternarSelecao(desejo.id)} activeOpacity={0.85} style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>{desejo.descricao}</Text>
+                      <View
+                        style={{
+                          backgroundColor: ativo ? COLORS.accent : COLORS.bgSecondary,
+                          borderColor: ativo ? COLORS.borderAccent : COLORS.borderColor,
+                          borderWidth: 1,
+                          borderRadius: 6,
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                        }}
+                      >
+                        <Text style={{ color: ativo ? COLORS.textPrimary : COLORS.textSecondary, fontSize: 11, fontWeight: '700' }}>
+                          #{desejo.id}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                  <Text style={{ color: COLORS.textSecondary, marginTop: 6 }}>
-                    {t('compras.item.quantidade')}: {desejo.quantidade}
-                  </Text>
-                  <Text style={{ color: COLORS.textSecondary }}>
-                    {t('compras.item.unidade')}: {t(`compras.unidades.${desejo.unidadeMedida}`)}
-                  </Text>
-                  <Text style={{ color: COLORS.textSecondary }}>{t('compras.desejos.valorAlvo')}: {formatarValorPorIdioma(desejo.valorAlvo)}</Text>
-                  {desejo.observacao ? <Text style={{ color: COLORS.textSecondary }}>{desejo.observacao}</Text> : null}
-                </TouchableOpacity>
+                    <Text style={{ color: COLORS.textSecondary, marginTop: 6 }}>
+                      {t('compras.item.quantidade')}: {desejo.quantidade}
+                    </Text>
+                    <Text style={{ color: COLORS.textSecondary }}>
+                      {t('compras.item.unidade')}: {t(`compras.unidades.${desejo.unidadeMedida}`)}
+                    </Text>
+                    <Text style={{ color: COLORS.textSecondary }}>{t('compras.desejos.valorAlvo')}: {formatarValorPorIdioma(desejo.valorAlvo)}</Text>
+                    {desejo.observacao ? <Text style={{ color: COLORS.textSecondary }}>{desejo.observacao}</Text> : null}
+                  </TouchableOpacity>
 
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                  <Botao titulo={t('comum.acoes.editar')} tipo="secundario" onPress={() => abrirEditarDesejo(desejo)} />
-                  <Botao titulo={t('comum.acoes.remover')} tipo="perigo" onPress={() => void removerDesejo(desejo.id)} />
+                  <MenuAcoesItem
+                    aberto={menuAcoesAbertoDesejoId === desejo.id}
+                    aoAlternar={() => setMenuAcoesAbertoDesejoId((atual) => (atual === desejo.id ? null : desejo.id))}
+                    aoFechar={() => setMenuAcoesAbertoDesejoId(null)}
+                    tituloMenu={t('compras.acoes.menuAcoes')}
+                    opcoes={[
+                      {
+                        id: `desejo-${desejo.id}-editar`,
+                        rotulo: t('comum.acoes.editar'),
+                        aoPressionar: () => abrirEditarDesejo(desejo),
+                      },
+                      {
+                        id: `desejo-${desejo.id}-remover`,
+                        rotulo: t('comum.acoes.remover'),
+                        perigosa: true,
+                        aoPressionar: () => void removerDesejo(desejo.id),
+                      },
+                    ]}
+                  />
                 </View>
               </View>
             );

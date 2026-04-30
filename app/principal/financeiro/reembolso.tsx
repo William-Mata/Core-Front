@@ -8,6 +8,7 @@ import { Botao } from '../../../src/componentes/comuns/Botao';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
 import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
+import { MenuAcoesItem, type OpcaoMenuAcoesItem } from '../../../src/componentes/comuns/MenuAcoesItem';
 import { ModalConfirmacao } from '../../../src/componentes/comuns/ModalConfirmacao';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { estaDentroIntervalo } from '../../../src/utils/filtroData';
@@ -229,6 +230,7 @@ export default function TelaReembolso() {
   const [competencia, setCompetencia] = useState<CompetenciaFinanceira>(() => obterCompetenciaAtual());
   const [modoFormulario, setModoFormulario] = useState<ModoFormulario>(idParam ? 'visualizacao' : 'lista');
   const [carregando, setCarregando] = useState(false);
+  const [menuAcoesAbertoReembolsoId, setMenuAcoesAbertoReembolsoId] = useState<number | null>(null);
   const [reembolsoSelecionadoId, setReembolsoSelecionadoId] = useState<number | null>(idParam);
   const [despesasDisponiveis, setDespesasDisponiveis] = useState<DespesaDisponivel[]>([]);
   const [reembolsos, setReembolsos] = useState<Reembolso[]>([]);
@@ -759,60 +761,108 @@ export default function TelaReembolso() {
     <View
       key={reembolso.id}
       style={{
+        position: 'relative',
+        zIndex: menuAcoesAbertoReembolsoId === reembolso.id ? 80 : 1,
+        elevation: menuAcoesAbertoReembolsoId === reembolso.id ? 24 : 1,
+        overflow: 'visible',
         backgroundColor: COLORS.bgTertiary,
         borderWidth: 1,
         borderColor: COLORS.borderColor,
-        borderRadius: 10,
-        padding: 12,
-        marginBottom: opcoes?.margemInferior ?? 10,
+        borderRadius: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 10,
+        marginBottom: opcoes?.margemInferior ?? 8,
       }}
     >
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-        <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>
-          #{reembolso.id} {reembolso.descricao}
-        </Text>
-        <DistintivoStatus
-          rotulo={reembolso.ehFaturaCartao ? obterRotuloStatusFaturaCartao(reembolso.statusFaturaCartao) : t(`financeiro.reembolso.statusLista.${reembolso.status}`)}
-          corTexto={estiloBadge.corTexto}
-          corBorda={estiloBadge.corBorda}
-          corFundo={estiloBadge.corFundo}
-        />
-      </View>
-      <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>
-        {reembolso.solicitante || '-'} | {formatarDataHoraPorIdioma(reembolso.dataLancamento)} | {formatarValorPorIdioma(obterValorExibicaoReembolso(reembolso))}
-      </Text>
-      <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
-        {t('financeiro.reembolso.despesasSelecionadas', { count: String(reembolso.despesasVinculadas.length) })}
-      </Text>
-      {opcoes?.ocultarAcoes ? null : (
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-          {reembolso.ehFaturaCartao && !reembolso.faturaCartaoId ? null : (
-            <>
-              {podeEditarReembolso(reembolso.status) && podeAlterar ? (
-                <TouchableOpacity onPress={() => abrirEdicao(reembolso.id)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
-                  <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text>
-                </TouchableOpacity>
-              ) : null}
-              {!podeEstornarReembolso(reembolso.status) && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar ? (
-                <TouchableOpacity onPress={() => abrirEfetivacao(reembolso.id)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
-                  <Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.reembolso.acoes.efetivar')}</Text>
-                </TouchableOpacity>
-              ) : null}
-              {podeEstornarReembolso(reembolso.status) && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar ? (
-                <TouchableOpacity onPress={() => abrirEstorno(reembolso.id)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
-                  <Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.reembolso.acoes.estornar')}</Text>
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity onPress={() => abrirVisualizacao(reembolso.id)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
-                <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.visualizar')}</Text>
-              </TouchableOpacity>
-              {podeEditarReembolso(reembolso.status) && podeAlterar ? <TouchableOpacity onPress={() => cancelar(reembolso)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
-                <Text style={{ color: COLORS.error, fontSize: 12 }}>{t('comum.acoes.cancelar')}</Text>
-              </TouchableOpacity> : null}
-            </>
-          )}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 10,
+          position: 'relative',
+          zIndex: menuAcoesAbertoReembolsoId === reembolso.id ? 90 : 1,
+          elevation: menuAcoesAbertoReembolsoId === reembolso.id ? 26 : 1,
+        }}
+      >
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text numberOfLines={1} style={{ color: COLORS.textPrimary, fontWeight: '700', fontSize: 14 }}>
+            #{reembolso.id} {reembolso.descricao}
+          </Text>
+          <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 4 }}>
+            {[reembolso.solicitante || '-', formatarDataHoraPorIdioma(reembolso.dataLancamento)].join(' | ')}
+          </Text>
+          <Text numberOfLines={1} style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 3 }}>
+            {t('financeiro.reembolso.despesasSelecionadas', { count: String(reembolso.despesasVinculadas.length) })}
+          </Text>
         </View>
-      )}
+        <View style={{ alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 30, alignSelf: 'flex-end' }}>
+            <View style={{ height: 30, justifyContent: 'center' }}>
+              <DistintivoStatus
+                rotulo={reembolso.ehFaturaCartao ? obterRotuloStatusFaturaCartao(reembolso.statusFaturaCartao) : t(`financeiro.reembolso.statusLista.${reembolso.status}`)}
+                corTexto={estiloBadge.corTexto}
+                corBorda={estiloBadge.corBorda}
+                corFundo={estiloBadge.corFundo}
+              />
+            </View>
+            {opcoes?.ocultarAcoes ? null : (
+              <View style={{ height: 30, justifyContent: 'center' }}>
+                <MenuAcoesItem
+                  aberto={menuAcoesAbertoReembolsoId === reembolso.id}
+                  aoAlternar={() => setMenuAcoesAbertoReembolsoId((atual) => (atual === reembolso.id ? null : reembolso.id))}
+                  aoFechar={() => setMenuAcoesAbertoReembolsoId(null)}
+                  tituloMenu={t('compras.acoes.menuAcoes')}
+                  opcoes={((): OpcaoMenuAcoesItem[] => {
+                  if (reembolso.ehFaturaCartao && !reembolso.faturaCartaoId) return [];
+                  const opcoesMenu: OpcaoMenuAcoesItem[] = [
+                    {
+                      id: `reembolso-${reembolso.id}-visualizar`,
+                      rotulo: t('comum.acoes.visualizar'),
+                      aoPressionar: () => abrirVisualizacao(reembolso.id),
+                    },
+                  ];
+                  if (podeEditarReembolso(reembolso.status) && podeAlterar) {
+                    opcoesMenu.push({
+                      id: `reembolso-${reembolso.id}-editar`,
+                      rotulo: t('comum.acoes.editar'),
+                      aoPressionar: () => abrirEdicao(reembolso.id),
+                    });
+                  }
+                  if (!podeEstornarReembolso(reembolso.status) && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar) {
+                    opcoesMenu.push({
+                      id: `reembolso-${reembolso.id}-efetivar`,
+                      rotulo: t('financeiro.reembolso.acoes.efetivar'),
+                      aoPressionar: () => abrirEfetivacao(reembolso.id),
+                    });
+                  }
+                  if (podeEstornarReembolso(reembolso.status) && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar) {
+                    opcoesMenu.push({
+                      id: `reembolso-${reembolso.id}-estornar`,
+                      rotulo: t('financeiro.reembolso.acoes.estornar'),
+                      perigosa: true,
+                      aoPressionar: () => abrirEstorno(reembolso.id),
+                    });
+                  }
+                  if (podeEditarReembolso(reembolso.status) && podeAlterar) {
+                    opcoesMenu.push({
+                      id: `reembolso-${reembolso.id}-cancelar`,
+                      rotulo: t('comum.acoes.cancelar'),
+                      perigosa: true,
+                      aoPressionar: () => void cancelar(reembolso),
+                    });
+                  }
+                    return opcoesMenu;
+                  })()}
+                />
+              </View>
+            )}
+          </View>
+          <Text style={{ color: COLORS.accent, fontSize: 17, fontWeight: '800' }}>
+            {formatarValorPorIdioma(obterValorExibicaoReembolso(reembolso))}
+          </Text>
+        </View>
+      </View>
     </View>
     );
   };
@@ -1109,7 +1159,7 @@ export default function TelaReembolso() {
             </View>
 	            <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
 	            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo='secundario' estilo={{ marginBottom: 12 }} disabled={carregando} />
-	            <View style={{ gap: 10 }}>
+	            <View style={{ gap: 10, position: 'relative', zIndex: 2, overflow: 'visible' }}>
 	              {reembolsosListaPrincipal.length === 0 ? (
 	                <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 20 }}>
 	                  {carregando ? t('comum.carregando') : t('financeiro.reembolso.vazio')}

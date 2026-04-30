@@ -7,6 +7,7 @@ import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoDataIntervalo } from '../../../src/componentes/comuns/CampoData';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
+import { MenuAcoesItem } from '../../../src/componentes/comuns/MenuAcoesItem';
 import { Modal } from '../../../src/componentes/comuns/Modal';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import {
@@ -1277,90 +1278,25 @@ export default function ListaCompraDetalheTela() {
                   </View>
 
                   {podeEditarItens ? (
-                    <View style={{ position: 'relative', zIndex: 75 }}>
-                      <TouchableOpacity
-                        onPress={() => setMenuAcoesItemAbertoId((atual) => (atual === item.id ? null : item.id))}
-                        style={{
-                          width: 30,
-                          height: 30,
-                          borderRadius: 10,
-                          borderWidth: 1,
-                          borderColor: menuAcoesAberto ? COLORS.borderAccent : COLORS.borderColor,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: menuAcoesAberto ? COLORS.accentSubtle : COLORS.bgSecondary,
-                        }}
-                      >
-                        <Text style={{ color: menuAcoesAberto ? COLORS.accent : COLORS.textPrimary, fontSize: 18, fontWeight: '700', lineHeight: 18 }}>
-                          {'\u22EE'}
-                        </Text>
-                      </TouchableOpacity>
-
-                      {menuAcoesAberto ? (
-                        <View
-                          style={{
-                            position: 'absolute',
-                            top: 34,
-                            right: 0,
-                            zIndex: 140,
-                            width: 170,
-                            borderWidth: 1,
-                            borderColor: COLORS.borderAccent,
-                            borderRadius: 12,
-                            overflow: 'hidden',
-                            backgroundColor: COLORS.bgSecondary,
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 8 },
-                            shadowOpacity: 0.35,
-                            shadowRadius: 12,
-                          }}
-                        >
-                          <View
-                            style={{
-                              paddingHorizontal: 12,
-                              paddingVertical: 8,
-                              borderBottomWidth: 1,
-                              borderBottomColor: COLORS.borderColor,
-                              backgroundColor: COLORS.accentSubtle,
-                            }}
-                          >
-                            <Text style={{ color: COLORS.accent, fontSize: 12, fontWeight: '700' }}>{t('compras.acoes.menuAcoes')}</Text>
-                          </View>
-                          <TouchableOpacity
-                            onPress={() => executarAcaoItem(item, 'editar')}
-                            style={{
-                              paddingHorizontal: 12,
-                              paddingVertical: 11,
-                              backgroundColor: COLORS.bgSecondary,
-                            }}
-                          >
-                            <Text style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '600' }}>{t('comum.acoes.editar')}</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => executarAcaoItem(item, 'excluir')}
-                            style={{
-                              paddingHorizontal: 12,
-                              paddingVertical: 11,
-                              borderTopWidth: 1,
-                              borderTopColor: COLORS.borderColor,
-                              backgroundColor: COLORS.bgSecondary,
-                            }}
-                          >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                              <View
-                                style={{
-                                  width: 6,
-                                  height: 6,
-                                  borderRadius: 999,
-                                  backgroundColor: COLORS.borderAccent,
-                                }}
-                              />
-                              <Text style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '600' }}>{t('comum.acoes.excluir')}</Text>
-                            </View>
-                          </TouchableOpacity>
-                        </View>
-                      ) : null}
-                    </View>
+                    <MenuAcoesItem
+                      aberto={menuAcoesAberto}
+                      aoAlternar={() => setMenuAcoesItemAbertoId((atual) => (atual === item.id ? null : item.id))}
+                      aoFechar={() => setMenuAcoesItemAbertoId(null)}
+                      tituloMenu={t('compras.acoes.menuAcoes')}
+                      opcoes={[
+                        {
+                          id: `${item.id}-editar`,
+                          rotulo: t('comum.acoes.editar'),
+                          aoPressionar: () => executarAcaoItem(item, 'editar'),
+                        },
+                        {
+                          id: `${item.id}-excluir`,
+                          rotulo: t('comum.acoes.excluir'),
+                          perigosa: true,
+                          aoPressionar: () => executarAcaoItem(item, 'excluir'),
+                        },
+                      ]}
+                    />
                   ) : null}
                 </View>
               </View>

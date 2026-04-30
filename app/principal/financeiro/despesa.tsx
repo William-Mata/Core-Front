@@ -9,6 +9,7 @@ import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { FiltroPadrao, type FiltroPadraoValor } from '../../../src/componentes/comuns/FiltroPadrao';
 import { DistintivoStatus } from '../../../src/componentes/comuns/DistintivoStatus';
+import { MenuAcoesItem, type OpcaoMenuAcoesItem } from '../../../src/componentes/comuns/MenuAcoesItem';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { usarAutenticacaoStore } from '../../../src/store/usarAutenticacaoStore';
 import { COLORS } from '../../../src/styles/variables';
@@ -701,6 +702,7 @@ export default function TelaDespesa() {
   const [faturasExpandidas, setFaturasExpandidas] = useState<number[]>([]);
   const [salvandoDespesa, setSalvandoDespesa] = useState(false);
   const [cancelandoDespesa, setCancelandoDespesa] = useState(false);
+  const [menuAcoesAbertoDespesaId, setMenuAcoesAbertoDespesaId] = useState<number | null>(null);
   const definirTipoRateioAmigos = (valor: TipoRateioAmigos) => {
     tipoRateioAmigosRef.current = valor;
     setTipoRateioAmigos(valor);
@@ -1960,21 +1962,75 @@ export default function TelaDespesa() {
     opcoes?: { ocultarAcoesOperacionais?: boolean; podeEfetivar?: boolean; ocultarTodasAcoes?: boolean; ocultarEfetivacaoEstorno?: boolean },
   ) => {
     const podeAlterar = podeAlterarTransacaoVinculadaAFatura(despesa.faturaCartaoId, despesa.id, despesa.statusFaturaCartao);
+    const opcoesMenu: OpcaoMenuAcoesItem[] = [];
+
+    if (!(despesa.ehFatura && !despesa.faturaCartaoId)) {
+      opcoesMenu.push({
+        id: `despesa-${despesa.id}-visualizar`,
+        rotulo: t('financeiro.despesa.acoes.visualizar'),
+        aoPressionar: () => abrirVisualizacao(despesa),
+      });
+      opcoesMenu.push({
+        id: `despesa-${despesa.id}-duplicar`,
+        rotulo: t('comum.acoes.duplicar'),
+        aoPressionar: () => abrirDuplicacao(despesa),
+      });
+
+      if (despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar) {
+        opcoesMenu.push({
+          id: `despesa-${despesa.id}-editar`,
+          rotulo: t('comum.acoes.editar'),
+          aoPressionar: () => abrirEdicao(despesa),
+        });
+      }
+      if (despesa.status === 'pendente' && (opcoes?.podeEfetivar ?? true) && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar) {
+        opcoesMenu.push({
+          id: `despesa-${despesa.id}-efetivar`,
+          rotulo: t('financeiro.despesa.acoes.efetivar'),
+          aoPressionar: () => abrirEfetivacao(despesa),
+        });
+      }
+      if (despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar) {
+        opcoesMenu.push({
+          id: `despesa-${despesa.id}-cancelar`,
+          rotulo: t('comum.acoes.cancelar'),
+          perigosa: true,
+          aoPressionar: () => void cancelarDespesa(despesa),
+        });
+      }
+      if (despesa.status === 'pendenteAprovacao' && !despesa.faturaCartaoId) {
+        opcoesMenu.push({
+          id: `despesa-${despesa.id}-aceitar`,
+          rotulo: t('financeiro.comum.acoes.aceitar'),
+          aoPressionar: () => void aceitarDespesaPendenteAprovacao(despesa),
+        });
+        opcoesMenu.push({
+          id: `despesa-${despesa.id}-rejeitar`,
+          rotulo: t('financeiro.comum.acoes.rejeitar'),
+          perigosa: true,
+          aoPressionar: () => void rejeitarDespesaPendenteAprovacao(despesa),
+        });
+      }
+      if (despesa.status === 'efetivada' && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar) {
+        opcoesMenu.push({
+          id: `despesa-${despesa.id}-estornar`,
+          rotulo: t('financeiro.despesa.acoes.estornar'),
+          perigosa: true,
+          aoPressionar: () => abrirEstorno(despesa),
+        });
+      }
+    }
+
     return (
     opcoes?.ocultarTodasAcoes ? null : (
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: -4 }}>
-        {despesa.ehFatura && !despesa.faturaCartaoId ? null : (
-          <>
-            <TouchableOpacity onPress={() => abrirVisualizacao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('financeiro.despesa.acoes.visualizar')}</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => abrirDuplicacao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.duplicar')}</Text></TouchableOpacity>
-            {despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar ? <TouchableOpacity onPress={() => abrirEdicao(despesa)} style={{ backgroundColor: COLORS.bgSecondary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{t('comum.acoes.editar')}</Text></TouchableOpacity> : null}
-            {despesa.status === 'pendente' && (opcoes?.podeEfetivar ?? true) && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar ? <TouchableOpacity onPress={() => abrirEfetivacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.despesa.acoes.efetivar')}</Text></TouchableOpacity> : null}
-            {despesa.status === 'pendente' && !opcoes?.ocultarAcoesOperacionais && podeAlterar ? <TouchableOpacity onPress={() => cancelarDespesa(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('comum.acoes.cancelar')}</Text></TouchableOpacity> : null}
-            {despesa.status === 'pendenteAprovacao' && !despesa.faturaCartaoId ? <TouchableOpacity onPress={() => aceitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.successSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.success, fontSize: 12 }}>{t('financeiro.comum.acoes.aceitar')}</Text></TouchableOpacity> : null}
-            {despesa.status === 'pendenteAprovacao' && !despesa.faturaCartaoId ? <TouchableOpacity onPress={() => rejeitarDespesaPendenteAprovacao(despesa)} style={{ backgroundColor: COLORS.errorSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.error, fontSize: 12 }}>{t('financeiro.comum.acoes.rejeitar')}</Text></TouchableOpacity> : null}
-            {despesa.status === 'efetivada' && !opcoes?.ocultarEfetivacaoEstorno && podeAlterar ? <TouchableOpacity onPress={() => abrirEstorno(despesa)} style={{ backgroundColor: COLORS.warningSoft, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginHorizontal: 4, marginVertical: 4 }}><Text style={{ color: COLORS.warning, fontSize: 12 }}>{t('financeiro.despesa.acoes.estornar')}</Text></TouchableOpacity> : null}
-          </>
-        )}
+      <View style={{ alignItems: 'flex-end' }}>
+        <MenuAcoesItem
+          aberto={menuAcoesAbertoDespesaId === despesa.id}
+          aoAlternar={() => setMenuAcoesAbertoDespesaId((atual) => (atual === despesa.id ? null : despesa.id))}
+          aoFechar={() => setMenuAcoesAbertoDespesaId(null)}
+          tituloMenu={t('compras.acoes.menuAcoes')}
+          opcoes={opcoesMenu}
+        />
       </View>
     )
     );
@@ -1995,21 +2051,63 @@ export default function TelaDespesa() {
       : obterEstiloBadgeStatusDespesa(despesa.status);
 
     return (
-      <View key={despesa.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 12, marginBottom: opcoes?.margemInferior ?? 10 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-          <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{despesa.id} {despesa.descricao}</Text>
-          <DistintivoStatus
-            rotulo={rotuloStatus}
-            corTexto={estiloBadge.corTexto}
-            corBorda={estiloBadge.corBorda}
-            corFundo={estiloBadge.corFundo}
-          />
+      <View
+        key={despesa.id}
+        style={{
+          position: 'relative',
+          zIndex: menuAcoesAbertoDespesaId === despesa.id ? 80 : 1,
+          elevation: menuAcoesAbertoDespesaId === despesa.id ? 24 : 1,
+          overflow: 'visible',
+          backgroundColor: COLORS.bgTertiary,
+          borderWidth: 1,
+          borderColor: COLORS.borderColor,
+          borderRadius: 8,
+          paddingVertical: 10,
+          paddingHorizontal: 10,
+          marginBottom: opcoes?.margemInferior ?? 8,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 10,
+            position: 'relative',
+            zIndex: menuAcoesAbertoDespesaId === despesa.id ? 90 : 1,
+            elevation: menuAcoesAbertoDespesaId === despesa.id ? 26 : 1,
+          }}
+        >
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text numberOfLines={1} style={{ color: COLORS.textPrimary, fontWeight: '700', fontSize: 14 }}>
+              #{despesa.id} {despesa.descricao}
+            </Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 4 }}>
+              {[t(`financeiro.despesa.tipoDespesa.${despesa.tipoDespesa}`), despesa.tipoPagamento === 'cartaoCredito' ? null : formatarDataPorIdioma(despesa.dataVencimento)].filter(Boolean).join(' | ')}
+            </Text>
+            <Text numberOfLines={1} style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 3 }}>
+              {despesa.observacao || t('financeiro.despesa.mensagens.semObservacao')}
+            </Text>
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 30, alignSelf: 'flex-end' }}>
+              <View style={{ height: 30, justifyContent: 'center' }}>
+                <DistintivoStatus
+                  rotulo={rotuloStatus}
+                  corTexto={estiloBadge.corTexto}
+                  corBorda={estiloBadge.corBorda}
+                  corFundo={estiloBadge.corFundo}
+                />
+              </View>
+              <View style={{ height: 30, justifyContent: 'center' }}>
+                {renderAcoesDespesa(despesa, { ocultarAcoesOperacionais: opcoes?.ocultarAcoesOperacionais, podeEfetivar: opcoes?.podeEfetivar, ocultarTodasAcoes: opcoes?.ocultarTodasAcoes, ocultarEfetivacaoEstorno: opcoes?.ocultarEfetivacaoEstorno })}
+              </View>
+            </View>
+            <Text style={{ color: COLORS.accent, fontSize: 17, fontWeight: '800' }}>
+              {formatarValorPorIdioma(despesa.valorLiquido)}
+            </Text>
+          </View>
         </View>
-        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 8 }}>
-          {[t(`financeiro.despesa.tipoDespesa.${despesa.tipoDespesa}`), despesa.tipoPagamento === 'cartaoCredito' ? null : formatarDataPorIdioma(despesa.dataVencimento), formatarValorPorIdioma(despesa.valorLiquido)].filter(Boolean).join(' | ')}
-        </Text>
-        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>{despesa.observacao || t('financeiro.despesa.mensagens.semObservacao')}</Text>
-        {renderAcoesDespesa(despesa, { ocultarAcoesOperacionais: opcoes?.ocultarAcoesOperacionais, podeEfetivar: opcoes?.podeEfetivar, ocultarTodasAcoes: opcoes?.ocultarTodasAcoes, ocultarEfetivacaoEstorno: opcoes?.ocultarEfetivacaoEstorno })}
       </View>
     );
   };
@@ -2345,7 +2443,7 @@ export default function TelaDespesa() {
 	            <FiltroPadrao valor={filtro} aoMudar={setFiltro} />
 	            <Botao titulo={t('comum.acoes.consultar')} onPress={consultarFiltros} tipo='secundario' estilo={{ marginBottom: 12 }} />
 	           
-	            <View>
+	            <View style={{ position: 'relative', zIndex: 2, overflow: 'visible' }}>
 	              {despesasListaPrincipal.length === 0 ? <Text style={{ color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 24 }}>{t('financeiro.despesa.vazio')}</Text> : despesasListaPrincipal.map((despesa) => {
 	                const grupoFatura = mapaGrupoPorFaturaId.get(despesa.id);
 	                if (!grupoFatura) return renderCartaoDespesa(despesa);
