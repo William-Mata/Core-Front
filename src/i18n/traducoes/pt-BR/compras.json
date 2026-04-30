@@ -153,7 +153,14 @@
     "menorPreco": "Menor preço",
     "maiorPreco": "Maior preco",
     "mediaPreco": "Preço médio",
-    "dataUltimoPreco": "Data do último preço"
+    "dataUltimoPreco": "Data do último preço",
+    "graficoEvolucao": "Evolução de preço",
+    "tooltipData": "Data",
+    "tooltipValor": "Valor",
+    "tendenciaSubida": "Tendência: subida",
+    "tendenciaQueda": "Tendência: queda",
+    "tendenciaEstavel": "Tendência: estável",
+    "semSerieHistorica": "Sem pontos de histórico para exibir no gráfico."
   },
   "participantes": {
     "titulo": "Participantes",

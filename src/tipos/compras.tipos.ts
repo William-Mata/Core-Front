@@ -83,6 +83,10 @@ export interface HistoricoItemCompra {
   mediaPreco: number;
   dataUltimoPreco: string;
   totalOcorrencias: number;
+  historicoPrecos: Array<{
+    data: string;
+    valor: number;
+  }>;
 }
 
 export interface SugestaoItemCompra {

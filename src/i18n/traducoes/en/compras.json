@@ -154,7 +154,14 @@
     "menorPreco": "Lowest price",
     "maiorPreco": "Highest price",
     "mediaPreco": "Average price",
-    "dataUltimoPreco": "Last price date"
+    "dataUltimoPreco": "Last price date",
+    "graficoEvolucao": "Price trend",
+    "tooltipData": "Date",
+    "tooltipValor": "Value",
+    "tendenciaSubida": "Trend: increase",
+    "tendenciaQueda": "Trend: decrease",
+    "tendenciaEstavel": "Trend: stable",
+    "semSerieHistorica": "No historical points to display on the chart."
   },
   "participantes": {
     "titulo": "Participants",

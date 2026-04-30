@@ -285,6 +285,21 @@ function normalizarDesejo(entrada: unknown): DesejoCompra {
 
 function normalizarHistorico(entrada: unknown): HistoricoItemCompra {
   const historico = (entrada ?? {}) as Record<string, unknown>;
+  const historicoPrecosEntrada = Array.isArray(historico.historicoPrecos) ? historico.historicoPrecos : [];
+  const historicoPrecos = historicoPrecosEntrada
+    .map((item) => {
+      const ponto = (item ?? {}) as Record<string, unknown>;
+      const valor = Number(ponto.valor ?? 0);
+      const data = String(ponto.data ?? '');
+      if (!Number.isFinite(valor) || !data) return null;
+      return {
+        data,
+        valor,
+      };
+    })
+    .filter((ponto): ponto is { data: string; valor: number } => ponto !== null)
+    .sort((a, b) => a.data.localeCompare(b.data));
+
   return {
     produtoId: Number(historico.produtoId ?? 0),
     descricao: String(historico.descricao ?? ''),
@@ -295,6 +310,7 @@ function normalizarHistorico(entrada: unknown): HistoricoItemCompra {
     mediaPreco: Number(historico.mediaPreco ?? 0),
     dataUltimoPreco: String(historico.dataUltimoPreco ?? ''),
     totalOcorrencias: Number(historico.totalOcorrencias ?? 0),
+    historicoPrecos,
   };
 }
 

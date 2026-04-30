@@ -22,6 +22,10 @@ jest.mock('../../../../src/componentes/comuns/Cabecalho', () => ({
   Cabecalho: ({ titulo }: { titulo: string }) => titulo,
 }));
 
+jest.mock('react-native-gifted-charts', () => ({
+  LineChart: () => null,
+}));
+
 describe('tela compras/historico-itens', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -39,6 +43,11 @@ describe('tela compras/historico-itens', () => {
         mediaPreco: 9,
         dataUltimoPreco: '2026-04-21',
         totalOcorrencias: 3,
+        historicoPrecos: [
+          { data: '2026-04-19', valor: 8 },
+          { data: '2026-04-20', valor: 9 },
+          { data: '2026-04-21', valor: 10 },
+        ],
       },
     ]);
 
