@@ -329,14 +329,25 @@ export default function DesejosCompraTela() {
                   backgroundColor: COLORS.bgTertiary,
                   borderWidth: 1,
                   borderColor: ativo ? COLORS.borderAccent : COLORS.borderColor,
-                  borderRadius: 12,
-                  padding: 14,
+                  borderRadius: 8,
+                  paddingVertical: 10,
+                  paddingHorizontal: 10,
                 }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
                   <TouchableOpacity onPress={() => alternarSelecao(desejo.id)} activeOpacity={0.85} style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>{desejo.descricao}</Text>
+                    <Text numberOfLines={1} style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '700', flex: 1 }}>{desejo.descricao}</Text>
+                    <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 4 }}>
+                      {t('compras.item.quantidade')}: {desejo.quantidade}
+                    </Text>
+                    <Text style={{ color: COLORS.textSecondary, fontSize: 11 }}>
+                      {t('compras.item.unidade')}: {t(`compras.unidades.${desejo.unidadeMedida}`)}
+                    </Text>
+                    {desejo.observacao ? <Text numberOfLines={1} style={{ color: COLORS.textSecondary, fontSize: 11 }}>{desejo.observacao}</Text> : null}
+                  </TouchableOpacity>
+
+                  <View style={{ alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <View
                         style={{
                           backgroundColor: ativo ? COLORS.accent : COLORS.bgSecondary,
@@ -351,36 +362,30 @@ export default function DesejosCompraTela() {
                           #{desejo.id}
                         </Text>
                       </View>
+                      <MenuAcoesItem
+                        aberto={menuAcoesAbertoDesejoId === desejo.id}
+                        aoAlternar={() => setMenuAcoesAbertoDesejoId((atual) => (atual === desejo.id ? null : desejo.id))}
+                        aoFechar={() => setMenuAcoesAbertoDesejoId(null)}
+                        tituloMenu={t('compras.acoes.menuAcoes')}
+                        opcoes={[
+                          {
+                            id: `desejo-${desejo.id}-editar`,
+                            rotulo: t('comum.acoes.editar'),
+                            aoPressionar: () => abrirEditarDesejo(desejo),
+                          },
+                          {
+                            id: `desejo-${desejo.id}-remover`,
+                            rotulo: t('comum.acoes.remover'),
+                            perigosa: true,
+                            aoPressionar: () => void removerDesejo(desejo.id),
+                          },
+                        ]}
+                      />
                     </View>
-                    <Text style={{ color: COLORS.textSecondary, marginTop: 6 }}>
-                      {t('compras.item.quantidade')}: {desejo.quantidade}
+                    <Text style={{ color: COLORS.accent, fontSize: 16, fontWeight: '800' }}>
+                      {formatarValorPorIdioma(desejo.valorAlvo)}
                     </Text>
-                    <Text style={{ color: COLORS.textSecondary }}>
-                      {t('compras.item.unidade')}: {t(`compras.unidades.${desejo.unidadeMedida}`)}
-                    </Text>
-                    <Text style={{ color: COLORS.textSecondary }}>{t('compras.desejos.valorAlvo')}: {formatarValorPorIdioma(desejo.valorAlvo)}</Text>
-                    {desejo.observacao ? <Text style={{ color: COLORS.textSecondary }}>{desejo.observacao}</Text> : null}
-                  </TouchableOpacity>
-
-                  <MenuAcoesItem
-                    aberto={menuAcoesAbertoDesejoId === desejo.id}
-                    aoAlternar={() => setMenuAcoesAbertoDesejoId((atual) => (atual === desejo.id ? null : desejo.id))}
-                    aoFechar={() => setMenuAcoesAbertoDesejoId(null)}
-                    tituloMenu={t('compras.acoes.menuAcoes')}
-                    opcoes={[
-                      {
-                        id: `desejo-${desejo.id}-editar`,
-                        rotulo: t('comum.acoes.editar'),
-                        aoPressionar: () => abrirEditarDesejo(desejo),
-                      },
-                      {
-                        id: `desejo-${desejo.id}-remover`,
-                        rotulo: t('comum.acoes.remover'),
-                        perigosa: true,
-                        aoPressionar: () => void removerDesejo(desejo.id),
-                      },
-                    ]}
-                  />
+                  </View>
                 </View>
               </View>
             );

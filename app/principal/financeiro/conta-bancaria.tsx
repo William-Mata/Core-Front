@@ -530,15 +530,16 @@ export default function TelaContaBancaria() {
                     key={conta.id}
                     style={{
                       position: 'relative',
-                      zIndex: menuAcoesAbertoContaId === conta.id || contaExtratoAberta === conta.id ? 80 : 1,
-                      elevation: menuAcoesAbertoContaId === conta.id || contaExtratoAberta === conta.id ? 24 : 1,
+                      zIndex: menuAcoesAbertoContaId === conta.id ? 140 : contaExtratoAberta === conta.id ? 80 : 1,
+                      elevation: menuAcoesAbertoContaId === conta.id ? 32 : contaExtratoAberta === conta.id ? 24 : 1,
                       overflow: 'visible',
                       backgroundColor: COLORS.bgTertiary,
                       borderWidth: 1,
                       borderColor: COLORS.borderColor,
-                      borderRadius: 10,
-                      padding: 12,
-                      marginBottom: 10,
+                      borderRadius: 8,
+                      paddingVertical: 10,
+                      paddingHorizontal: 10,
+                      marginBottom: 8,
                     }}
                   >
                     <View
@@ -547,37 +548,35 @@ export default function TelaContaBancaria() {
                         alignItems: 'flex-start',
                         gap: 8,
                         position: 'relative',
-                        zIndex: menuAcoesAbertoContaId === conta.id ? 90 : 1,
-                        elevation: menuAcoesAbertoContaId === conta.id ? 26 : 1,
+                        zIndex: menuAcoesAbertoContaId === conta.id ? 150 : 1,
+                        elevation: menuAcoesAbertoContaId === conta.id ? 34 : 1,
                       }}
                     >
-                      <View style={{ flex: 1 }}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                           {renderIconeBanco(conta.referenciaBanco || conta.banco)}
-                          <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{conta.id} {conta.descricao}</Text>
+                          <Text numberOfLines={1} style={{ color: COLORS.textPrimary, fontWeight: '700', fontSize: 14, flex: 1 }}>#{conta.id} {conta.descricao}</Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                          <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>{conta.banco} | {t('financeiro.contaBancaria.campos.agencia')}: {conta.agencia} | {t('financeiro.contaBancaria.campos.numero')}: {conta.numero}</Text>
+                          <Text numberOfLines={1} style={{ color: COLORS.textSecondary, fontSize: 11, flex: 1 }}>{conta.banco} | {t('financeiro.contaBancaria.campos.agencia')}: {conta.agencia} | {t('financeiro.contaBancaria.campos.numero')}: {conta.numero}</Text>
                         </View>
-                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
+                        <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginBottom: 4 }}>
                           {t('financeiro.contaBancaria.campos.saldoAtual')}:{' '}
                           <ValorMonetarioAnimado
                             valorFinal={conta.saldoAtual}
                             deveAnimar={deveAnimarValoresIniciais}
-                            estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
+                            estilo={{ color: COLORS.textSecondary, fontSize: 11, fontWeight: '700' }}
                           />
                         </Text>
                       </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
-                        <View style={{ height: 30, justifyContent: 'center' }}>
+                      <View style={{ alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end' }}>
                           <DistintivoStatus
                             rotulo={t(`financeiro.contaBancaria.status.${conta.status}`)}
                             corTexto={conta.status === 'ativa' ? COLORS.success : COLORS.warning}
                             corBorda={conta.status === 'ativa' ? '#86efac' : '#fde68a'}
                             corFundo={conta.status === 'ativa' ? '#14532d' : '#78350f'}
                           />
-                        </View>
-                        <View style={{ height: 30, justifyContent: 'center' }}>
                           <MenuAcoesItem
                             aberto={menuAcoesAbertoContaId === conta.id}
                             aoAlternar={() => setMenuAcoesAbertoContaId((atual) => (atual === conta.id ? null : conta.id))}
@@ -617,6 +616,9 @@ export default function TelaContaBancaria() {
                             ]}
                           />
                         </View>
+                        <Text style={{ color: COLORS.accent, fontSize: 17, fontWeight: '800' }}>
+                          {formatarValorPorIdioma(conta.saldoAtual)}
+                        </Text>
                       </View>
                     </View>
 
@@ -703,5 +705,3 @@ export default function TelaContaBancaria() {
     </View>
   );
 }
-
-

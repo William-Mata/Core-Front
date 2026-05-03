@@ -1187,12 +1187,13 @@ export default function ListaCompraDetalheTela() {
                   zIndex: menuAcoesAberto ? 70 : 1,
                   elevation: menuAcoesAberto ? 16 : 1,
                   overflow: 'visible',
-                  borderRadius: 12,
+                  borderRadius: 8,
                   borderWidth: 1,
                   borderColor: converterHexEmRgba(item.marcadorCor, 0.24),
                   borderLeftWidth: 4,
                   borderLeftColor: item.marcadorCor,
-                  padding: 12,
+                  paddingVertical: 10,
+                  paddingHorizontal: 10,
                   backgroundColor: COLORS.bgSecondary,
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 2 },
@@ -1201,33 +1202,14 @@ export default function ListaCompraDetalheTela() {
                 }}
               >
                 <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                  <TouchableOpacity
-                    onPress={() => void alternarComprado(item, !item.comprado)}
-                    disabled={!podeEditarItens}
-                    style={{ marginTop: 2 }}
-                  >
-                    <View
-                      style={{
-                        width: 22,
-                        height: 22,
-                        borderRadius: 6,
-                        borderWidth: 1,
-                        borderColor: item.comprado ? COLORS.success : COLORS.borderColor,
-                        backgroundColor: item.comprado ? COLORS.successSoft : COLORS.bgSecondary,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        opacity: podeEditarItens ? 1 : 0.7,
-                      }}
-                    >
-                      {item.comprado ? <Text style={{ color: COLORS.success, fontSize: 13, fontWeight: '700' }}>{'\u2713'}</Text> : null}
-                    </View>
-                  </TouchableOpacity>
-
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: COLORS.textPrimary, fontWeight: '700', textDecorationLine: item.comprado ? 'line-through' : 'none' }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: '700', textDecorationLine: item.comprado ? 'line-through' : 'none' }}>
                       {item.descricao}
                     </Text>
-                    {item.observacao ? <Text style={{ color: COLORS.textSecondary, marginTop: 2 }}>{item.observacao}</Text> : null}
+                    {item.observacao ? <Text numberOfLines={1} style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 3 }}>{item.observacao}</Text> : null}
+                    <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 3 }}>
+                      {t('compras.item.quantidade')}: {item.quantidade} | {t(`compras.unidades.${item.unidadeMedida}`)}
+                    </Text>
 
                     {podeEditarItens ? (
                       <View
@@ -1277,27 +1259,54 @@ export default function ListaCompraDetalheTela() {
                     ) : null}
                   </View>
 
-                  {podeEditarItens ? (
-                    <MenuAcoesItem
-                      aberto={menuAcoesAberto}
-                      aoAlternar={() => setMenuAcoesItemAbertoId((atual) => (atual === item.id ? null : item.id))}
-                      aoFechar={() => setMenuAcoesItemAbertoId(null)}
-                      tituloMenu={t('compras.acoes.menuAcoes')}
-                      opcoes={[
-                        {
-                          id: `${item.id}-editar`,
-                          rotulo: t('comum.acoes.editar'),
-                          aoPressionar: () => executarAcaoItem(item, 'editar'),
-                        },
-                        {
-                          id: `${item.id}-excluir`,
-                          rotulo: t('comum.acoes.excluir'),
-                          perigosa: true,
-                          aoPressionar: () => executarAcaoItem(item, 'excluir'),
-                        },
-                      ]}
-                    />
-                  ) : null}
+                  <View style={{ alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <TouchableOpacity
+                        onPress={() => void alternarComprado(item, !item.comprado)}
+                        disabled={!podeEditarItens}
+                      >
+                        <View
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: item.comprado ? COLORS.success : COLORS.borderColor,
+                            backgroundColor: item.comprado ? COLORS.successSoft : COLORS.bgSecondary,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: podeEditarItens ? 1 : 0.7,
+                          }}
+                        >
+                          {item.comprado ? <Text style={{ color: COLORS.success, fontSize: 13, fontWeight: '700' }}>{'\u2713'}</Text> : null}
+                        </View>
+                      </TouchableOpacity>
+                      {podeEditarItens ? (
+                        <MenuAcoesItem
+                          aberto={menuAcoesAberto}
+                          aoAlternar={() => setMenuAcoesItemAbertoId((atual) => (atual === item.id ? null : item.id))}
+                          aoFechar={() => setMenuAcoesItemAbertoId(null)}
+                          tituloMenu={t('compras.acoes.menuAcoes')}
+                          opcoes={[
+                            {
+                              id: `${item.id}-editar`,
+                              rotulo: t('comum.acoes.editar'),
+                              aoPressionar: () => executarAcaoItem(item, 'editar'),
+                            },
+                            {
+                              id: `${item.id}-excluir`,
+                              rotulo: t('comum.acoes.excluir'),
+                              perigosa: true,
+                              aoPressionar: () => executarAcaoItem(item, 'excluir'),
+                            },
+                          ]}
+                        />
+                      ) : null}
+                    </View>
+                    <Text style={{ color: COLORS.accent, fontSize: 16, fontWeight: '800' }}>
+                      {formatarValorPorIdioma(item.valorTotal)}
+                    </Text>
+                  </View>
                 </View>
               </View>
             );

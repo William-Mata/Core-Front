@@ -893,9 +893,10 @@ export default function TelaCartao() {
                       backgroundColor: COLORS.bgTertiary,
                       borderWidth: 1,
                       borderColor: COLORS.borderColor,
-                      borderRadius: 10,
-                      padding: 12,
-                      marginBottom: 10,
+                      borderRadius: 8,
+                      paddingVertical: 10,
+                      paddingHorizontal: 10,
+                      marginBottom: 8,
                     }}
                   >
                     <View
@@ -908,57 +909,55 @@ export default function TelaCartao() {
                         elevation: menuAcoesAbertoCartaoId === cartao.id ? 26 : 1,
                       }}
                     >
-                      <View style={{ flex: 1 }}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                           {renderIconeBandeira(cartao.referenciaBandeira || cartao.bandeira)}
-                          <Text style={{ color: COLORS.textPrimary, fontWeight: '700', flex: 1 }}>#{cartao.id} {cartao.descricao}</Text>
+                          <Text numberOfLines={1} style={{ color: COLORS.textPrimary, fontWeight: '700', fontSize: 14, flex: 1 }}>#{cartao.id} {cartao.descricao}</Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                          <Text style={{ color: COLORS.textSecondary, fontSize: 12, flex: 1 }}>
+                          <Text numberOfLines={1} style={{ color: COLORS.textSecondary, fontSize: 11, flex: 1 }}>
                             {cartao.bandeira} | {t(`financeiro.cartao.tipos.${cartao.tipo}`)}
                           </Text>
                         </View>
                         {cartao.tipo === 'credito' ? (
                           <>
-                            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>
+                            <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginBottom: 4 }}>
                               {t('financeiro.cartao.campos.limite')}:{' '}
                               <ValorMonetarioAnimado
                                 valorFinal={cartao.limite}
                                 deveAnimar={deveAnimarValoresIniciais}
-                                estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
+                                estilo={{ color: COLORS.textSecondary, fontSize: 11, fontWeight: '700' }}
                               />{' '}
                               | {t('financeiro.cartao.campos.saldoDisponivel')}:{' '}
                               <ValorMonetarioAnimado
                                 valorFinal={cartao.saldoDisponivel}
                                 deveAnimar={deveAnimarValoresIniciais}
-                                estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
+                                estilo={{ color: COLORS.textSecondary, fontSize: 11, fontWeight: '700' }}
                               />
                             </Text>
-                            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
+                            <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginBottom: 4 }}>
                               {t('financeiro.cartao.campos.diaVencimento')}: {formatarDataPorIdioma(cartao.diaVencimento)} | {t('financeiro.cartao.campos.dataVencimentoCartao')}: {formatarDataPorIdioma(cartao.dataVencimentoCartao)}
                             </Text>
                           </>
                         ) : (
-                          <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 10 }}>
+                          <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginBottom: 4 }}>
                             {t('financeiro.cartao.campos.saldoDisponivel')}:{' '}
                             <ValorMonetarioAnimado
                               valorFinal={cartao.saldoDisponivel}
                               deveAnimar={deveAnimarValoresIniciais}
-                              estilo={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}
+                              estilo={{ color: COLORS.textSecondary, fontSize: 11, fontWeight: '700' }}
                             />
                           </Text>
                         )}
                       </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
-                        <View style={{ height: 30, justifyContent: 'center' }}>
+                      <View style={{ alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end' }}>
                           <DistintivoStatus
                             rotulo={t(`financeiro.cartao.status.${cartao.status}`)}
                             corTexto={cartao.status === 'ativo' ? COLORS.success : COLORS.warning}
                             corBorda={cartao.status === 'ativo' ? '#86efac' : '#fde68a'}
                             corFundo={cartao.status === 'ativo' ? '#14532d' : '#78350f'}
                           />
-                        </View>
-                        <View style={{ height: 30, justifyContent: 'center' }}>
                           <MenuAcoesItem
                             aberto={menuAcoesAbertoCartaoId === cartao.id}
                             aoAlternar={() => setMenuAcoesAbertoCartaoId((atual) => (atual === cartao.id ? null : cartao.id))}
@@ -998,6 +997,9 @@ export default function TelaCartao() {
                             ]}
                           />
                         </View>
+                        <Text style={{ color: COLORS.accent, fontSize: 17, fontWeight: '800' }}>
+                          {formatarValorPorIdioma(totalPeriodo(cartao))}
+                        </Text>
                       </View>
                     </View>
 
