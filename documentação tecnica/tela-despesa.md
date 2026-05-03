@@ -4,10 +4,10 @@
 Documentar o comportamento atual do front-end da tela de despesa e os contratos realmente consumidos.
 
 Arquivo principal:
-- `app/principal/financeiro/despesa.tsx`
+- `app/(principal)/financeiro/despesas.tsx`
 
 ## Rota do front
-- `/principal/financeiro/despesa`
+- `/financeiro/despesas`
 
 ## Modos da tela
 - `lista`
@@ -127,5 +127,6 @@ Regras de fluxo:
 - filtro sem acionar o botao `Consultar`
 
 ## Fonte no front (confirmacao critica)
-- `app/principal/financeiro/despesa.tsx`
+- `app/(principal)/financeiro/despesas.tsx`
 - `src/componentes/comuns/ModalConfirmacao/index.tsx`
+

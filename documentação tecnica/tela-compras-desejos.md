@@ -28,5 +28,6 @@ Cadastrar itens desejados e converter selecao multipla em lista de compras.
   - botoes `Cancelar` e `Remover`
 
 ## Fonte no front
-- `app/principal/compras/desejos.tsx`
+- `app/(principal)/compras/desejos.tsx`
 - `src/utils/confirmacao.ts`
+

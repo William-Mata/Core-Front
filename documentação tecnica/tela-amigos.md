@@ -4,7 +4,12 @@
 Documentar o comportamento atual da tela de amigos e a regra de confirmacao para remocao de vinculo.
 
 ## Rota do front
-- `/principal/amigos`
+- `/amigos`
+- `/amigos/convite` (modal de envio de convite)
+- `/amigos/documentacao` (documentacao do modulo de amigos)
+
+## Compatibilidade de rota legada
+- `/amigos/amigo` redireciona para `/amigos/convite`
 
 ## Endpoints consumidos
 - `GET /api/financeiro/amigos`
@@ -23,6 +28,14 @@ Documentar o comportamento atual da tela de amigos e a regra de confirmacao para
 - Se o usuario cancelar, a remocao nao e executada.
 
 ## Fonte no front
-- `app/principal/amigos/index.tsx`
+- `app/(principal)/amigos/index.tsx`
+- `app/(principal)/amigos/convite.tsx`
+- `app/(principal)/amigos/amigo.tsx`
 - `src/utils/confirmacao.ts`
 - `src/componentes/comuns/ModalConfirmacao/index.tsx`
+
+## Cobertura de teste automatizado
+- Arquivo: `__tests__/app/principal/rotas-legadas.test.tsx`
+- Cenarios cobertos:
+  - redirect da rota legada `/amigos/amigo` para `/amigos/convite`
+

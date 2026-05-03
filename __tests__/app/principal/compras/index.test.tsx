@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
-import ComprasIndex from '../../../../app/principal/compras/index';
+import ComprasIndex from '../../../../app/(principal)/compras/planejamentos';
 
 const mockPush = jest.fn();
 const mockListarListasCompraApi = jest.fn();

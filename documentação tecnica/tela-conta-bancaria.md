@@ -4,7 +4,7 @@
 Documentar o contrato atual da tela de conta bancaria para integracao com API.
 
 ## Rota do front
-- `/principal/financeiro/conta-bancaria`
+- `/financeiro/conta-bancaria`
 
 ## Modos da tela
 - `lista`
@@ -65,11 +65,12 @@ Regras de saldo:
 - persistir mes selecionado por conta fora da sessao atual.
 
 ## Rastreabilidade no codigo
-- `app/principal/financeiro/conta-bancaria.tsx:318`
-- `app/principal/financeiro/conta-bancaria.tsx:344`
-- `app/principal/financeiro/conta-bancaria.tsx:376`
-- `app/principal/financeiro/conta-bancaria.tsx:502`
+- `app/(principal)/financeiro/conta-bancaria.tsx:318`
+- `app/(principal)/financeiro/conta-bancaria.tsx:344`
+- `app/(principal)/financeiro/conta-bancaria.tsx:376`
+- `app/(principal)/financeiro/conta-bancaria.tsx:502`
 - `src/servicos/financeiro/index.ts:838`
 - `src/servicos/financeiro/index.ts:854`
 - `src/servicos/financeiro/index.ts:873`
 - `src/servicos/financeiro/index.ts:883`
+

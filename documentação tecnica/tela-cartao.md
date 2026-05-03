@@ -4,7 +4,7 @@
 Documentar o contrato atual da tela de cartao e regras aplicadas no front para integracao com API.
 
 ## Rota do front
-- `/principal/financeiro/cartao`
+- `/financeiro/cartoes`
 
 ## Modos da tela
 - `lista`
@@ -73,13 +73,14 @@ Regras:
 - persistir mes selecionado por cartao fora da sessao atual.
 
 ## Rastreabilidade no codigo
-- `app/principal/financeiro/cartao.tsx:328`
-- `app/principal/financeiro/cartao.tsx:412`
-- `app/principal/financeiro/cartao.tsx:478`
-- `app/principal/financeiro/cartao.tsx:513`
-- `app/principal/financeiro/cartao.tsx:725`
+- `app/(principal)/financeiro/cartoes.tsx:328`
+- `app/(principal)/financeiro/cartoes.tsx:412`
+- `app/(principal)/financeiro/cartoes.tsx:478`
+- `app/(principal)/financeiro/cartoes.tsx:513`
+- `app/(principal)/financeiro/cartoes.tsx:725`
 - `src/servicos/financeiro/index.ts:892`
 - `src/servicos/financeiro/index.ts:938`
 - `src/servicos/financeiro/index.ts:959`
 - `src/servicos/financeiro/index.ts:972`
 - `src/servicos/financeiro/index.ts:981`
+

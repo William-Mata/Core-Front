@@ -69,7 +69,7 @@ Permitir cadastro, edicao, visualizacao e manutencao de planejamentos de compras
   - ultima atualizacao
 
 ## Logs e rastreabilidade
-- Logs continuam visiveis na tela de itens (`app/principal/compras/lista.tsx`) em modo visualizacao e edicao.
+- Logs continuam visiveis na tela de itens (`app/(principal)/compras/planejamento.tsx`) em modo visualizacao e edicao.
 - O front normaliza eventos de log tanto no formato legado (`evento`) quanto no formato novo (`acao`).
 
 ## SignalR
@@ -77,8 +77,9 @@ Permitir cadastro, edicao, visualizacao e manutencao de planejamentos de compras
 - Ao receber evento da lista ativa, a tela recarrega dados para sincronismo em tempo real.
 
 ## Fonte no front
-- Tela de planejamentos: `app/principal/compras/index.tsx`
-- Tela de itens do planejamento: `app/principal/compras/lista.tsx`
+- Tela de planejamentos: `app/(principal)/compras/planejamentos.tsx`
+- Tela de itens do planejamento: `app/(principal)/compras/planejamento.tsx`
 - Servico de compras: `src/servicos/compras/index.ts`
 - Tipos do modulo: `src/tipos/compras.tipos.ts`
 - Mocks: `src/mocks/manipuladores/compras.mock.ts`
+

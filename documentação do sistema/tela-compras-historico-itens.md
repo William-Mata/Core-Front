@@ -4,6 +4,10 @@
 - Consulta variacao de preco por item ao longo do tempo.
 - Filtra por descricao para encontrar o produto mais rapido.
 
+## Onde acessar
+- Menu lateral -> `Compras` -> `Historico de Itens`
+- Rota: `/compras/historico-precos`
+
 ## Informacoes exibidas
 - Ultimo valor registrado
 - Menor valor encontrado

@@ -5,7 +5,7 @@ Orientar o usuario final sobre como usar o painel de usuario.
 
 ## Onde acessar
 - Menu lateral -> `Painel do Usuario`
-- Rota interna: `/principal/usuario`
+- Rota interna: `/usuario`
 
 ## O que existe nesta tela
 - bloco com seus dados:
@@ -51,3 +51,4 @@ Orientar o usuario final sobre como usar o painel de usuario.
 ## Observação
 - esta tela mostra os dados do usuario autenticado no momento
 - para voltar ao sistema principal, use o botao de fechar da tela
+

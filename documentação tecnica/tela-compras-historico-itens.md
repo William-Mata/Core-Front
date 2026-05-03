@@ -3,8 +3,11 @@
 ## Objetivo
 Exibir evolucao de preco por item e unidade de medida considerando uso do usuario e listas compartilhadas.
 
+## Rota do front
+- `/compras/historico-precos`
+
 ## Endpoint utilizado
-- `GET /compras/historico-itens`
+- `GET /compras/historico-precos`
 
 ## Filtros
 - Descricao do item

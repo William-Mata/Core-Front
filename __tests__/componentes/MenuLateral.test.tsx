@@ -182,7 +182,7 @@ describe('MenuLateral', () => {
     fireEvent.press(getByText('menu.administracao'));
     fireEvent.press(getByText('menu.usuarios'));
 
-    expect(mockPush).toHaveBeenCalledWith('/principal/administracao/usuario');
+    expect(mockPush).toHaveBeenCalledWith('/admin/usuarios');
   });
 
   it('deve deslogar e redirecionar ao clicar em sair', async () => {
@@ -201,7 +201,7 @@ describe('MenuLateral', () => {
   });
 
   it('deve destacar apenas o submenu correto de compras conforme rota atual', () => {
-    mockPathname = '/principal/compras/desejos';
+    mockPathname = '/compras/desejos';
 
     const { getByText } = render(
       <MenuLateral
@@ -217,5 +217,17 @@ describe('MenuLateral', () => {
 
     expect(itemDesejos).toHaveStyle({ fontWeight: '700' });
     expect(itemPlanejamento).toHaveStyle({ fontWeight: '500' });
+  });
+
+  it('deve navegar para a documentacao de amigos pelo submenu', () => {
+    const { getAllByText, getByText } = render(
+      <MenuLateral modulosAtivos={criarModulosAtivos()} rotaAtual="amigos" />,
+    );
+
+    fireEvent.press(getByText('menu.amigos'));
+    const opcoesDocumentacao = getAllByText('documentacao.acao');
+    fireEvent.press(opcoesDocumentacao[opcoesDocumentacao.length - 1]);
+
+    expect(mockPush).toHaveBeenCalledWith('/amigos/documentacao');
   });
 });

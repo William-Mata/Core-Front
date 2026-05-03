@@ -1,4 +1,4 @@
-﻿# Core
+# Core
 
 > Aplicação multiplataforma de gestão pessoal e financeira para Web, Android e iOS.
 
@@ -132,15 +132,14 @@ Core-Front/
 │   ├── _layout.tsx
 │   ├── index.tsx
 │   ├── auth/                         # Autenticação
-│   └── principal/                    # Área autenticada
-│       ├── _layout.tsx
-│       ├── index.tsx                 # Dashboard
-│       ├── usuario.tsx
-│       ├── documentacao.tsx
-│       ├── financeiro/
-│       ├── compras/
-│       ├── amigos/
-│       └── administracao/
+│   ├── (principal)/                # Área autenticada (rotas públicas sem prefixo)
+│   │   ├── dashboard.tsx
+│   │   ├── usuario.tsx
+│   │   ├── documentacao.tsx
+│   │   ├── financeiro/
+│   │   ├── compras/
+│   │   ├── amigos/
+│   │   └── admin/
 ├── src/
 │   ├── componentes/
 │   │   ├── comuns/                   # Botao, CampoTexto, Modal, Sininho, etc.

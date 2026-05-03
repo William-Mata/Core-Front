@@ -9,7 +9,7 @@ Arquivo principal:
 ## Rotas do front
 - tela de login: `/auth/entrar`
 - tela de primeiro acesso: `/auth/primeiro-acesso`
-- destino apos autenticacao com sucesso: `/principal`
+- destino apos autenticacao com sucesso: `/dashboard`
 
 ## Campos da tela
 - `email`: obrigatorio
@@ -125,3 +125,4 @@ Padrao principal:
 Regra do front:
 - se existir `detail`, exibir `detail`
 - para `401` e `403`, registrar falha de tentativa
+

@@ -5,7 +5,7 @@ Orientar o administrador no gerenciamento de usuarios e permissoes.
 
 ## Onde acessar
 - Menu lateral -> `Administracao` -> `Usuarios`
-- Rota: `/principal/administracao/usuario`
+- Rota: `/admin/usuarios`
 
 ## O que e possivel fazer
 - visualizar usuarios cadastrados
@@ -55,3 +55,4 @@ Comportamento:
 - email invalido
 - sucesso ao criar/atualizar/excluir
 - erro retornado pela API
+

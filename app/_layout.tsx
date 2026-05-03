@@ -1,6 +1,7 @@
 import { Stack, usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CarregamentoGlobal } from '../src/componentes/comuns/CarregamentoGlobal';
 import { ProvedorConfirmacaoCritica } from '../src/componentes/comuns/ProvedorConfirmacaoCritica';
 import { ToastViewport } from '../src/componentes/comuns/ToastViewport';
@@ -82,14 +83,17 @@ export default function RootLayout() {
   }, [finalizarCarregamentoNavegacao, iniciarCarregamentoNavegacao, pathname]);
 
   return (
-    <ProvedorConfirmacaoCritica>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="auth" options={{ headerShown: false }} />
-        <Stack.Screen name="principal" options={{ headerShown: false }} />
-      </Stack>
-      <CarregamentoGlobal />
-      <ToastViewport />
-    </ProvedorConfirmacaoCritica>
+    <SafeAreaProvider>
+      <ProvedorConfirmacaoCritica>
+        <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="auth" options={{ headerShown: false }} />
+          <Stack.Screen name="(principal)" options={{ headerShown: false }} />
+          <Stack.Screen name="principal" options={{ headerShown: false }} />
+        </Stack>
+        <CarregamentoGlobal />
+        <ToastViewport />
+      </ProvedorConfirmacaoCritica>
+    </SafeAreaProvider>
   );
 }

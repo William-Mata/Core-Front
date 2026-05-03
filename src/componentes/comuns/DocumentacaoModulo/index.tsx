@@ -35,17 +35,17 @@ export function DocumentacaoModulo({ modulo, titulo }: DocumentacaoModuloProps) 
           paddingHorizontal: 16,
           paddingVertical: 12,
           flexDirection: 'row',
-          justifyContent: 'space-between',
           alignItems: 'center',
         }}
       >
-        <Text style={{ color: COLORS.accent, fontSize: 18, fontWeight: '700' }}>{t('documentacao.titulo', { modulo: titulo })}</Text>
-        <TouchableOpacity onPress={() => router.back()}>
+        <View style={{ width: 42 }} />
+        <Text numberOfLines={1} style={{ flex: 1, textAlign: 'center', color: COLORS.accent, fontSize: 18, fontWeight: '700' }}>{t('documentacao.titulo', { modulo: titulo })}</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ width: 42, alignItems: 'flex-end' }}>
           <Text style={{ color: COLORS.textSecondary, fontSize: 22 }}>{'\u2715'}</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={{ flex: 1, padding: 16 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 96 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
         <View style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 12, padding: 14, marginBottom: 14 }}>
           <Text style={{ color: COLORS.textSecondary, fontSize: 13, lineHeight: 20 }}>{t('documentacao.descricaoPadrao', { modulo: titulo })}</Text>
         </View>
@@ -83,3 +83,4 @@ export function DocumentacaoModulo({ modulo, titulo }: DocumentacaoModuloProps) 
     </View>
   );
 }
+

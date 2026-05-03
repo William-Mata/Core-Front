@@ -1,7 +1,7 @@
-﻿import React from 'react';
+import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
-import SeletorDespesas from '../../../../app/principal/financeiro/seletorDespesas';
+import SeletorDespesas from '../../../../app/(principal)/financeiro/seletorDespesas';
 
 const mockBack = jest.fn();
 const mockListarDespesasApi = jest.fn();

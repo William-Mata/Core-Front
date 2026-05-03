@@ -12,7 +12,7 @@ export default function Home() {
     // Pequeno delay para mostrar splash
     const timer = setTimeout(() => {
       if (estaAutenticado && usuario) {
-        router.replace('/principal');
+        router.replace('/dashboard');
       } else {
         router.replace('/auth/entrar');
       }

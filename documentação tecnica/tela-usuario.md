@@ -4,11 +4,11 @@
 Documentar o contrato atual do front-end da tela de usuario para integracao com API.
 
 Arquivo principal:
-- `app/principal/usuario.tsx`
+- `app/(principal)/usuario.tsx`
 
 ## Rotas do front
-- tela do painel do usuario: `/principal/usuario`
-- botao fechar da tela: redireciona para `/principal`
+- tela do painel do usuario: `/usuario`
+- botao fechar da tela: redireciona para `/dashboard`
 
 ## Blocos da tela
 - Informacoes do usuario logado:
@@ -123,3 +123,4 @@ Chaves usadas:
 - `usuarioPainel.erros.senhaMinima`
 - `usuarioPainel.erros.confirmacaoDiferente`
 - `usuarioPainel.erros.falhaAlterarSenha`
+

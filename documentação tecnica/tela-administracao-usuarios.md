@@ -4,15 +4,15 @@
 Documentar o comportamento atual do front-end da tela de usuarios e o contrato de integracao com API.
 
 Arquivo principal:
-- `app/principal/administracao/usuario.tsx`
+- `app/(principal)/admin/usuarios.tsx`
 
 Servico usado:
 - `src/servicos/administracao/index.ts`
 
 ## Rotas do front
-- lista: `/principal/administracao/usuario`
-- novo: `/principal/administracao/usuario?novo=1`
-- edicao: `/principal/administracao/usuario?id={id}`
+- lista: `/admin/usuarios`
+- novo: `/admin/usuarios?novo=1`
+- edicao: `/admin/usuarios?id={id}`
 
 ## Endpoints consumidos
 - `GET /api/usuarios`
@@ -123,8 +123,9 @@ Escopo adicional no modulo Administracao:
 8. Validar propagacao de status entre modulo, tela e funcionalidade.
 
 ## Fonte no front (confirmacao critica)
-- `app/principal/administracao/usuario.tsx`
-- `app/principal/administracao/aviso.tsx`
-- `app/principal/administracao/documento.tsx`
+- `app/(principal)/admin/usuarios.tsx`
+- `app/(principal)/admin/aviso.tsx`
+- `app/(principal)/admin/documento.tsx`
 - `src/utils/confirmacao.ts`
 - `src/componentes/comuns/ModalConfirmacao/index.tsx`
+

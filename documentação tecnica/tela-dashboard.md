@@ -4,8 +4,8 @@
 Documentar o comportamento atual da dashboard e os contratos de API realmente consumidos pelo front.
 
 ## Rota do front
-- tela principal: `/principal`
-- atalho de documentacao do modulo: `/principal/documentacao`
+- tela principal: `/dashboard`
+- atalho de documentacao do modulo: `/documentacao`
 
 ## Endpoints consumidos
 Carga principal de transacoes:
@@ -67,13 +67,14 @@ Carga do balanco geral:
 - filtros interativos locais por periodo/tipo diretamente na dashboard.
 
 ## Rastreabilidade no codigo
-- `app/principal/index.tsx:395`
-- `app/principal/index.tsx:434`
-- `app/principal/index.tsx:493`
-- `app/principal/index.tsx:536`
-- `app/principal/index.tsx:607`
+- `app/(principal)/dashboard.tsx:395`
+- `app/(principal)/dashboard.tsx:434`
+- `app/(principal)/dashboard.tsx:493`
+- `app/(principal)/dashboard.tsx:536`
+- `app/(principal)/dashboard.tsx:607`
 - `src/servicos/financeiro/index.ts:505`
 - `src/servicos/financeiro/index.ts:752`
 - `src/servicos/financeiro/index.ts:770`
 - `src/servicos/financeiro/index.ts:838`
 - `src/servicos/financeiro/index.ts:892`
+

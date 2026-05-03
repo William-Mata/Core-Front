@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
-import Dashboard from '../../../app/principal/index';
+import Dashboard from '../../../app/(principal)/dashboard';
 
 const mockPush = jest.fn();
 const mockListarAreasSubareasSomaRateioApi = jest.fn();
@@ -12,7 +12,20 @@ const mockListarHistoricoTransacoesApi = jest.fn();
 const mockListarResumoHistoricoTransacoesApi = jest.fn();
 const mockListarReceitasApi = jest.fn();
 const mockListarReembolsosApi = jest.fn();
+const mockListarDesejosCompraApi = jest.fn();
+const mockListarHistoricoItensCompraApi = jest.fn();
+const mockListarListasCompraApi = jest.fn();
+const mockObterDetalheListaCompraApi = jest.fn();
 let ultimoLineChartProps: Record<string, any> | null = null;
+
+function garantirFinanceiroExpandido(parametros: {
+  getByText: (texto: string) => unknown;
+  queryByTestId: (id: string) => unknown;
+}) {
+  if (!parametros.queryByTestId('dashboard-widget-resumo')) {
+    fireEvent.press(parametros.getByText('Financeiro'));
+  }
+}
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
@@ -31,6 +44,13 @@ jest.mock('../../../src/servicos/financeiro', () => ({
   listarResumoHistoricoTransacoesApi: (...args: unknown[]) => mockListarResumoHistoricoTransacoesApi(...args),
   listarReceitasApi: (...args: unknown[]) => mockListarReceitasApi(...args),
   listarReembolsosApi: (...args: unknown[]) => mockListarReembolsosApi(...args),
+}));
+
+jest.mock('../../../src/servicos/compras', () => ({
+  listarDesejosCompraApi: (...args: unknown[]) => mockListarDesejosCompraApi(...args),
+  listarHistoricoItensCompraApi: (...args: unknown[]) => mockListarHistoricoItensCompraApi(...args),
+  listarListasCompraApi: (...args: unknown[]) => mockListarListasCompraApi(...args),
+  obterDetalheListaCompraApi: (...args: unknown[]) => mockObterDetalheListaCompraApi(...args),
 }));
 
 jest.mock('../../../src/componentes/comuns/Cabecalho', () => ({
@@ -63,7 +83,7 @@ jest.mock('../../../src/utils/formatacaoLocale', () => ({
 
 jest.mock('../../../src/hooks/usarTraducao', () => ({
   usarTraducao: () => ({
-    t: (chave: string) => {
+    t: (chave: string, params?: Record<string, string | number>) => {
       const mapa: Record<string, string> = {
         'dashboard.titulo': 'Dashboard',
         'dashboard.globalTitle': 'Visao geral',
@@ -106,6 +126,18 @@ jest.mock('../../../src/hooks/usarTraducao', () => ({
         'dashboard.widgets.graficoAnual': 'Grafico Anual',
         'dashboard.widgets.ultimasTransacoes': 'Ultimas Transacoes',
         'dashboard.widgets.balancoGeral': 'Posicao de Contas e Cartoes',
+        'dashboard.modulos.geral.titulo': 'Geral',
+        'dashboard.modulos.financeiro.titulo': 'Financeiro',
+        'dashboard.modulos.compras.titulo': 'Compras',
+        'dashboard.modulos.administracao.titulo': 'Administracao',
+        'dashboard.modulos.resumoWidgets': '{{quantidade}} widgets',
+        'dashboard.modulos.ultimaAtualizacaoHoje': 'Ultima atualizacao hoje',
+        'dashboard.modulos.ultimaAtualizacaoEm': 'Ultima atualizacao {{data}}',
+        'dashboard.modulos.semAtualizacao': 'Sem atualizacao recente',
+        'dashboard.modulos.semResumoAdministracao': 'Sem indicadores resumidos no momento',
+        'dashboard.modulos.semWidgetsConfigurados': 'Sem widgets configurados para este modulo',
+        'dashboard.compras.cards.totalGastoMes': 'Total gasto no mes',
+        'dashboard.compras.cards.itensCompradosMes': 'Itens comprados no mes',
         'dashboard.pagamento.PIX': 'Pix',
         'dashboard.pagamento.TRANSFERENCIA': 'Transferencia',
         'dashboard.pagamento.CARTAO_CREDITO': 'Cartao de credito',
@@ -114,7 +146,14 @@ jest.mock('../../../src/hooks/usarTraducao', () => ({
         'dashboard.pagamento.DINHEIRO': 'Dinheiro',
       };
 
-      if (mapa[chave]) return mapa[chave];
+      if (mapa[chave]) {
+        const texto = mapa[chave];
+        if (!params) return texto;
+        return Object.entries(params).reduce(
+          (acumulado, [parametro, valor]) => acumulado.replace(`{{${parametro}}}`, String(valor)),
+          texto,
+        );
+      }
       if (chave.startsWith('dashboard.areas.') || chave.startsWith('dashboard.subareas.')) {
         return chave.split('.').pop()?.replaceAll('_', ' ') ?? chave;
       }
@@ -230,12 +269,29 @@ describe('Tela de dashboard', () => {
         },
       ]);
     });
+
+    mockListarListasCompraApi.mockResolvedValue([]);
+    mockListarDesejosCompraApi.mockResolvedValue([]);
+    mockListarHistoricoItensCompraApi.mockResolvedValue([]);
+    mockObterDetalheListaCompraApi.mockResolvedValue({
+      id: 1,
+      nome: 'Lista teste',
+      categoria: 'mercado',
+      status: 'ativa',
+      criadoEm: '2026-03-01',
+      atualizadoEm: '2026-03-01',
+      criadoPorUsuarioId: 1,
+      participantes: [],
+      itens: [],
+      logs: [],
+    });
   });
 
   it('deve renderizar os widgets principais e a coluna de cartao nas ultimas transacoes', async () => {
-    const { getByText, getAllByText, queryByText } = render(<Dashboard />);
+    const { getByText, getAllByText, queryByText, queryByTestId } = render(<Dashboard />);
 
     expect(getByText('Dashboard')).toBeTruthy();
+    garantirFinanceiroExpandido({ getByText, queryByTestId });
     expect(getByText('Widget: Resumo Financeiro')).toBeTruthy();
     expect(getByText('Widget: Receitas - Grafico por Area e Subarea')).toBeTruthy();
     expect(getByText('Widget: Despesas - Grafico por Area e Subarea')).toBeTruthy();
@@ -278,11 +334,12 @@ describe('Tela de dashboard', () => {
 
     fireEvent.press(getByText('Ver documentacao'));
 
-    expect(mockPush).toHaveBeenCalledWith('/principal/documentacao');
+    expect(mockPush).toHaveBeenCalledWith('/documentacao');
   });
 
   it('deve permitir ocultar uma serie do grafico anual sem remover as demais', async () => {
-    const { getByTestId } = render(<Dashboard />);
+    const { getByTestId, getByText, queryByTestId } = render(<Dashboard />);
+    garantirFinanceiroExpandido({ getByText, queryByTestId });
 
     await waitFor(() => {
       expect(ultimoLineChartProps?.thickness1).toBe(3);
@@ -301,12 +358,18 @@ describe('Tela de dashboard', () => {
   });
 
   it('deve reordenar widgets ao mover uma widget para cima', () => {
-    const { getByTestId, getAllByText } = render(<Dashboard />);
+    const { getByTestId, getAllByText, getByText, queryByTestId } = render(<Dashboard />);
+    garantirFinanceiroExpandido({ getByText, queryByTestId });
+    const titulosAntes = getAllByText(/Widget:/).map((item) => item.props.children.join(''));
+    const indiceGraficoAnualAntes = titulosAntes.indexOf('Widget: Grafico Anual');
 
     fireEvent.press(getByTestId('dashboard-widget-graficoAnual-cima'));
 
     const titulos = getAllByText(/Widget:/).map((item) => item.props.children.join(''));
+    const indiceGraficoAnual = titulos.indexOf('Widget: Grafico Anual');
 
-    expect(titulos[2]).toBe('Widget: Grafico Anual');
+    expect(indiceGraficoAnualAntes).toBeGreaterThan(-1);
+    expect(indiceGraficoAnual).toBeGreaterThan(-1);
+    expect(indiceGraficoAnual).toBeLessThan(indiceGraficoAnualAntes);
   });
 });

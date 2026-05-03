@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
-import HistoricoItensCompraTela from '../../../../app/principal/compras/historico-itens';
+import HistoricoItensCompraTela from '../../../../app/(principal)/compras/historico-precos';
 
 const mockListarHistoricoItensCompraApi = jest.fn();
 

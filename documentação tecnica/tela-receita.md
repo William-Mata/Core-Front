@@ -4,10 +4,10 @@
 Documentar o comportamento atual do front-end da tela de receita e os contratos realmente consumidos.
 
 Arquivo principal:
-- `app/principal/financeiro/receita.tsx`
+- `app/(principal)/financeiro/receitas.tsx`
 
 ## Rota do front
-- `/principal/financeiro/receita`
+- `/financeiro/receitas`
 
 ## Modos da tela
 - `lista`
@@ -126,5 +126,6 @@ Regras de fluxo:
 - filtro sem acionar o botao `Consultar`
 
 ## Fonte no front (confirmacao critica)
-- `app/principal/financeiro/receita.tsx`
+- `app/(principal)/financeiro/receitas.tsx`
 - `src/componentes/comuns/ModalConfirmacao/index.tsx`
+

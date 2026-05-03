@@ -4,7 +4,7 @@
 Documentar o contrato atual da tela de reembolso com API e regras de negocio aplicadas no front.
 
 ## Rota do front
-- `/principal/financeiro/reembolso`
+- `/financeiro/reembolsos`
 
 ## Modos da tela
 - `lista`
@@ -88,12 +88,13 @@ Regras:
 - exclusao fisica de reembolso pelo usuario (`DELETE` nao e usado na tela).
 
 ## Rastreabilidade no codigo
-- `app/principal/financeiro/reembolso.tsx:542`
-- `app/principal/financeiro/reembolso.tsx:614`
-- `app/principal/financeiro/reembolso.tsx:655`
-- `app/principal/financeiro/reembolso.tsx:707`
+- `app/(principal)/financeiro/reembolsos.tsx:542`
+- `app/(principal)/financeiro/reembolsos.tsx:614`
+- `app/(principal)/financeiro/reembolsos.tsx:655`
+- `app/(principal)/financeiro/reembolsos.tsx:707`
 - `src/utils/reembolsoStatus.ts:21`
 - `src/utils/reembolso.ts:6`
 - `src/servicos/financeiro/index.ts:643`
 - `src/servicos/financeiro/index.ts:665`
 - `src/servicos/financeiro/index.ts:677`
+

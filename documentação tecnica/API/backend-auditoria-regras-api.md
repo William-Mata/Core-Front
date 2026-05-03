@@ -1,4 +1,4 @@
-﻿# Auditoria Tecnica do Backend - API
+# Auditoria Tecnica do Backend - API
 
 ## 1. Escopo auditado
 - Data da auditoria: 2026-04-24
@@ -131,7 +131,7 @@
 - Claims aceitas para id de usuario: `NameIdentifier`, `sub`, `usuario_id`.
 
 ### 4.2 SignalR
-- Hub: `ComprasHub` em `/hubs/compras` (autenticado).
+- Hub: `ComprasHub` em `/hubs/compras` (principal).
 - Metodos do hub:
 - `EntrarLista(listaId)` adiciona conexao ao grupo `compras_lista_{listaId}` quando usuario tem acesso.
 - `SairLista(listaId)` remove conexao do grupo.
