@@ -1,6 +1,6 @@
 ---
 name: documentar-regras-sistema
-description: Criar e atualizar documentação de regras do sistema com dois públicos: (1) documentação técnica explicando regras que o front-end espera da API e comportamento do front, e (2) documentação para usuário final com linguagem simples e orientada a uso. Usar quando o pedido envolver mapear regras de negócio, contratos API/frontend, fluxos de tela, validações, mensagens de erro ou atualizar documentação funcional.
+description: Criar e atualizar documentação de regras do sistema com dois públicos: (1) técnica (Front/API) e (2) usuário final. Usar quando envolver regras de negócio, contratos, fluxos, validações ou documentação funcional.
 ---
 
 # Documentar Regras do Sistema
@@ -12,16 +12,19 @@ Produzir e manter duas documentações sincronizadas:
 1. Técnica (Front/API)
 2. Usuário final
 
-Gerar conteúdo rastreável ao código e sem inventar regras.
+A documentação deve ser rastreável ao código e não deve conter regras inventadas.
 
-## Base obrigatoria do projeto
+---
 
-A skill deve se basear nas pastas ja existentes no repositorio:
+## Base obrigatória do projeto
+
+A skill deve utilizar apenas as pastas existentes:
 
 - `documentação tecnica/`
 - `documentação do sistema/`
+- `README.md`
 
-Padrao de nome de arquivo:
+Padrão de nome de arquivo:
 
 - `tela-{nome-da-tela}.md`
 
@@ -30,47 +33,137 @@ Exemplos:
 - `documentação tecnica/tela-receita.md`
 - `documentação do sistema/tela-receita.md`
 
-Nunca criar uma terceira estrutura paralela de documentacao se essas pastas ja existirem.
+Não criar novas estruturas de documentação.
 
-## Estrutura da Skill
+---
 
-Usar os templates em:
+## Templates obrigatórios
+
+Utilizar os templates:
 
 - `references/documentacao-tecnica-template.md`
 - `references/documentacao-usuario-final-template.md`
 
+---
+
 ## Fluxo de Trabalho
 
-1. Mapear escopo funcional solicitado (módulo, tela, fluxo, endpoint).
-2. Ler código-fonte relevante do front para identificar:
-   - chamadas de API;
-   - payloads esperados;
-   - validações;
-   - estados de carregamento/erro/sucesso;
-   - regras de exibição/edição e permissões.
-3. Identificar regras implícitas no front que dependem da API (campos obrigatórios, formatos, status, paginação, ordenação, filtros, limites).
-4. Escrever/atualizar `documentação tecnica/tela-{nome}.md`.
-5. Traduzir as mesmas regras para linguagem de usuário final em `documentação do sistema/tela-{nome}.md`.
-6. Validar consistência entre as duas documentações.
+1. Mapear escopo funcional (módulo, tela, fluxo, endpoint)
+
+2. Analisar código do front e seguir obrigatoriamente o fluxo até a API:
+   - identificar chamadas de API
+   - localizar endpoint correspondente no backend (quando possível)
+   - não inferir comportamento sem evidência
+
+3. Identificar no front:
+   - payloads
+   - validações
+   - estados (loading, erro, sucesso)
+   - regras de exibição e edição
+
+4. Identificar dependências com API:
+   - obrigatoriedade de campos
+   - formatos
+   - paginação, ordenação, filtros
+   - regras que dependem de resposta da API
+
+5. Criar ou atualizar:
+   - `documentação tecnica/tela-{nome}.md`
+   - `documentação do sistema/tela-{nome}.md`
+
+6. Adaptar linguagem técnica → linguagem de usuário final
+
+7. Validar consistência entre os dois documentos
+
+---
+
+## Regras de alteração
+
+- Atualizar apenas arquivos relacionados ao escopo
+- Preservar conteúdo existente não relacionado
+- Não remover seções existentes sem necessidade explícita
+- Manter padrão estrutural já utilizado no projeto
+
+---
 
 ## Regras de Qualidade
 
-- Não inventar contrato de API; marcar como "Não confirmado" quando faltar evidência.
-- Citar fonte de cada regra com caminho de arquivo e linha quando possível.
-- Preservar o estilo textual e organizacao de secoes ja usados nas documentacoes existentes.
+- Não inventar contratos de API
+- Quando não houver evidência suficiente, marcar como:
+  - "Não confirmado"
+
+- Toda regra deve ser documentada de forma individual (não agrupar regras diferentes)
+
+- Citar fonte da regra com:
+  - caminho do arquivo (obrigatório)
+  - método/componente (obrigatório)
+  - linha do código (opcional)
+
 - Separar claramente:
-  - regra técnica;
-  - comportamento de interface;
-  - impacto para o usuário.
-- Registrar exceções e mensagens de erro observáveis.
-- Manter idioma `pt-BR`, salvo pedido explícito diferente.
-- Utilizar UTF-8 e evitar caracteres especiais que possam quebrar renderização.
+  - regra técnica
+  - comportamento da interface
+  - impacto para o usuário
+
+- Registrar:
+  - exceções
+  - mensagens de erro observáveis
+  - estados da interface (loading, erro, vazio)
+
+- Para documentação de usuário final:
+  - Utilizar linguagem simples, clara e objetiva
+  - Explicar o passo a passo de utilização quando aplicável
+  - Evitar termos técnicos ou explicar quando necessário
+  - Garantir fácil entendimento para qualquer tipo de usuário, independentemente do nível técnico
+
+- Manter idioma `pt-BR`
+- Utilizar UTF-8
+
+---
+
+## Cobertura mínima obrigatória
+
+A documentação só é considerada completa quando contém:
+
+- Todas as validações de entrada
+- Todas as regras condicionais de exibição/edição
+- Todos os estados da interface (loading, erro, sucesso, vazio)
+- Todas as dependências com API
+- Todos os cenários de erro identificáveis
+
+Nenhuma regra relevante pode ser omitida ou resumida.
+
+---
+
+## Casos de ausência de informação
+
+Quando não for possível identificar uma regra:
+
+- Não assumir comportamento
+- Marcar explicitamente como:
+  - "Não identificado no código"
+- Listar dúvidas ou lacunas
+
+---
+
+## Formato de entrega
+
+A resposta deve conter:
+
+- Lista de arquivos criados ou atualizados
+- Lista de telas/fluxos documentados
+- Lista de regras identificadas (sem perder granularidade)
+- Dependências identificadas com a API
+- Pontos não confirmados ou com dúvida
+
+---
 
 ## Critérios de Conclusão
 
 Considerar concluído somente quando:
 
-1. As duas documentações existirem e estiverem atualizadas.
-2. Regras críticas de integração Front/API estiverem descritas.
-3. Fluxo principal para usuário final estiver claro e acionável.
-4. Divergências, lacunas ou suposições estiverem explicitadas.
+1. As duas documentações existirem e estiverem atualizadas
+2. Regras críticas de integração Front/API estiverem descritas
+3. Fluxo principal para usuário final estiver claro e de fácil entendimento
+4. Lacunas e suposições estiverem explicitadas
+
+---

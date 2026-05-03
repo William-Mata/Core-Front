@@ -22,6 +22,13 @@ import {
   type ResumoHistoricoTransacoesApi,
   type RegistroFinanceiroApi,
 } from '../../src/servicos/financeiro';
+import {
+  listarDesejosCompraApi,
+  listarHistoricoItensCompraApi,
+  listarListasCompraApi,
+  obterDetalheListaCompraApi,
+} from '../../src/servicos/compras';
+import type { CategoriaListaCompra, DesejoCompra, HistoricoItemCompra, ItemListaCompra, ListaCompraDetalhe } from '../../src/tipos/compras.tipos';
 import i18n from '../../src/i18n/configuracao';
 
 type TipoTransacao = 'despesa' | 'receita' | 'reembolso' | 'estorno';
@@ -31,7 +38,15 @@ type WidgetId =
   | 'graficoDespesasAreaSubarea'
   | 'graficoAnual'
   | 'ultimasTransacoes'
-  | 'balancoGeral';
+  | 'balancoGeral'
+  | 'comprasResumoRapido'
+  | 'comprasEvolucaoMensal'
+  | 'comprasTipos'
+  | 'comprasProdutosTop'
+  | 'comprasUltimasCompras'
+  | 'comprasUltimosDesejos'
+  | 'comprasVariacaoPrecos'
+  | 'comprasEconomiaPotencial';
 type TipoContaBalanco = 'conta' | 'cartao';
 
 interface Transacao {
@@ -102,6 +117,72 @@ interface PieAreaItem {
   text: string;
   area: string;
   subarea: string;
+}
+
+interface ResumoComprasKpi {
+  totalGastoMes: number;
+  planejamentosAtivos: number;
+  itensCompradosMes: number;
+  desejosPendentes: number;
+  economiaPotencialMes: number;
+  possuiEconomiaPotencial: boolean;
+}
+
+interface EvolucaoMensalComprasItem {
+  chaveMes: string;
+  rotuloMes: string;
+  valorTotal: number;
+  quantidadeItens: number;
+  listasFinalizadas: number;
+}
+
+interface TipoCompraAgregado {
+  categoria: CategoriaListaCompra;
+  rotulo: string;
+  valorTotal: number;
+  percentual: number;
+  quantidadeItens: number;
+}
+
+interface ProdutoCompradoAgregado {
+  descricao: string;
+  quantidade: number;
+}
+
+interface ItemCompraRecente {
+  id: string;
+  descricao: string;
+  valor: number;
+  data: string;
+  planejamento: string;
+  corMarcador: string;
+}
+
+interface DesejoRecenteItem {
+  id: string;
+  descricao: string;
+  valorEstimado: number;
+  data: string;
+  status: 'pendente' | 'selecionado';
+}
+
+interface VariacaoPrecoItem {
+  id: string;
+  produto: string;
+  ultimoPreco: number;
+  menorPreco: number;
+  maiorPreco: number;
+  mediaPreco: number;
+  percentualVariacao: number;
+  potencialEconomiaUnitaria: number;
+}
+
+interface EconomiaPotencialProduto {
+  id: string;
+  produto: string;
+  economiaUnitaria: number;
+  ultimoPreco: number;
+  menorPreco: number;
 }
 
 interface ValorMonetarioAnimadoProps {
@@ -434,6 +515,57 @@ function mapearHistoricoTransacoesApiParaDashboard(
   });
 }
 
+function obterDataIsoSegura(valor: string | undefined): string {
+  const texto = String(valor ?? '').trim();
+  if (!texto) return '';
+  const apenasData = texto.length >= 10 ? texto.slice(0, 10) : texto;
+  const data = new Date(apenasData);
+  if (Number.isNaN(data.getTime())) return '';
+  return data.toISOString().slice(0, 10);
+}
+
+function obterChaveMes(valorIso: string): string {
+  if (!valorIso) return '';
+  const data = new Date(`${valorIso}T12:00:00`);
+  if (Number.isNaN(data.getTime())) return '';
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function estaMesmoMesAno(valorIso: string, referencia: Date): boolean {
+  const data = new Date(`${valorIso}T12:00:00`);
+  if (Number.isNaN(data.getTime())) return false;
+  return data.getFullYear() === referencia.getFullYear() && data.getMonth() === referencia.getMonth();
+}
+
+function montarChavesUltimosDozeMeses(referencia: Date): string[] {
+  return Array.from({ length: 12 }, (_, indice) => {
+    const data = new Date(referencia.getFullYear(), referencia.getMonth() - (11 - indice), 1);
+    return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
+  });
+}
+
+function normalizarDescricaoProduto(valor: string): string {
+  return valor
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function calcularPercentualVariacao(ultimoPreco: number, menorPreco: number): number {
+  if (menorPreco <= 0) return 0;
+  return Number((((ultimoPreco - menorPreco) / menorPreco) * 100).toFixed(2));
+}
+
+function obterCorCategoriaCompra(categoria: CategoriaListaCompra): string {
+  if (categoria === 'mercado') return '#22c55e';
+  if (categoria === 'farmacia') return '#06b6d4';
+  if (categoria === 'roupas') return '#f97316';
+  if (categoria === 'moveis') return '#8b5cf6';
+  if (categoria === 'construcao') return '#f59e0b';
+  return COLORS.textSecondary;
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const { t } = usarTraducao();
@@ -442,10 +574,18 @@ export default function Dashboard() {
 
   const [ordemWidgets, setOrdemWidgets] = useState<WidgetId[]>([
     'resumo',
+    'comprasResumoRapido',
     'graficoReceitasAreaSubarea',
     'graficoDespesasAreaSubarea',
+    'comprasEvolucaoMensal',
+    'comprasTipos',
     'graficoAnual',
+    'comprasProdutosTop',
     'ultimasTransacoes',
+    'comprasUltimasCompras',
+    'comprasUltimosDesejos',
+    'comprasVariacaoPrecos',
+    'comprasEconomiaPotencial',
     'balancoGeral',
   ]);
   const [widgetArrastando, setWidgetArrastando] = useState<WidgetId | null>(null);
@@ -464,6 +604,11 @@ export default function Dashboard() {
   const [itensBalancoApi, setItensBalancoApi] = useState<ItemBalanco[]>([]);
   const [resumoApi, setResumoApi] = useState<ResumoHistoricoTransacoesApi | null>(null);
   const [itensAreaSubareaApi, setItensAreaSubareaApi] = useState<ItemAreaSubarea[]>([]);
+  const [detalhesListasComprasApi, setDetalhesListasComprasApi] = useState<ListaCompraDetalhe[]>([]);
+  const [desejosComprasApi, setDesejosComprasApi] = useState<DesejoCompra[]>([]);
+  const [historicoPrecosComprasApi, setHistoricoPrecosComprasApi] = useState<HistoricoItemCompra[]>([]);
+  const [carregandoCompras, setCarregandoCompras] = useState(true);
+  const [erroCompras, setErroCompras] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
@@ -700,6 +845,49 @@ export default function Dashboard() {
     };
 
     void carregarHistoricoTransacoes();
+    return () => {
+      ativo = false;
+      controller.abort();
+    };
+  }, [idiomaAtual]);
+
+  useEffect(() => {
+    let ativo = true;
+    const controller = new AbortController();
+
+    const carregarDadosCompras = async () => {
+      setCarregandoCompras(true);
+      setErroCompras(false);
+
+      try {
+        const listasCompra = await listarListasCompraApi({ signal: controller.signal, incluirArquivadas: true });
+        const detalhesListasPromise = listasCompra.map((lista) =>
+          obterDetalheListaCompraApi(lista.id, { signal: controller.signal }),
+        );
+
+        const [detalhesListas, desejos, historicoPrecos] = await Promise.all([
+          Promise.all(detalhesListasPromise),
+          listarDesejosCompraApi({ signal: controller.signal }),
+          listarHistoricoItensCompraApi({ signal: controller.signal }),
+        ]);
+
+        if (!ativo) return;
+        setDetalhesListasComprasApi(detalhesListas);
+        setDesejosComprasApi(desejos);
+        setHistoricoPrecosComprasApi(historicoPrecos);
+      } catch (erro) {
+        if (erroCancelado(erro)) return;
+        if (!ativo) return;
+        setErroCompras(true);
+        setDetalhesListasComprasApi([]);
+        setDesejosComprasApi([]);
+        setHistoricoPrecosComprasApi([]);
+      } finally {
+        if (ativo) setCarregandoCompras(false);
+      }
+    };
+
+    void carregarDadosCompras();
     return () => {
       ativo = false;
       controller.abort();

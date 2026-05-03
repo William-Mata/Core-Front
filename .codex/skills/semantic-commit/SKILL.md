@@ -1,54 +1,195 @@
 ---
+
 name: semantic-commit
-description: Criar commits Git com semantica convencional e staging seguro, sempre com mensagens em PT-BR. Use quando Codex precisar revisar alteracoes locais, agrupar arquivos relacionados, evitar staging de mudancas nao relacionadas e escrever uma mensagem de commit curta e semantica em portugues.
----
+description: Criar commits Git com semântica convencional, staging seguro e mensagens em PT-BR. Usar para revisar alterações, garantir escopo correto, evitar arquivos indevidos e gerar commits rastreáveis e organizados.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Semantic Commit
 
-Inspecione o worktree antes de commitar. Use `git status --short` e `git diff --cached --stat` ou `git diff --stat` para entender o escopo.
+Seguir este fluxo para criar commits seguros, claros e rastreáveis.
 
-Fa�a stage apenas dos arquivos que pertencem a mudanca solicitada. Nao inclua edicoes nao relacionadas, artefatos gerados, anotacoes locais, segredos ou arquivos temporarios.
+---
 
-Prefira um commit logico por assunto. Separe as mudancas quando misturarem correcao, refactor, documentacao ou manutencao sem relacao entre si.
+## 1) Inspeção obrigatória antes do commit
 
-Escolha o tipo do commit pela intencao:
+Antes de qualquer ação, analisar:
 
-- `feat`: nova funcionalidade ou comportamento visivel
-- `fix`: correcao de bug ou regressao
-- `refactor`: mudanca interna sem intencao funcional direta
-- `test`: criacao ou ajuste de testes
-- `docs`: alteracao apenas de documentacao
-- `chore`: manutencao, tooling, ignore rules ou organizacao sem impacto funcional
-- `perf`: melhoria de desempenho
-- `build`: alteracao de build, dependencia ou empacotamento
-- `ci`: alteracao de pipeline ou automacao
+```bash
+git status --short
+git diff --stat
+git diff --cached --stat
+```
 
-Use um assunto curto e direto:
+Objetivo:
 
-- formato: `<type>: <resumo>`
-- escreva sempre em PT-BR
-- mantenha especifico e, quando possivel, abaixo de 72 caracteres
-- nao use ponto final no assunto
-- preserve maiusculas apenas quando nomes exigirem
+* entender o escopo da mudança
+* identificar arquivos não relacionados
+* evitar staging incorreto
 
-Adicione corpo apenas quando melhorar a rastreabilidade. Use bullets curtos para:
+---
 
-- principais areas ou arquivos alterados
-- restricoes ou exclusoes relevantes
-- notas de migracao, validacao ou risco
+## 2) Staging seguro (CRÍTICO)
 
-Antes de commitar:
+* Fazer stage **apenas dos arquivos relacionados à tarefa**
 
-1. Confirme que os arquivos staged pertencem a um unico objetivo.
-2. Revise se nenhum arquivo ignorado ou local foi staged por engano.
-3. Prefira linguagem semantica e especifica em vez de resumos vagos como `ajustes`, `mudancas` ou `correcoes`.
-4. Nao escreva mensagem de commit em ingles.
+* Nunca incluir:
 
-Bons exemplos:
+  * arquivos não relacionados
+  * artefatos gerados
+  * arquivos temporários
+  * anotações locais
 
-- `fix: corrige validacao de email duplicado no cadastro de usuario`
-- `refactor: reorganiza projeto de testes na raiz do repositorio`
-- `docs: sanitiza readme para orientacoes locais`
-- `chore: ignora anotacoes operacionais locais`
+* Nunca versionar:
 
-Se o usuario pedir para commitar, execute o commit em vez de apenas sugerir a mensagem.
+  * `.env`
+  * tokens
+  * secrets
+  * configs locais (ex: `appsettings.Development.json`)
+
+* Se houver arquivos misturados:
+  → separar em múltiplos commits
+
+---
+
+## 3) Granularidade do commit
+
+* Um commit deve representar **um único objetivo**
+
+Separar commits quando houver:
+
+* mistura de feature + fix
+* refactor + regra de negócio
+* testes + alteração funcional não relacionada
+* documentação + código sem relação direta
+
+Não separar quando:
+
+* mudanças fazem parte do mesmo fluxo funcional
+* testes pertencem diretamente à alteração
+
+---
+
+## 4) Tipos de commit (semântica)
+
+Escolher o tipo pela intenção:
+
+* `feat`: nova funcionalidade
+* `fix`: correção de bug
+* `refactor`: mudança interna sem impacto funcional
+* `test`: criação ou ajuste de testes
+* `docs`: documentação
+* `chore`: manutenção sem impacto funcional
+* `perf`: melhoria de performance
+* `build`: build/dependências
+* `ci`: pipeline/automação
+
+---
+
+## 5) Uso de escopo (RECOMENDADO)
+
+Sempre que possível, usar escopo:
+
+```
+<type>(<modulo>): <resumo>
+```
+
+Exemplos:
+
+* `feat(usuario): adiciona validação de CPF`
+* `fix(auth): corrige expiração de token`
+* `test(despesa): adiciona testes de validação`
+
+---
+
+## 6) Padrão da mensagem
+
+### Assunto (obrigatório)
+
+* formato:
+
+```
+<type>(escopo opcional): <resumo>
+```
+
+Regras:
+
+* em PT-BR
+* direto e específico
+* até ~72 caracteres
+* sem ponto final
+* evitar termos vagos:
+
+  * ❌ ajustes
+  * ❌ mudanças
+  * ❌ correções
+
+---
+
+### Corpo (opcional, mas recomendado)
+
+Usar quando agregar valor:
+
+* explicar contexto
+* listar arquivos ou áreas impactadas
+* descrever decisões ou limitações
+
+Formato:
+
+* bullets curtos
+* linguagem objetiva
+
+---
+
+## 7) Validação antes de commitar
+
+Antes de executar o commit, garantir:
+
+1. Todos os arquivos staged pertencem ao mesmo objetivo
+2. Nenhum arquivo sensível está incluído
+3. Nenhum arquivo não relacionado está incluído
+4. A mensagem está clara, específica e em PT-BR
+5. O tipo do commit representa corretamente a mudança
+6. O escopo (se usado) está correto
+
+---
+
+## 8) Boas práticas adicionais
+
+* Preferir commits pequenos e frequentes
+* Evitar commits grandes e genéricos
+* Manter histórico legível e rastreável
+* Não misturar responsabilidades no mesmo commit
+
+---
+
+## 9) Exemplos
+
+* `fix(usuario): corrige validação de email duplicado`
+* `feat(despesa): adiciona suporte a recorrência mensal`
+* `refactor(api): separa camada de serviços`
+* `test(login): adiciona cenários de erro e sucesso`
+* `docs: atualiza documentação de autenticação`
+
+---
+
+## 10) Execução
+
+Se o usuário solicitar commit:
+
+* realizar o staging correto
+* executar o commit com mensagem semântica
+
+Não apenas sugerir a mensagem.
+
+---
+
+## 11) Encoding (OBRIGATÓRIO)
+
+* Garantir UTF-8 na mensagem de commit
+* Nunca gerar texto com caracteres corrompidos:
+
+  * `�`
+  * `�`
+  * `Fa�a`
+
+---

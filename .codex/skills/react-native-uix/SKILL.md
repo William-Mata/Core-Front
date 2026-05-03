@@ -1,47 +1,172 @@
 ---
 name: react-native-uix
-description: Execucao de UIX para React Native no Web, Android e iOS. Usar ao desenhar ou revisar interface, hierarquia visual, responsividade, acessibilidade, navegacao percebida, estados de tela, formularios e consistencia de design system entre plataformas.
+description: Execução de UIX para React Native no Web, Android e iOS com foco em consistência visual, experiência do usuário, responsividade, acessibilidade e compatibilidade multiplataforma. Usar ao desenhar ou revisar interface, hierarquia visual, navegação, estados de tela e formulários.
 ---
 
 # React Native UIX
 
-Seguir este fluxo para entregar qualidade de experiencia e interface em nivel de producao para React Native + Web.
+Seguir este fluxo para entregar experiência e interface em nível de produção para React Native + Web.
 
-## 1) Comecar pelo contexto
-- Mapear jornada de uso, rota, layout principal e pontos de acao antes de alterar UI.
-- Identificar diferencas de interacao entre Web, Android e iOS antes de propor mudancas.
-- Preservar regras de dominio e i18n; ajustar apenas apresentacao e fluxo de interface.
+---
 
-## 2) Definir estrategia de UIX
-- Priorizar melhorias incrementais de usabilidade em vez de redesign amplo.
-- Reutilizar componentes compartilhados do design system antes de criar novos.
-- Separar ajustes por plataforma apenas quando houver ganho real de UX nativa.
+## 1) Começar pelo contexto
 
-## 3) Padroes de UIX
-- Construir hierarquia clara de informacao: titulo, contexto, acao e feedback.
-- Preservar layout responsivo com espacamento adequado, tipografia legivel e alvos de toque confortaveis.
-- Evitar clipping/overflow em telas pequenas e evitar tamanhos fixos que quebrem no web ou Android.
-- Garantir que teclado, foco e interacoes de formulario sejam usaveis no web e no nativo.
-- Manter estados explicitos: carregando, vazio, sucesso, erro e desabilitado.
+- Mapear jornada do usuário, rota, layout principal e pontos de ação
+- Identificar diferenças de interação entre Web, Android e iOS antes de propor mudanças
+- Preservar regras de domínio e i18n; alterar apenas apresentação e fluxo de interface
 
-## 4) Navegacao e formularios
-- Garantir caminhos de ida e volta coerentes entre lista, detalhe e edicao.
-- Tornar validacoes visiveis no campo correto com mensagem clara e acionavel.
-- Evitar fluxo que dependa de tentativa e erro para o usuario concluir tarefa.
+---
 
-## 5) Performance e confiabilidade
-- Manter interacoes fluidas com feedback imediato de toque/clique e transicao.
-- Usar skeleton/loading de forma previsivel para reduzir sensacao de espera.
-- Exibir erros de forma contextual na tela, evitando excesso de alertas modais.
+## 2) Definir estratégia de UIX
 
-## 6) Gates de qualidade
-- Validar contraste, foco, navegacao por teclado e area de toque minima.
-- Validar estados: carregando, vazio, sucesso, erro e desabilitado.
-- Verificar consistencia textual de rotulos, placeholders e mensagens.
-- Testar no web e em pelo menos um alvo mobile antes de finalizar.
+- Priorizar melhorias incrementais de usabilidade
+- Reutilizar componentes do design system antes de criar novos
+- Evitar variações desnecessárias entre telas
+- Separar comportamento por plataforma apenas quando houver ganho real de UX
 
-## 7) Checklist de entrega
-- Confirmar consistencia visual com paleta/tokens do projeto.
-- Confirmar legibilidade e clareza dos caminhos principais de uso.
-- Confirmar que o fluxo pode ser concluido sem ambiguidade pelo usuario.
-- Fornecer resumo das mudancas de UIX, riscos e pontos de validacao.
+---
+
+## 3) Consistência com design system (OBRIGATÓRIO)
+
+- Utilizar tokens do projeto:
+  - cores
+  - tipografia
+  - espaçamento
+- Não criar estilos isolados sem necessidade
+- Manter padrão visual entre telas similares
+- Garantir consistência de:
+  - botões
+  - inputs
+  - cards
+  - headers
+
+---
+
+## 4) Padrões de UIX
+
+- Construir hierarquia clara:
+  - título
+  - contexto
+  - ação
+  - feedback
+- Garantir layout responsivo com:
+  - espaçamento adequado
+  - tipografia legível
+  - áreas de toque confortáveis
+- Evitar:
+  - clipping
+  - overflow
+  - tamanhos fixos que quebrem em diferentes telas
+- Garantir usabilidade de:
+  - teclado
+  - foco
+  - inputs
+- Manter estados explícitos:
+  - carregando
+  - vazio
+  - sucesso
+  - erro
+  - desabilitado
+
+---
+
+## 5) Navegação e formulários
+
+- Garantir fluxo claro entre:
+  - lista
+  - detalhe
+  - edição
+- Tornar validações:
+  - visíveis
+  - claras
+  - acionáveis
+- Não depender de tentativa e erro do usuário
+- Evitar múltiplos passos desnecessários
+
+---
+
+## 6) Compatibilidade multiplataforma (OBRIGATÓRIO)
+
+- Garantir consistência entre:
+  - Web
+  - Android
+  - iOS
+
+- Adaptar interface considerando:
+  - touch (mobile)
+  - hover (web)
+  - teclado (web)
+  - safe areas (notch, status bar)
+
+- Garantir que:
+  - botões são clicáveis/tocáveis corretamente
+  - inputs funcionam com teclado virtual
+  - navegação não quebra entre plataformas
+
+- Evitar componentes que não funcionem em todas plataformas sem fallback
+
+---
+
+## 7) Performance percebida (UX) (OBRIGATÓRIO)
+
+- Garantir feedback imediato ao usuário:
+  - clique
+  - toque
+  - ação executada
+- Evitar travamento visual durante carregamento
+- Usar:
+  - loading
+  - skeleton
+  - estados intermediários
+- Evitar ações duplicadas (ex: múltiplos cliques)
+- Reduzir sensação de espera com feedback visual
+
+---
+
+## 8) Acessibilidade básica
+
+- Garantir contraste adequado
+- Garantir área mínima de toque
+- Garantir foco visível no web
+- Evitar dependência exclusiva de cor para significado
+
+---
+
+## 9) Gates de qualidade
+
+- Validar:
+  - contraste
+  - foco
+  - navegação por teclado
+  - área de toque
+- Validar todos os estados da tela
+- Verificar consistência textual (labels, placeholders, mensagens)
+- Testar:
+  - web responsivo
+  - pelo menos 1 dispositivo mobile
+
+---
+
+## 10) Regras de alteração
+
+- Não modificar regras de negócio
+- Não alterar contratos de API
+- Não refatorar fora do escopo
+- Realizar apenas ajustes necessários de UI/UX
+
+---
+
+## 11) Checklist de entrega
+
+- Confirmar consistência com design system
+- Confirmar clareza do fluxo para o usuário
+- Confirmar que não há quebra entre plataformas
+- Confirmar responsividade adequada
+- Confirmar ausência de ambiguidade na interface
+- Confirmar boa percepção de performance
+- Fornecer:
+  - resumo das mudanças
+  - riscos
+  - pontos de validação
+
+  ---
