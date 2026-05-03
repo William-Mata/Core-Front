@@ -47,75 +47,74 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
     admin: false,
   });
   const [recolhido, setRecolhido] = useState(false);
+  const podeRecolher = !aoFechar;
+  const menuRecolhido = podeRecolher && recolhido;
+
+  const nomeCompletoUsuario = String(usuario?.nome ?? '').trim();
+  const primeiroNomeUsuario = nomeCompletoUsuario.split(/\s+/).filter(Boolean)[0] ?? '';
+  const nomeExibicaoUsuario = primeiroNomeUsuario || t('menu.painelUsuario');
+  const emailExibicaoUsuario = String(usuario?.email ?? '').trim();
 
   const itensMenu: ItemMenu[] = [
     {
       id: 'dashboard',
       label: t('menu.dashboard'),
       icone: '\uD83C\uDFE0',
-      rota: '/',
+      rota: '/dashboard',
       requerModuloId: '1',
       requerTelaId: '1',
-    },
-    {
-      id: 'usuario',
-      label: t('menu.painelUsuario'),
-      icone: '\uD83D\uDC64',
-      rota: '/principal/usuario',
-      requerModuloId: '1',
-      requerTelaId: '2',
     },
     {
       id: 'financeiro',
       label: t('menu.financeiro'),
       icone: '\uD83D\uDCB0',
-      rota: '/principal/financeiro/despesa',
+      rota: '/financeiro/despesas',
       requerModuloId: '3',
       filhos: [
-        { id: 'financeiro-despesa', label: t('menu.despesas'), rota: '/principal/financeiro/despesa', requerTelaId: '100' },
-        { id: 'financeiro-receita', label: t('menu.receitas'), rota: '/principal/financeiro/receita', requerTelaId: '101' },
-        { id: 'financeiro-reembolso', label: t('menu.reembolsos'), rota: '/principal/financeiro/reembolso', requerTelaId: '102' },
-        { id: 'financeiro-conta-bancaria', label: t('menu.contasBancarias'), rota: '/principal/financeiro/conta-bancaria', requerTelaId: '103' },
-        { id: 'financeiro-cartao', label: t('menu.cartoesCredito'), rota: '/principal/financeiro/cartao', requerTelaId: '104' },
-        { id: 'financeiro-documentacao', label: t('documentacao.acao'), rota: '/principal/financeiro/documentacao', requerTelaId: '105' },
+        { id: 'financeiro-despesa', label: t('menu.despesas'), rota: '/financeiro/despesas', requerTelaId: '100' },
+        { id: 'financeiro-receita', label: t('menu.receitas'), rota: '/financeiro/receitas', requerTelaId: '101' },
+        { id: 'financeiro-reembolso', label: t('menu.reembolsos'), rota: '/financeiro/reembolsos', requerTelaId: '102' },
+        { id: 'financeiro-conta-bancaria', label: t('menu.contasBancarias'), rota: '/financeiro/conta-bancaria', requerTelaId: '103' },
+        { id: 'financeiro-cartao', label: t('menu.cartoesCredito'), rota: '/financeiro/cartoes', requerTelaId: '104' },
+        { id: 'financeiro-documentacao', label: t('documentacao.acao'), rota: '/financeiro/documentacao', requerTelaId: '105' },
       ],
     },
     {
       id: 'compras',
       label: t('menu.compras'),
       icone: '\uD83D\uDED2',
-      rota: '/principal/compras',
+      rota: '/compras/planejamentos',
       requerModuloId: 'compras',
       filhos: [
-        { id: 'compras-listas', label: t('compras.menu.listas'), rota: '/principal/compras', comparacao: 'exata' },
-        { id: 'compras-desejos', label: t('compras.menu.desejos'), rota: '/principal/compras/desejos' },
-        { id: 'compras-historico', label: t('compras.menu.historicoItens'), rota: '/principal/compras/historico-itens' },
+        { id: 'compras-listas', label: t('compras.menu.listas'), rota: '/compras/planejamentos', comparacao: 'exata' },
+        { id: 'compras-desejos', label: t('compras.menu.desejos'), rota: '/compras/desejos' },
+        { id: 'compras-historico', label: t('compras.menu.historicoItens'), rota: '/compras/historico-precos' },
       ],
     },
     {
       id: 'amigos',
       label: t('menu.amigos'),
       icone: '\uD83D\uDC65',
-      rota: '/principal/amigos',
+      rota: '/amigos',
       requerModuloId: '1',
       filhos: [
-        { id: 'amigos-lista', label: t('menu.listaAmigos'), rota: '/principal/amigos', requerTelaId: '3', comparacao: 'exata' },
-        { id: 'amigos-convite', label: t('menu.convites'), rota: '/principal/amigos/amigo', requerTelaId: '4' },
-        { id: 'amigos-documentacao', label: t('documentacao.acao'), rota: '/principal/documentacao', requerTelaId: '5' },
+        { id: 'amigos-lista', label: t('menu.listaAmigos'), rota: '/amigos', requerTelaId: '3', comparacao: 'exata' },
+        { id: 'amigos-convite', label: t('menu.convites'), rota: '/amigos/convite', requerTelaId: '4' },
+        { id: 'amigos-documentacao', label: t('documentacao.acao'), rota: '/amigos/documentacao', requerTelaId: '5' },
       ],
     },
     {
       id: 'admin',
       label: t('menu.administracao'),
       icone: '\u2699\uFE0F',
-      rota: '/principal/administracao',
+      rota: '/admin',
       requerModuloId: '2',
       filhos: [
-        { id: 'admin-visao-geral', label: t('menu.administracao'), rota: '/principal/administracao', requerTelaId: '30', comparacao: 'exata' },
-        { id: 'admin-usuarios', label: t('menu.usuarios'), rota: '/principal/administracao/usuario', requerTelaId: '31' },
-        { id: 'admin-documentos', label: t('menu.documentos'), rota: '/principal/administracao/documentos', requerTelaId: '33' },
-        { id: 'admin-avisos', label: t('menu.avisos'), rota: '/principal/administracao/avisos', requerTelaId: '34' },
-        { id: 'admin-documentacao', label: t('documentacao.acao'), rota: '/principal/administracao/documentacao', requerTelaId: '35' },
+        { id: 'admin-visao-geral', label: t('menu.administracao'), rota: '/admin', requerTelaId: '30', comparacao: 'exata' },
+        { id: 'admin-usuarios', label: t('menu.usuarios'), rota: '/admin/usuarios', requerTelaId: '31' },
+        { id: 'admin-documentos', label: t('menu.documentos'), rota: '/admin/documentos', requerTelaId: '33' },
+        { id: 'admin-avisos', label: t('menu.avisos'), rota: '/admin/avisos', requerTelaId: '34' },
+        { id: 'admin-documentacao', label: t('documentacao.acao'), rota: '/admin/documentacao', requerTelaId: '35' },
       ],
     },
   ];
@@ -152,6 +151,14 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
   };
   
   const ehAdmin = Boolean(usuario && (usuario.perfil?.id === 1 || String(usuario.perfil?.nome || '').toUpperCase().includes('ADMIN')));
+  const itemPainelUsuario: ItemMenu = {
+    id: 'usuario',
+    label: nomeExibicaoUsuario,
+    icone: '\uD83D\uDC64',
+    rota: '/usuario',
+    requerModuloId: '1',
+    requerTelaId: '2',
+  };
 
   const temAcesso = (item: ItemMenu) => {
     if (item.id === 'admin' && !ehAdmin) return false;
@@ -183,7 +190,7 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
     <View
       style={{
         height: '100%',
-        width: recolhido ? 24 : 260,
+        width: menuRecolhido ? 24 : 260,
         backgroundColor: COLORS.bgSecondary,
         borderRightWidth: 1,
         borderRightColor: COLORS.borderColor,
@@ -193,7 +200,7 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
         shadowOffset: { width: 4, height: 0 },
       }}
     >
-      <View style={{ flex: 1, display: recolhido ? 'none' : 'flex', overflow: 'visible' }}>
+      <View style={{ flex: 1, display: menuRecolhido ? 'none' : 'flex', overflow: 'visible' }}>
         <View
           style={{
             paddingHorizontal: 14,
@@ -209,21 +216,39 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
             <Text style={{ color: COLORS.accent, fontSize: 18, fontWeight: '800', letterSpacing: 0.6 }}>Core</Text>
             <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>{t('menu.navegacao')}</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => setRecolhido(true)}
-            style={{
-              backgroundColor: COLORS.bgTertiary,
-              borderRadius: 8,
-              width: 30,
-              height: 30,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: COLORS.borderAccent,
-            }}
-          >
-            <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{'<'}</Text>
-          </TouchableOpacity>
+          {podeRecolher ? (
+            <TouchableOpacity
+              onPress={() => setRecolhido(true)}
+              style={{
+                backgroundColor: COLORS.bgTertiary,
+                borderRadius: 8,
+                width: 30,
+                height: 30,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: COLORS.borderAccent,
+              }}
+            >
+              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{'<'}</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={aoFechar}
+              style={{
+                backgroundColor: COLORS.bgTertiary,
+                borderRadius: 8,
+                width: 30,
+                height: 30,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: COLORS.borderAccent,
+              }}
+            >
+              <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>{'\u2715'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <ScrollView contentContainerStyle={{ paddingVertical: 10, paddingHorizontal: 6, flexGrow: 1 }}>
@@ -301,6 +326,56 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
             zIndex: 2000,
           }}
         >
+          {temAcesso(itemPainelUsuario) ? (
+            <TouchableOpacity
+              onPress={() => handleNavegar(itemPainelUsuario.rota)}
+              activeOpacity={0.85}
+              style={{
+                backgroundColor: COLORS.bgTertiary,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: rotaEstaAtiva('/usuario') ? COLORS.borderAccent : COLORS.borderColor,
+                paddingHorizontal: 10,
+                paddingVertical: 10,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+              }}
+            >
+              <View
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 17,
+                  backgroundColor: COLORS.accentSubtle,
+                  borderWidth: 1,
+                  borderColor: COLORS.borderAccent,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 16 }}>{'\uD83D\uDC64'}</Text>
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ color: COLORS.text, fontSize: 13, fontWeight: '700' }}
+                >
+                  {nomeExibicaoUsuario}
+                </Text>
+                {emailExibicaoUsuario ? (
+                  <Text
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}
+                  >
+                    {emailExibicaoUsuario}
+                  </Text>
+                ) : null}
+              </View>
+            </TouchableOpacity>
+          ) : null}
           {mostrarIdioma ? (
             <View style={{ zIndex: 3000, elevation: 30 }}>
               <SeletorIdioma idiomaSelecionado={idiomaSelecionado} aoMudarIdioma={definirIdioma} />
@@ -323,7 +398,7 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
         </View>
       </View>
 
-      {recolhido ? (
+      {menuRecolhido ? (
         <TouchableOpacity
           onPress={() => setRecolhido(false)}
           style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 16 }}
