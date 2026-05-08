@@ -178,7 +178,7 @@ describe('Tela de login', () => {
     });
   });
 
-  it('deve definir sessao e navegar para principal quando login for bem-sucedido', async () => {
+  it('deve definir sessao e navegar para dashboard quando login for bem-sucedido', async () => {
     const usuario = {
       id: 1,
       nome: 'Usuario Teste',
@@ -207,7 +207,7 @@ describe('Tela de login', () => {
       expect(mockAutenticar).toHaveBeenCalledWith('admin@core.com', '123456');
       expect(mockSalvarTokens).toHaveBeenCalledWith('mock-access-token-xyz', 'mock-refresh-token-xyz');
       expect(mockDefinirSessao).toHaveBeenCalledWith(usuario, 'mock-access-token-xyz');
-      expect(mockReplace).toHaveBeenCalledWith('/principal');
+      expect(mockReplace).toHaveBeenCalledWith('/dashboard');
     });
   });
 });

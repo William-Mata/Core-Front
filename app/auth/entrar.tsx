@@ -65,7 +65,7 @@ export default function Entrar() {
       setTentativasInvalidas(0);
       setBloqueado(false);
       setModoRecuperacao(false);
-      router.replace('/principal');
+      router.replace('/dashboard');
     } catch (error: any) {
       const detail = String(error?.response?.data?.detail || '');
       if (error?.response?.status === 400 && detail === 'No primeiro acesso, voce deve criar sua senha.') {
