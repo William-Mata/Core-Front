@@ -115,7 +115,56 @@
       "resumo": "Resumo Financeiro",
       "graficoTipos": "Gráfico por Tipo",
       "graficoMensal": "Gráfico Mensal",
-      "ultimasTransacoes": "Últimas Transações"
+      "ultimasTransacoes": "Últimas Transações",
+      "graficoReceitasAreaSubarea": "Receitas por Área e Subárea",
+      "graficoDespesasAreaSubarea": "Despesas por Área e Subárea",
+      "graficoAnual": "Gráfico Anual",
+      "balancoGeral": "Balanço Geral",
+      "comprasResumoRapido": "Resumo de Compras",
+      "comprasEvolucaoMensal": "Evolução Mensal de Compras",
+      "comprasTipos": "Compras por Categoria",
+      "comprasProdutosTop": "Produtos Mais Comprados",
+      "comprasUltimasCompras": "Últimas Compras",
+      "comprasUltimosDesejos": "Últimos Desejos",
+      "comprasVariacaoPrecos": "Variação de Preços",
+      "comprasEconomiaPotencial": "Economia Potencial"
+    },
+    "modulos": {
+      "financeiro": {
+        "titulo": "Financeiro"
+      },
+      "compras": {
+        "titulo": "Compras"
+      },
+      "resumoWidgets": "{{quantidade}} widgets configurados",
+      "semWidgetsConfigurados": "Nenhum widget configurado."
+    },
+    "compras": {
+      "totalGastoMes": "Total gasto no mês",
+      "planejamentosAtivos": "Planejamentos ativos",
+      "itensCompradosMes": "Itens comprados no mês",
+      "desejosPendentes": "Desejos pendentes",
+      "economiaPotencialMes": "Economia potencial no mês",
+      "economiaPotencialTotal": "Economia potencial total",
+      "economiaPotencialDescricao": "Soma das oportunidades calculadas pelos menores preços registrados.",
+      "erroCarregamento": "Não foi possível carregar os dados de compras.",
+      "semDados": "Sem dados de compras para exibir.",
+      "resumoMensal": "{{itens}} itens comprados · {{listas}} listas concluídas",
+      "resumoTipoCompra": "{{percentual}} do total · {{itens}} itens",
+      "resumoVariacaoPreco": "Último: {{ultimo}} · menor: {{menor}} · média: {{media}}",
+      "resumoEconomiaProduto": "Último: {{ultimo}} · menor: {{menor}}",
+      "statusDesejo": {
+        "pendente": "Pendente",
+        "selecionado": "Selecionado"
+      },
+      "categorias": {
+        "mercado": "Mercado",
+        "moveis": "Móveis",
+        "roupas": "Roupas",
+        "farmacia": "Farmácia",
+        "construcao": "Construção",
+        "outros": "Outros"
+      }
     },
     "pagamento": {
       "PIX": "PIX",

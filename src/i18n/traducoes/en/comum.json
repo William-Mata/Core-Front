@@ -115,7 +115,56 @@
       "resumo": "Financial Summary",
       "graficoTipos": "By Type Chart",
       "graficoMensal": "Monthly Chart",
-      "ultimasTransacoes": "Latest Transactions"
+      "ultimasTransacoes": "Latest Transactions",
+      "graficoReceitasAreaSubarea": "Income by Area and Subarea",
+      "graficoDespesasAreaSubarea": "Expenses by Area and Subarea",
+      "graficoAnual": "Annual Chart",
+      "balancoGeral": "Overall Balance",
+      "comprasResumoRapido": "Purchases Summary",
+      "comprasEvolucaoMensal": "Monthly Purchases Trend",
+      "comprasTipos": "Purchases by Category",
+      "comprasProdutosTop": "Most Purchased Products",
+      "comprasUltimasCompras": "Latest Purchases",
+      "comprasUltimosDesejos": "Latest Wishlist Items",
+      "comprasVariacaoPrecos": "Price Variation",
+      "comprasEconomiaPotencial": "Potential Savings"
+    },
+    "modulos": {
+      "financeiro": {
+        "titulo": "Finance"
+      },
+      "compras": {
+        "titulo": "Purchases"
+      },
+      "resumoWidgets": "{{quantidade}} configured widgets",
+      "semWidgetsConfigurados": "No widgets configured."
+    },
+    "compras": {
+      "totalGastoMes": "Total spent this month",
+      "planejamentosAtivos": "Active plans",
+      "itensCompradosMes": "Items purchased this month",
+      "desejosPendentes": "Pending wishlist items",
+      "economiaPotencialMes": "Potential savings this month",
+      "economiaPotencialTotal": "Total potential savings",
+      "economiaPotencialDescricao": "Sum of opportunities calculated from the lowest recorded prices.",
+      "erroCarregamento": "Could not load purchases data.",
+      "semDados": "No purchases data to display.",
+      "resumoMensal": "{{itens}} purchased items · {{listas}} completed lists",
+      "resumoTipoCompra": "{{percentual}} of total · {{itens}} items",
+      "resumoVariacaoPreco": "Latest: {{ultimo}} · lowest: {{menor}} · average: {{media}}",
+      "resumoEconomiaProduto": "Latest: {{ultimo}} · lowest: {{menor}}",
+      "statusDesejo": {
+        "pendente": "Pending",
+        "selecionado": "Selected"
+      },
+      "categorias": {
+        "mercado": "Market",
+        "moveis": "Furniture",
+        "roupas": "Clothing",
+        "farmacia": "Pharmacy",
+        "construcao": "Construction",
+        "outros": "Other"
+      }
     },
     "pagamento": {
       "PIX": "PIX",

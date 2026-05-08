@@ -232,7 +232,7 @@ export const manipuladorCompras = [
 
   http.put('/api/compras/listas/:listaId', async ({ params, request }) => {
     const listaId = Number(params.listaId);
-    const payload = (await request.json()) as Partial<ListaCompra> & {
+    const payload = (await request.json()) as Omit<Partial<ListaCompra>, 'participantes'> & {
       participantes?: Array<{ usuarioId: number; papel: 'Proprietario' | 'CoProprietario' | 'Leitor' }>;
     };
     listasCompra = listasCompra.map((lista) => {

@@ -623,8 +623,8 @@ export default function ComprasIndex() {
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                       <Text style={{ color: COLORS.textSecondary, flex: 1 }}>
                         {t('compras.listas.quantidadeItensResumo', {
-                          comprados: lista.quantidadeItensComprados ?? 0,
-                          total: lista.quantidadeItens ?? 0,
+                          comprados: String(lista.quantidadeItensComprados ?? 0),
+                          total: String(lista.quantidadeItens ?? 0),
                         })}
                       </Text>
                       {lista.atualizadoEm || lista.criadoEm ? (

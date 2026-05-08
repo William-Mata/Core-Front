@@ -62,7 +62,6 @@ export function MenuAcoesItem({
               bottom: -2000,
               left: -2000,
               zIndex: 900,
-              cursor: 'default',
             }}
           />
           <View

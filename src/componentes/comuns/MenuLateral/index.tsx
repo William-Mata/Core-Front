@@ -360,7 +360,7 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
                 <Text
                   numberOfLines={1}
                   ellipsizeMode="tail"
-                  style={{ color: COLORS.text, fontSize: 13, fontWeight: '700' }}
+                  style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' }}
                 >
                   {nomeExibicaoUsuario}
                 </Text>

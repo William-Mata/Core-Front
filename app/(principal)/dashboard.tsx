@@ -2068,7 +2068,7 @@ export default function Dashboard() {
           {configuracoesModulos.map((modulo) => {
             const widgetsModulo = widgetCardsPorModulo[modulo.id];
             const moduloExpandido = modulosExpandidos[modulo.id];
-            const resumoWidgets = t('dashboard.modulos.resumoWidgets', { quantidade: widgetsModulo.length });
+            const resumoWidgets = t('dashboard.modulos.resumoWidgets', { quantidade: String(widgetsModulo.length) });
 
             return (
               <View key={modulo.id} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 12, overflow: 'hidden' }}>
