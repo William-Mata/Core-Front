@@ -51,6 +51,15 @@ interface GraficoLinhaAnualSvgProps {
   testID?: string;
 }
 
+function obterCoordenadaEvento(evento: unknown, chave: 'locationX' | 'offsetX'): number {
+  if (!evento || typeof evento !== 'object') return 0;
+  const eventoComNative = evento as { nativeEvent?: unknown };
+  const nativeEvent = eventoComNative.nativeEvent;
+  if (!nativeEvent || typeof nativeEvent !== 'object') return 0;
+  const valor = (nativeEvent as Record<string, unknown>)[chave];
+  return typeof valor === 'number' && Number.isFinite(valor) ? valor : 0;
+}
+
 interface PontoGrafico {
   x: number;
   y: number;
@@ -323,10 +332,10 @@ export function GraficoLinhaAnualSvg({
         </Svg>
 
         <Pressable
-          onPressIn={(evento) => atualizarIndiceAtivoPorPosicao(evento.nativeEvent.locationX ?? 0)}
+          onPressIn={(evento) => atualizarIndiceAtivoPorPosicao(obterCoordenadaEvento(evento, 'locationX'))}
           onPressOut={() => setIndiceAtivo(null)}
           onHoverIn={Platform.OS === 'web'
-            ? (evento) => atualizarIndiceAtivoPorPosicao(evento.nativeEvent.locationX ?? 0)
+            ? (evento) => atualizarIndiceAtivoPorPosicao(obterCoordenadaEvento(evento, 'offsetX'))
             : undefined}
           onHoverOut={Platform.OS === 'web' ? () => setIndiceAtivo(null) : undefined}
           style={{ position: 'absolute', inset: 0 }}

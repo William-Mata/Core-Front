@@ -29,6 +29,16 @@ interface GraficoRoscaCategoriasSvgProps {
   testID?: string;
 }
 
+function obterCoordenadaEvento(evento: unknown, chaveNativa: 'locationX' | 'locationY', chaveWeb: 'offsetX' | 'offsetY'): number {
+  if (!evento || typeof evento !== 'object') return 0;
+  const eventoComNative = evento as { nativeEvent?: unknown };
+  const nativeEvent = eventoComNative.nativeEvent;
+  if (!nativeEvent || typeof nativeEvent !== 'object') return 0;
+  const registroNative = nativeEvent as Record<string, unknown>;
+  const valor = registroNative[chaveNativa] ?? registroNative[chaveWeb];
+  return typeof valor === 'number' && Number.isFinite(valor) ? valor : 0;
+}
+
 function paraCoordenadaPolar(
   centroX: number,
   centroY: number,
@@ -193,13 +203,13 @@ export function GraficoRoscaCategoriasSvg({
         <Pressable
           onPressIn={(evento) =>
             selecionarPorToque(
-              evento.nativeEvent.locationX ?? 0,
-              evento.nativeEvent.locationY ?? 0,
+              obterCoordenadaEvento(evento, 'locationX', 'offsetX'),
+              obterCoordenadaEvento(evento, 'locationY', 'offsetY'),
             )}
           onHoverIn={(evento) =>
             selecionarPorToque(
-              evento.nativeEvent.locationX ?? 0,
-              evento.nativeEvent.locationY ?? 0,
+              obterCoordenadaEvento(evento, 'locationX', 'offsetX'),
+              obterCoordenadaEvento(evento, 'locationY', 'offsetY'),
             )}
           style={{ position: 'absolute', inset: 0 }}
         />
@@ -207,4 +217,3 @@ export function GraficoRoscaCategoriasSvg({
     </View>
   );
 }
-
