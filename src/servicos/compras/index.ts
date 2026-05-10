@@ -1,6 +1,15 @@
 import { api } from '../api';
 import {
   AcaoLoteItensCompra,
+  ComprasDashboardEconomiaPotencial,
+  ComprasDashboardEconomiaPotencialProduto,
+  ComprasDashboardEvolucaoMensal,
+  ComprasDashboardKpis,
+  ComprasDashboardProdutoMaisComprado,
+  ComprasDashboardTipoCompra,
+  ComprasDashboardUltimaCompra,
+  ComprasDashboardUltimoDesejo,
+  ComprasDashboardVariacaoPreco,
   CategoriaListaCompra,
   DesejoCompra,
   HistoricoItemCompra,
@@ -26,6 +35,10 @@ interface OpcoesRequisicao {
 
 interface OpcoesListarListasCompra extends OpcoesRequisicao {
   incluirArquivadas?: boolean;
+}
+
+interface OpcoesDashboardLimite extends OpcoesRequisicao {
+  limite?: number;
 }
 
 export interface PayloadParticipanteListaCompra {
@@ -328,6 +341,125 @@ function normalizarSugestao(entrada: unknown): SugestaoItemCompra {
   };
 }
 
+function normalizarNumero(valor: unknown): number {
+  const numero = Number(valor ?? 0);
+  return Number.isFinite(numero) ? numero : 0;
+}
+
+function normalizarTexto(valor: unknown): string {
+  return String(valor ?? '').trim();
+}
+
+function normalizarStatusDesejoDashboard(valor: unknown): 'pendente' | 'convertido' {
+  const status = normalizarTexto(valor).toLowerCase();
+  return status === 'convertido' ? 'convertido' : 'pendente';
+}
+
+function normalizarKpisDashboardCompras(entrada: unknown): ComprasDashboardKpis {
+  const dados = (entrada ?? {}) as Record<string, unknown>;
+  const economiaPotencialMes = normalizarNumero(dados.economiaPotencialMes);
+  const possuiEconomiaPotencial = Boolean(
+    dados.possuiEconomiaPotencial
+    ?? (economiaPotencialMes > 0),
+  );
+
+  return {
+    totalGastoMes: normalizarNumero(dados.totalGastoMes),
+    planejamentosAtivos: normalizarNumero(dados.planejamentosAtivos),
+    itensCompradosMes: normalizarNumero(dados.itensCompradosMes),
+    desejosPendentes: normalizarNumero(dados.desejosPendentes),
+    economiaPotencialMes,
+    possuiEconomiaPotencial,
+  };
+}
+
+function normalizarEvolucaoMensalDashboardCompras(entrada: unknown): ComprasDashboardEvolucaoMensal {
+  const dados = (entrada ?? {}) as Record<string, unknown>;
+  return {
+    chaveMes: normalizarTexto(dados.chaveMes),
+    rotuloMes: normalizarTexto(dados.rotuloMes),
+    valorTotal: normalizarNumero(dados.valorTotal),
+    quantidadeItens: normalizarNumero(dados.quantidadeItens),
+    listasFinalizadas: normalizarNumero(dados.listasFinalizadas),
+  };
+}
+
+function normalizarTipoCompraDashboardCompras(entrada: unknown): ComprasDashboardTipoCompra {
+  const dados = (entrada ?? {}) as Record<string, unknown>;
+  return {
+    categoria: normalizarTexto(dados.categoria).toLowerCase(),
+    rotulo: normalizarTexto(dados.rotulo),
+    valorTotal: normalizarNumero(dados.valorTotal),
+    percentual: normalizarNumero(dados.percentual),
+    quantidadeItens: normalizarNumero(dados.quantidadeItens),
+  };
+}
+
+function normalizarProdutoMaisCompradoDashboardCompras(entrada: unknown): ComprasDashboardProdutoMaisComprado {
+  const dados = (entrada ?? {}) as Record<string, unknown>;
+  return {
+    descricao: normalizarTexto(dados.descricao),
+    quantidade: normalizarNumero(dados.quantidade),
+  };
+}
+
+function normalizarUltimaCompraDashboardCompras(entrada: unknown): ComprasDashboardUltimaCompra {
+  const dados = (entrada ?? {}) as Record<string, unknown>;
+  return {
+    id: normalizarTexto(dados.id),
+    descricao: normalizarTexto(dados.descricao),
+    valor: normalizarNumero(dados.valor),
+    data: normalizarTexto(dados.data),
+    planejamento: normalizarTexto(dados.planejamento),
+    corMarcador: normalizarCorEtiqueta(dados.corMarcador),
+  };
+}
+
+function normalizarUltimoDesejoDashboardCompras(entrada: unknown): ComprasDashboardUltimoDesejo {
+  const dados = (entrada ?? {}) as Record<string, unknown>;
+  return {
+    id: normalizarTexto(dados.id),
+    descricao: normalizarTexto(dados.descricao),
+    valorEstimado: normalizarNumero(dados.valorEstimado),
+    data: normalizarTexto(dados.data),
+    status: normalizarStatusDesejoDashboard(dados.status),
+  };
+}
+
+function normalizarVariacaoPrecoDashboardCompras(entrada: unknown): ComprasDashboardVariacaoPreco {
+  const dados = (entrada ?? {}) as Record<string, unknown>;
+  return {
+    id: normalizarTexto(dados.id),
+    produto: normalizarTexto(dados.produto),
+    ultimoPreco: normalizarNumero(dados.ultimoPreco),
+    menorPreco: normalizarNumero(dados.menorPreco),
+    maiorPreco: normalizarNumero(dados.maiorPreco),
+    mediaPreco: normalizarNumero(dados.mediaPreco),
+    percentualVariacao: normalizarNumero(dados.percentualVariacao),
+    potencialEconomiaUnitaria: normalizarNumero(dados.potencialEconomiaUnitaria),
+  };
+}
+
+function normalizarEconomiaPotencialProdutoDashboardCompras(entrada: unknown): ComprasDashboardEconomiaPotencialProduto {
+  const dados = (entrada ?? {}) as Record<string, unknown>;
+  return {
+    id: normalizarTexto(dados.id),
+    produto: normalizarTexto(dados.produto),
+    economiaUnitaria: normalizarNumero(dados.economiaUnitaria),
+    ultimoPreco: normalizarNumero(dados.ultimoPreco),
+    menorPreco: normalizarNumero(dados.menorPreco),
+  };
+}
+
+function normalizarEconomiaPotencialDashboardCompras(entrada: unknown): ComprasDashboardEconomiaPotencial {
+  const dados = (entrada ?? {}) as Record<string, unknown>;
+  const produtosEntrada = Array.isArray(dados.produtosComMelhorEconomia) ? dados.produtosComMelhorEconomia : [];
+  return {
+    economiaPotencialTotal: normalizarNumero(dados.economiaPotencialTotal),
+    produtosComMelhorEconomia: produtosEntrada.map(normalizarEconomiaPotencialProdutoDashboardCompras),
+  };
+}
+
 function mapearPermissaoParaPapelApi(permissao: PermissaoParticipanteLista): 'Proprietario' | 'CoProprietario' | 'Leitor' {
   if (permissao === 'proprietario') return 'Proprietario';
   if (permissao === 'coproprietario') return 'CoProprietario';
@@ -355,6 +487,89 @@ export async function listarListasCompraApi(opcoes?: OpcoesListarListasCompra): 
   });
   const listas = extrairDados(data);
   return Array.isArray(listas) ? listas.map(normalizarLista) : [];
+}
+
+export async function obterKpisDashboardComprasApi(opcoes?: OpcoesRequisicao): Promise<ComprasDashboardKpis> {
+  const { data } = await api.get<EnvelopeApi<unknown> | unknown>('/compras/listas/dashboard/kpis', montarConfigConsulta(opcoes));
+  return normalizarKpisDashboardCompras(extrairDados(data));
+}
+
+export async function listarEvolucaoMensalDashboardComprasApi(
+  opcoes?: OpcoesRequisicao,
+): Promise<ComprasDashboardEvolucaoMensal[]> {
+  const { data } = await api.get<EnvelopeApi<unknown[]> | unknown[]>('/compras/listas/dashboard/evolucao-mensal', montarConfigConsulta(opcoes));
+  const itens = extrairDados(data);
+  return Array.isArray(itens) ? itens.map(normalizarEvolucaoMensalDashboardCompras) : [];
+}
+
+export async function listarTiposDashboardComprasApi(opcoes?: OpcoesRequisicao): Promise<ComprasDashboardTipoCompra[]> {
+  const { data } = await api.get<EnvelopeApi<unknown[]> | unknown[]>('/compras/listas/dashboard/tipos', montarConfigConsulta(opcoes));
+  const itens = extrairDados(data);
+  return Array.isArray(itens) ? itens.map(normalizarTipoCompraDashboardCompras) : [];
+}
+
+export async function listarProdutosMaisCompradosDashboardComprasApi(
+  opcoes?: OpcoesDashboardLimite,
+): Promise<ComprasDashboardProdutoMaisComprado[]> {
+  const { data } = await api.get<EnvelopeApi<unknown[]> | unknown[]>('/compras/listas/dashboard/produtos-mais-comprados', {
+    ...montarConfigConsulta(opcoes),
+    params: {
+      limite: opcoes?.limite ?? 10,
+    },
+  });
+  const itens = extrairDados(data);
+  return Array.isArray(itens) ? itens.map(normalizarProdutoMaisCompradoDashboardCompras) : [];
+}
+
+export async function listarUltimasComprasDashboardComprasApi(
+  opcoes?: OpcoesDashboardLimite,
+): Promise<ComprasDashboardUltimaCompra[]> {
+  const { data } = await api.get<EnvelopeApi<unknown[]> | unknown[]>('/compras/listas/dashboard/ultimas-compras', {
+    ...montarConfigConsulta(opcoes),
+    params: {
+      limite: opcoes?.limite ?? 50,
+    },
+  });
+  const itens = extrairDados(data);
+  return Array.isArray(itens) ? itens.map(normalizarUltimaCompraDashboardCompras) : [];
+}
+
+export async function listarUltimosDesejosDashboardComprasApi(
+  opcoes?: OpcoesDashboardLimite,
+): Promise<ComprasDashboardUltimoDesejo[]> {
+  const { data } = await api.get<EnvelopeApi<unknown[]> | unknown[]>('/compras/desejos/dashboard/ultimos', {
+    ...montarConfigConsulta(opcoes),
+    params: {
+      limite: opcoes?.limite ?? 50,
+    },
+  });
+  const itens = extrairDados(data);
+  return Array.isArray(itens) ? itens.map(normalizarUltimoDesejoDashboardCompras) : [];
+}
+
+export async function listarVariacaoPrecosDashboardComprasApi(
+  opcoes?: OpcoesDashboardLimite,
+): Promise<ComprasDashboardVariacaoPreco[]> {
+  const { data } = await api.get<EnvelopeApi<unknown[]> | unknown[]>('/compras/historico-precos/dashboard/variacao', {
+    ...montarConfigConsulta(opcoes),
+    params: {
+      limite: opcoes?.limite ?? 20,
+    },
+  });
+  const itens = extrairDados(data);
+  return Array.isArray(itens) ? itens.map(normalizarVariacaoPrecoDashboardCompras) : [];
+}
+
+export async function obterEconomiaPotencialDashboardComprasApi(
+  opcoes?: OpcoesDashboardLimite,
+): Promise<ComprasDashboardEconomiaPotencial> {
+  const { data } = await api.get<EnvelopeApi<unknown> | unknown>('/compras/historico-precos/dashboard/economia-potencial', {
+    ...montarConfigConsulta(opcoes),
+    params: {
+      limite: opcoes?.limite ?? 10,
+    },
+  });
+  return normalizarEconomiaPotencialDashboardCompras(extrairDados(data));
 }
 
 export async function obterListaCompraApi(listaId: number, opcoes?: OpcoesRequisicao): Promise<ListaCompraDetalhe> {

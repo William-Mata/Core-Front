@@ -1,6 +1,9 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Platform, View, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Sininho, type Notificacao } from '../Sininho';
 import { usarTraducao } from '../../../hooks/usarTraducao';
+import { usarLayoutStore } from '../../../store/usarLayoutStore';
 import { usarNotificacaoStore } from '../../../store/usarNotificacaoStore';
 import { COLORS } from '../../../styles/variables';
 
@@ -22,7 +25,12 @@ export function Cabecalho({
   mostrarSair = false,
 }: CabecalhoProps) {
   const { t } = usarTraducao();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const abrirMenuMovel = usarLayoutStore((estado) => estado.abrirMenuMovel);
   const { toasts, removerToast } = usarNotificacaoStore();
+  const exibirAcionadorMenu = width <= 768;
+  const paddingTopSeguro = Platform.OS === 'web' ? 12 : Math.max(insets.top, 0) + 8;
 
   const notificacoesMapeadas: Notificacao[] =
     notificacoes.length > 0
@@ -57,13 +65,32 @@ export function Cabecalho({
         borderBottomWidth: 1,
         borderBottomColor: COLORS.bgTertiary,
         paddingHorizontal: 16,
-        paddingVertical: 12,
-        paddingTop: 12,
+        paddingTop: paddingTopSeguro,
+        paddingBottom: 12,
       }}
     >
       {/* Logo e titulo */}
-      <View>
-        <Text style={{ color: COLORS.accent, fontSize: 18, fontWeight: 'bold' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+        {exibirAcionadorMenu ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t('menu.abrir')}
+            onPress={abrirMenuMovel}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              backgroundColor: COLORS.bgTertiary,
+              borderWidth: 1,
+              borderColor: COLORS.borderAccent,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <MaterialCommunityIcons name="menu" size={22} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+        ) : null}
+        <Text numberOfLines={1} style={{ color: COLORS.accent, fontSize: 18, fontWeight: 'bold', flexShrink: 1 }}>
           {titulo}
         </Text>
       </View>

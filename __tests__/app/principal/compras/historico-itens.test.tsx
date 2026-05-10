@@ -22,10 +22,6 @@ jest.mock('../../../../src/componentes/comuns/Cabecalho', () => ({
   Cabecalho: ({ titulo }: { titulo: string }) => titulo,
 }));
 
-jest.mock('react-native-gifted-charts', () => ({
-  LineChart: () => null,
-}));
-
 describe('tela compras/historico-itens', () => {
   beforeEach(() => {
     jest.clearAllMocks();

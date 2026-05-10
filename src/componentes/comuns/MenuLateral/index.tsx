@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { Platform, View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
 import { usarTraducao } from '../../../hooks/usarTraducao';
 import { SeletorIdioma } from '../SeletorIdioma';
@@ -37,6 +38,7 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
   const router = useRouter();
   const pathname = usePathname();
   const { t } = usarTraducao();
+  const insets = useSafeAreaInsets();
   const { idiomaSelecionado, definirIdioma } = usarIdiomaStore();
   const { deslogar, usuario } = usarAutenticacaoStore();
 
@@ -192,12 +194,16 @@ export function MenuLateral({ modulosAtivos = [], rotaAtual = 'dashboard', aoFec
         height: '100%',
         width: menuRecolhido ? 24 : 260,
         backgroundColor: COLORS.bgSecondary,
+        paddingTop: Platform.OS === 'web' ? 0 : insets.top,
+        paddingBottom: Platform.OS === 'web' ? 0 : insets.bottom,
         borderRightWidth: 1,
         borderRightColor: COLORS.borderColor,
         shadowColor: '#000',
         shadowOpacity: 0.35,
         shadowRadius: 14,
         shadowOffset: { width: 4, height: 0 },
+        zIndex: 9000,
+        elevation: 80,
       }}
     >
       <View style={{ flex: 1, display: menuRecolhido ? 'none' : 'flex', overflow: 'visible' }}>

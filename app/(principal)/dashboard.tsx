@@ -2,9 +2,10 @@ import { type ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, View, Text, ScrollView, TouchableOpacity, Pressable, useWindowDimensions, Platform, LayoutAnimation, UIManager } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LineChart } from 'react-native-gifted-charts';
 import { Cabecalho } from '../../src/componentes/comuns/Cabecalho';
 import { EsqueletoCarregamento } from '../../src/componentes/comuns/EsqueletoCarregamento';
+import { GraficoLinhaAnualSvg, type SerieGraficoLinhaAnual } from '../../src/componentes/comuns/dashboard/GraficoLinhaAnualSvg';
+import { GraficoRoscaCategoriasSvg } from '../../src/componentes/comuns/dashboard/GraficoRoscaCategoriasSvg';
 import { RenderizadorWidgetsCompras, type IdWidgetCompras } from '../../src/componentes/comuns/dashboard/RenderizadorWidgetsCompras';
 import { usarTraducao } from '../../src/hooks/usarTraducao';
 import { formatarDataPorIdioma, formatarMesPorIdioma, formatarValorPorIdioma } from '../../src/utils/formatacaoLocale';
@@ -25,12 +26,25 @@ import {
   type RegistroFinanceiroApi,
 } from '../../src/servicos/financeiro';
 import {
-  listarDesejosCompraApi,
-  listarHistoricoItensCompraApi,
-  listarListasCompraApi,
-  obterDetalheListaCompraApi,
+  listarEvolucaoMensalDashboardComprasApi,
+  listarProdutosMaisCompradosDashboardComprasApi,
+  listarTiposDashboardComprasApi,
+  listarUltimasComprasDashboardComprasApi,
+  listarUltimosDesejosDashboardComprasApi,
+  listarVariacaoPrecosDashboardComprasApi,
+  obterEconomiaPotencialDashboardComprasApi,
+  obterKpisDashboardComprasApi,
 } from '../../src/servicos/compras';
-import type { CategoriaListaCompra, DesejoCompra, HistoricoItemCompra, ItemListaCompra, ListaCompraDetalhe } from '../../src/tipos/compras.tipos';
+import type {
+  ComprasDashboardEconomiaPotencial,
+  ComprasDashboardEvolucaoMensal,
+  ComprasDashboardKpis,
+  ComprasDashboardProdutoMaisComprado,
+  ComprasDashboardTipoCompra,
+  ComprasDashboardUltimaCompra,
+  ComprasDashboardUltimoDesejo,
+  ComprasDashboardVariacaoPreco,
+} from '../../src/tipos/compras.tipos';
 import i18n from '../../src/i18n/configuracao';
 
 type TipoTransacao = 'despesa' | 'receita' | 'reembolso' | 'estorno';
@@ -122,71 +136,13 @@ interface PieAreaItem {
   subarea: string;
 }
 
-interface ResumoComprasKpi {
-  totalGastoMes: number;
-  planejamentosAtivos: number;
-  itensCompradosMes: number;
-  desejosPendentes: number;
-  economiaPotencialMes: number;
-  possuiEconomiaPotencial: boolean;
-}
-
-interface EvolucaoMensalComprasItem {
-  chaveMes: string;
-  rotuloMes: string;
-  valorTotal: number;
-  quantidadeItens: number;
-  listasFinalizadas: number;
-}
-
-interface TipoCompraAgregado {
-  categoria: CategoriaListaCompra;
-  rotulo: string;
-  valorTotal: number;
-  percentual: number;
-  quantidadeItens: number;
-}
-
-interface ProdutoCompradoAgregado {
-  descricao: string;
-  quantidade: number;
-}
-
-interface ItemCompraRecente {
-  id: string;
-  descricao: string;
-  valor: number;
-  data: string;
-  planejamento: string;
-  corMarcador: string;
-}
-
-interface DesejoRecenteItem {
-  id: string;
-  descricao: string;
-  valorEstimado: number;
-  data: string;
-  status: 'pendente' | 'selecionado';
-}
-
-interface VariacaoPrecoItem {
-  id: string;
-  produto: string;
-  ultimoPreco: number;
-  menorPreco: number;
-  maiorPreco: number;
-  mediaPreco: number;
-  percentualVariacao: number;
-  potencialEconomiaUnitaria: number;
-}
-
-interface EconomiaPotencialProduto {
-  id: string;
-  produto: string;
-  economiaUnitaria: number;
-  ultimoPreco: number;
-  menorPreco: number;
-}
+type ResumoComprasKpi = ComprasDashboardKpis;
+type EvolucaoMensalComprasItem = ComprasDashboardEvolucaoMensal;
+type TipoCompraAgregado = ComprasDashboardTipoCompra;
+type ProdutoCompradoAgregado = ComprasDashboardProdutoMaisComprado;
+type ItemCompraRecente = ComprasDashboardUltimaCompra;
+type DesejoRecenteItem = ComprasDashboardUltimoDesejo;
+type VariacaoPrecoItem = ComprasDashboardVariacaoPreco;
 
 interface ValorMonetarioAnimadoProps {
   valorFinal: number;
@@ -207,8 +163,35 @@ interface NumeroAnimadoProps {
   duracaoMs?: number;
 }
 
-const CORES_RECEITA = [COLORS.success, COLORS.info, '#23c4a8', '#5dd39e', '#2dd4bf', '#14b8a6'];
-const CORES_DESPESA = [COLORS.error, COLORS.warning, '#fb7185', '#f97316', '#ef4444', '#f59e0b'];
+const PALETA_RECEITAS_DISTINTAS = [
+  COLORS.success,
+  COLORS.info,
+  '#23c4a8',
+  '#5dd39e',
+  '#2dd4bf',
+  '#14b8a6',
+  '#38bdf8',
+  '#10b981',
+  '#4ade80',
+  '#22d3ee',
+  '#34d399',
+  '#06b6d4',
+];
+const PALETA_DESPESAS_DISTINTAS = [
+  COLORS.error,
+  COLORS.warning,
+  '#fb7185',
+  '#f97316',
+  '#ef4444',
+  '#f59e0b',
+  '#f43f5e',
+  '#f87171',
+  '#fb923c',
+  '#e11d48',
+  '#dc2626',
+  '#fca5a5',
+];
+const ANGULO_AUREO_CROMATICO = 137.508;
 const CHAVE_PERSISTENCIA_MODULOS_DASHBOARD = 'core_dashboard_modulos_expandidos_v2';
 const ESTADO_INICIAL_MODULOS_DASHBOARD: Record<ModuloDashboardId, boolean> = {
   financeiro: true,
@@ -260,6 +243,23 @@ function obterEstiloTipoTransacao(tipo: TipoTransacao) {
     return { corTexto: COLORS.info, corBorda: '#93c5fd', corFundo: '#1e3a8a' };
   }
   return { corTexto: COLORS.warning, corBorda: '#fde68a', corFundo: '#78350f' };
+}
+
+function gerarCorHslDistinta(indice: number, matizBase: number): string {
+  const matiz = Math.round((matizBase + indice * ANGULO_AUREO_CROMATICO) % 360);
+  return `hsl(${matiz}, 74%, 53%)`;
+}
+
+function obterCorReceitaDistinta(indice: number): string {
+  const corPaleta = PALETA_RECEITAS_DISTINTAS[indice];
+  if (corPaleta) return corPaleta;
+  return gerarCorHslDistinta(indice, 165);
+}
+
+function obterCorDespesaDistinta(indice: number): string {
+  const corPaleta = PALETA_DESPESAS_DISTINTAS[indice];
+  if (corPaleta) return corPaleta;
+  return gerarCorHslDistinta(indice, 8);
 }
 
 function mapearRotuloTipoTransacaoHistorico(valor: unknown, t: (chave: string) => string): string {
@@ -314,6 +314,31 @@ function montarResumoMensalVazio(ano: number): ResumoMensalGraficoAnual[] {
     reembolsos: 0,
     estornos: 0,
   }));
+}
+
+function montarEvolucaoComprasAnoAtual(
+  serie: EvolucaoMensalComprasItem[],
+  ano: number,
+): EvolucaoMensalComprasItem[] {
+  const mapaPorMes = new Map<string, EvolucaoMensalComprasItem>();
+
+  for (const item of serie) {
+    const chave = String(item.chaveMes ?? '').trim();
+    if (!chave.startsWith(`${ano}-`)) continue;
+    mapaPorMes.set(chave, item);
+  }
+
+  return Array.from({ length: 12 }, (_, indiceMes) => {
+    const chaveMes = `${ano}-${String(indiceMes + 1).padStart(2, '0')}`;
+    const itemExistente = mapaPorMes.get(chaveMes);
+    return {
+      chaveMes,
+      rotuloMes: formatarMesPorIdioma(new Date(ano, indiceMes, 1)),
+      valorTotal: itemExistente?.valorTotal ?? 0,
+      quantidadeItens: itemExistente?.quantidadeItens ?? 0,
+      listasFinalizadas: itemExistente?.listasFinalizadas ?? 0,
+    };
+  });
 }
 
 function normalizarNumeroMonetario(valor: unknown): number {
@@ -592,48 +617,6 @@ function mapearHistoricoTransacoesApiParaDashboard(
   });
 }
 
-function obterDataIsoSegura(valor: string | undefined): string {
-  const texto = String(valor ?? '').trim();
-  if (!texto) return '';
-  const apenasData = texto.length >= 10 ? texto.slice(0, 10) : texto;
-  const data = new Date(apenasData);
-  if (Number.isNaN(data.getTime())) return '';
-  return data.toISOString().slice(0, 10);
-}
-
-function obterChaveMes(valorIso: string): string {
-  if (!valorIso) return '';
-  const data = new Date(`${valorIso}T12:00:00`);
-  if (Number.isNaN(data.getTime())) return '';
-  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function estaMesmoMesAno(valorIso: string, referencia: Date): boolean {
-  const data = new Date(`${valorIso}T12:00:00`);
-  if (Number.isNaN(data.getTime())) return false;
-  return data.getFullYear() === referencia.getFullYear() && data.getMonth() === referencia.getMonth();
-}
-
-function montarChavesUltimosDozeMeses(referencia: Date): string[] {
-  return Array.from({ length: 12 }, (_, indice) => {
-    const data = new Date(referencia.getFullYear(), referencia.getMonth() - (11 - indice), 1);
-    return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
-  });
-}
-
-function normalizarDescricaoProduto(valor: string): string {
-  return valor
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase();
-}
-
-function calcularPercentualVariacao(ultimoPreco: number, menorPreco: number): number {
-  if (menorPreco <= 0) return 0;
-  return Number((((ultimoPreco - menorPreco) / menorPreco) * 100).toFixed(2));
-}
-
 export default function Dashboard() {
   const router = useRouter();
   const { t } = usarTraducao();
@@ -672,9 +655,24 @@ export default function Dashboard() {
   const [itensBalancoApi, setItensBalancoApi] = useState<ItemBalanco[]>([]);
   const [resumoApi, setResumoApi] = useState<ResumoHistoricoTransacoesApi | null>(null);
   const [itensAreaSubareaApi, setItensAreaSubareaApi] = useState<ItemAreaSubarea[]>([]);
-  const [detalhesListasComprasApi, setDetalhesListasComprasApi] = useState<ListaCompraDetalhe[]>([]);
-  const [desejosComprasApi, setDesejosComprasApi] = useState<DesejoCompra[]>([]);
-  const [historicoPrecosComprasApi, setHistoricoPrecosComprasApi] = useState<HistoricoItemCompra[]>([]);
+  const [resumoComprasKpi, setResumoComprasKpi] = useState<ResumoComprasKpi>({
+    totalGastoMes: 0,
+    planejamentosAtivos: 0,
+    itensCompradosMes: 0,
+    desejosPendentes: 0,
+    economiaPotencialMes: 0,
+    possuiEconomiaPotencial: false,
+  });
+  const [evolucaoMensalCompras, setEvolucaoMensalCompras] = useState<EvolucaoMensalComprasItem[]>([]);
+  const [tiposComprasAgregados, setTiposComprasAgregados] = useState<TipoCompraAgregado[]>([]);
+  const [produtosMaisComprados, setProdutosMaisComprados] = useState<ProdutoCompradoAgregado[]>([]);
+  const [ultimasCompras, setUltimasCompras] = useState<ItemCompraRecente[]>([]);
+  const [ultimosDesejos, setUltimosDesejos] = useState<DesejoRecenteItem[]>([]);
+  const [variacoesPrecos, setVariacoesPrecos] = useState<VariacaoPrecoItem[]>([]);
+  const [economiaPotencialCompras, setEconomiaPotencialCompras] = useState<ComprasDashboardEconomiaPotencial>({
+    economiaPotencialTotal: 0,
+    produtosComMelhorEconomia: [],
+  });
   const [carregandoCompras, setCarregandoCompras] = useState(true);
   const [erroCompras, setErroCompras] = useState(false);
   const [versaoCargaCompras, setVersaoCargaCompras] = useState(0);
@@ -960,28 +958,58 @@ export default function Dashboard() {
       setErroCompras(false);
 
       try {
-        const listasCompra = await listarListasCompraApi({ signal: controller.signal, incluirArquivadas: true });
-        const detalhesListasPromise = listasCompra.map((lista) =>
-          obterDetalheListaCompraApi(lista.id, { signal: controller.signal }),
-        );
-
-        const [detalhesListas, desejos, historicoPrecos] = await Promise.all([
-          Promise.all(detalhesListasPromise),
-          listarDesejosCompraApi({ signal: controller.signal }),
-          listarHistoricoItensCompraApi({ signal: controller.signal }),
+        const [
+          kpis,
+          evolucaoMensal,
+          tipos,
+          produtosMaisCompradosApi,
+          ultimasComprasApi,
+          ultimosDesejosApi,
+          variacaoPrecosApi,
+          economiaPotencialApi,
+        ] = await Promise.all([
+          obterKpisDashboardComprasApi({ signal: controller.signal }),
+          listarEvolucaoMensalDashboardComprasApi({ signal: controller.signal }),
+          listarTiposDashboardComprasApi({ signal: controller.signal }),
+          listarProdutosMaisCompradosDashboardComprasApi({ signal: controller.signal, limite: 10 }),
+          listarUltimasComprasDashboardComprasApi({ signal: controller.signal, limite: 50 }),
+          listarUltimosDesejosDashboardComprasApi({ signal: controller.signal, limite: 50 }),
+          listarVariacaoPrecosDashboardComprasApi({ signal: controller.signal, limite: 20 }),
+          obterEconomiaPotencialDashboardComprasApi({ signal: controller.signal, limite: 10 }),
         ]);
 
         if (!ativo) return;
-        setDetalhesListasComprasApi(detalhesListas);
-        setDesejosComprasApi(desejos);
-        setHistoricoPrecosComprasApi(historicoPrecos);
+        const anoAtual = new Date().getFullYear();
+        setResumoComprasKpi(kpis);
+        setEvolucaoMensalCompras(montarEvolucaoComprasAnoAtual(evolucaoMensal, anoAtual));
+        setTiposComprasAgregados(tipos);
+        setProdutosMaisComprados(produtosMaisCompradosApi);
+        setUltimasCompras(ultimasComprasApi);
+        setUltimosDesejos(ultimosDesejosApi);
+        setVariacoesPrecos(variacaoPrecosApi);
+        setEconomiaPotencialCompras(economiaPotencialApi);
       } catch (erro) {
         if (erroCancelado(erro)) return;
         if (!ativo) return;
         setErroCompras(true);
-        setDetalhesListasComprasApi([]);
-        setDesejosComprasApi([]);
-        setHistoricoPrecosComprasApi([]);
+        setResumoComprasKpi({
+          totalGastoMes: 0,
+          planejamentosAtivos: 0,
+          itensCompradosMes: 0,
+          desejosPendentes: 0,
+          economiaPotencialMes: 0,
+          possuiEconomiaPotencial: false,
+        });
+        setEvolucaoMensalCompras([]);
+        setTiposComprasAgregados([]);
+        setProdutosMaisComprados([]);
+        setUltimasCompras([]);
+        setUltimosDesejos([]);
+        setVariacoesPrecos([]);
+        setEconomiaPotencialCompras({
+          economiaPotencialTotal: 0,
+          produtosComMelhorEconomia: [],
+        });
       } finally {
         if (ativo) setCarregandoCompras(false);
       }
@@ -997,229 +1025,15 @@ export default function Dashboard() {
   const contasCartoes = itensBalancoApi;
 
   const transacoesFiltradas = transacoes;
-  const referenciaAtual = useMemo(() => new Date(), [idiomaAtual]);
+  const produtosComMelhorEconomia = economiaPotencialCompras.produtosComMelhorEconomia;
+  const economiaPotencialTotal = economiaPotencialCompras.economiaPotencialTotal;
 
-  const itensCompradosComContexto = useMemo(() => {
-    const itens: Array<{
-      item: ItemListaCompra;
-      listaNome: string;
-      categoria: CategoriaListaCompra;
-      dataIso: string;
-    }> = [];
-
-    for (const lista of detalhesListasComprasApi) {
-      for (const item of lista.itens ?? []) {
-        if (!item.comprado) continue;
-        const dataIso = obterDataIsoSegura(item.atualizadoEm) || obterDataIsoSegura(lista.atualizadoEm);
-        if (!dataIso) continue;
-
-        itens.push({
-          item,
-          listaNome: lista.nome,
-          categoria: lista.categoria,
-          dataIso,
-        });
-      }
-    }
-
-    return itens.sort((a, b) => (a.dataIso < b.dataIso ? 1 : -1));
-  }, [detalhesListasComprasApi]);
-
-  const mapaHistoricoPorProduto = useMemo(() => {
-    const mapa = new Map<string, HistoricoItemCompra>();
-    for (const registro of historicoPrecosComprasApi) {
-      const chave = `${normalizarDescricaoProduto(registro.descricao)}::${registro.unidade}`;
-      mapa.set(chave, registro);
-    }
-    return mapa;
-  }, [historicoPrecosComprasApi]);
-
-  const resumoComprasKpi = useMemo<ResumoComprasKpi>(() => {
-    let totalGastoMes = 0;
-    let itensCompradosMes = 0;
-    let economiaPotencialMes = 0;
-
-    for (const registro of itensCompradosComContexto) {
-      if (!estaMesmoMesAno(registro.dataIso, referenciaAtual)) continue;
-      totalGastoMes += registro.item.valorTotal;
-      itensCompradosMes += Math.max(1, registro.item.quantidade);
-
-      const chaveHistorico = `${normalizarDescricaoProduto(registro.item.descricao)}::${registro.item.unidadeMedida}`;
-      const historico = mapaHistoricoPorProduto.get(chaveHistorico);
-      if (!historico || historico.menorPreco <= 0) continue;
-      const economiaItem = Math.max(0, (registro.item.valorUnitario - historico.menorPreco) * Math.max(1, registro.item.quantidade));
-      economiaPotencialMes += economiaItem;
-    }
-
-    return {
-      totalGastoMes: Number(totalGastoMes.toFixed(2)),
-      planejamentosAtivos: detalhesListasComprasApi.filter((lista) => lista.status === 'ativa').length,
-      itensCompradosMes,
-      desejosPendentes: desejosComprasApi.filter((desejo) => !desejo.selecionado).length,
-      economiaPotencialMes: Number(economiaPotencialMes.toFixed(2)),
-      possuiEconomiaPotencial: economiaPotencialMes > 0,
-    };
-  }, [detalhesListasComprasApi, desejosComprasApi, itensCompradosComContexto, mapaHistoricoPorProduto, referenciaAtual]);
-
-  const evolucaoMensalCompras = useMemo<EvolucaoMensalComprasItem[]>(() => {
-    const chavesMeses = montarChavesUltimosDozeMeses(referenciaAtual);
-    const mapa = new Map<string, EvolucaoMensalComprasItem>();
-
-    for (const chaveMes of chavesMeses) {
-      const [anoTexto, mesTexto] = chaveMes.split('-');
-      const dataMes = new Date(Number(anoTexto), Number(mesTexto) - 1, 1);
-      mapa.set(chaveMes, {
-        chaveMes,
-        rotuloMes: formatarMesPorIdioma(dataMes),
-        valorTotal: 0,
-        quantidadeItens: 0,
-        listasFinalizadas: 0,
-      });
-    }
-
-    for (const registro of itensCompradosComContexto) {
-      const chaveMes = obterChaveMes(registro.dataIso);
-      const linha = mapa.get(chaveMes);
-      if (!linha) continue;
-      linha.valorTotal += registro.item.valorTotal;
-      linha.quantidadeItens += Math.max(1, registro.item.quantidade);
-    }
-
-    for (const lista of detalhesListasComprasApi) {
-      if (lista.status !== 'concluida') continue;
-      const chaveMes = obterChaveMes(obterDataIsoSegura(lista.atualizadoEm));
-      const linha = mapa.get(chaveMes);
-      if (!linha) continue;
-      linha.listasFinalizadas += 1;
-    }
-
-    return chavesMeses.map((chaveMes) => {
-      const linha = mapa.get(chaveMes);
-      return {
-        chaveMes,
-        rotuloMes: linha?.rotuloMes ?? '',
-        valorTotal: Number((linha?.valorTotal ?? 0).toFixed(2)),
-        quantidadeItens: linha?.quantidadeItens ?? 0,
-        listasFinalizadas: linha?.listasFinalizadas ?? 0,
-      };
-    });
-  }, [detalhesListasComprasApi, itensCompradosComContexto, referenciaAtual]);
-
-  const tiposComprasAgregados = useMemo<TipoCompraAgregado[]>(() => {
-    const acumulador = new Map<CategoriaListaCompra, { valorTotal: number; quantidadeItens: number }>();
-
-    for (const registro of itensCompradosComContexto) {
-      const atual = acumulador.get(registro.categoria) ?? { valorTotal: 0, quantidadeItens: 0 };
-      atual.valorTotal += registro.item.valorTotal;
-      atual.quantidadeItens += Math.max(1, registro.item.quantidade);
-      acumulador.set(registro.categoria, atual);
-    }
-
-    const totalComprado = Array.from(acumulador.values()).reduce((soma, item) => soma + item.valorTotal, 0);
-    const categoriasOrdenadas = Array.from(acumulador.entries())
-      .map(([categoria, valores]) => ({
-        categoria,
-        rotulo: t(`dashboard.compras.categorias.${categoria}`),
-        valorTotal: Number(valores.valorTotal.toFixed(2)),
-        percentual: totalComprado > 0 ? Number(((valores.valorTotal / totalComprado) * 100).toFixed(2)) : 0,
-        quantidadeItens: valores.quantidadeItens,
-      }))
-      .sort((a, b) => b.valorTotal - a.valorTotal);
-
-    return categoriasOrdenadas;
-  }, [itensCompradosComContexto, t]);
-
-  const produtosMaisComprados = useMemo<ProdutoCompradoAgregado[]>(() => {
-    const acumulador = new Map<string, ProdutoCompradoAgregado>();
-    for (const registro of itensCompradosComContexto) {
-      const chave = normalizarDescricaoProduto(registro.item.descricao);
-      const atual = acumulador.get(chave) ?? { descricao: registro.item.descricao, quantidade: 0 };
-      atual.quantidade += Math.max(1, registro.item.quantidade);
-      acumulador.set(chave, atual);
-    }
-    return Array.from(acumulador.values())
-      .sort((a, b) => b.quantidade - a.quantidade)
-      .slice(0, 10);
-  }, [itensCompradosComContexto]);
-
-  const ultimasCompras = useMemo<ItemCompraRecente[]>(() =>
-    itensCompradosComContexto
-      .slice(0, 50)
-      .map((registro, indice) => ({
-        id: `${registro.item.id}-${registro.dataIso}-${indice}`,
-        descricao: registro.item.descricao,
-        valor: registro.item.valorTotal,
-        data: registro.dataIso,
-        planejamento: registro.listaNome,
-        corMarcador: registro.item.marcadorCor || COLORS.textSecondary,
-      })),
-  [itensCompradosComContexto]);
-
-  const ultimosDesejos = useMemo<DesejoRecenteItem[]>(() =>
-    [...desejosComprasApi]
-      .map((desejo) => ({
-        id: String(desejo.id),
-        descricao: desejo.descricao,
-        valorEstimado: desejo.valorAlvo,
-        data: obterDataIsoSegura(desejo.criadoEm),
-        status: desejo.selecionado ? 'selecionado' as const : 'pendente' as const,
-      }))
-      .sort((a, b) => (a.data < b.data ? 1 : -1))
-      .slice(0, 50),
-  [desejosComprasApi]);
-
-  const variacoesPrecos = useMemo<VariacaoPrecoItem[]>(() =>
-    historicoPrecosComprasApi
-      .map((item) => {
-        const percentualVariacao = calcularPercentualVariacao(item.ultimoPreco, item.menorPreco);
-        const potencialEconomiaUnitaria = Number(Math.max(0, item.ultimoPreco - item.menorPreco).toFixed(2));
-        return {
-          id: `${item.produtoId}-${item.unidade}`,
-          produto: item.descricao,
-          ultimoPreco: item.ultimoPreco,
-          menorPreco: item.menorPreco,
-          maiorPreco: item.maiorPreco,
-          mediaPreco: item.mediaPreco,
-          percentualVariacao,
-          potencialEconomiaUnitaria,
-        };
-      })
-      .sort((a, b) => Math.abs(b.percentualVariacao) - Math.abs(a.percentualVariacao))
-      .slice(0, 20),
-  [historicoPrecosComprasApi]);
-
-  const produtosComMelhorEconomia = useMemo<EconomiaPotencialProduto[]>(() =>
-    variacoesPrecos
-      .filter((item) => item.potencialEconomiaUnitaria > 0)
-      .sort((a, b) => b.potencialEconomiaUnitaria - a.potencialEconomiaUnitaria)
-      .slice(0, 8)
-      .map((item) => ({
-        id: item.id,
-        produto: item.produto,
-        economiaUnitaria: item.potencialEconomiaUnitaria,
-        ultimoPreco: item.ultimoPreco,
-        menorPreco: item.menorPreco,
-      })),
-  [variacoesPrecos]);
-
-  const economiaPotencialTotal = useMemo(
-    () => Number(produtosComMelhorEconomia.reduce((soma, item) => soma + item.economiaUnitaria, 0).toFixed(2)),
-    [produtosComMelhorEconomia],
-  );
-
-  const larguraContainerGraficoAnual = useMemo(() => {
-    if (larguraGraficoAnualDisponivel > 0) {
-      return Math.max(larguraGraficoAnualDisponivel, 280);
-    }
-    if (width >= 1400) return width - 260;
-    if (width >= 1100) return width - 220;
-    if (width >= 900) return width - 160;
-    return Math.max(width - 84, 300);
-  }, [larguraGraficoAnualDisponivel, width]);
-  const larguraPlotGraficoAnual = useMemo(
-    () => Math.max(larguraContainerGraficoAnual - (width > 900 ? 56 : 48), 220),
-    [larguraContainerGraficoAnual, width],
-  );
+  const alturaGraficoAnual = useMemo(() => {
+    if (width >= 1400) return 300;
+    if (width >= 1024) return 286;
+    if (width >= 768) return 264;
+    return 232;
+  }, [width]);
   const propsContainerScrollHistoricoWeb: any = Platform.OS === 'web' ? { className: 'scroll-historico-transacoes' } : {};
   const propsScrollHistoricoWeb: any = Platform.OS === 'web' ? { className: 'scroll-historico-transacoes' } : {};
   const largurasColunasUltimasTransacoes = useMemo(() => {
@@ -1289,7 +1103,7 @@ export default function Dashboard() {
         .filter((item) => item.receitas > 0)
         .map((item, indice) => ({
           value: Number(item.receitas.toFixed(2)),
-          color: CORES_RECEITA[indice % CORES_RECEITA.length],
+          color: obterCorReceitaDistinta(indice),
           text: `${item.area} / ${item.subarea}`,
           area: item.area,
           subarea: item.subarea,
@@ -1303,7 +1117,7 @@ export default function Dashboard() {
         .filter((item) => item.despesas > 0)
         .map((item, indice) => ({
           value: Number(item.despesas.toFixed(2)),
-          color: CORES_DESPESA[indice % CORES_DESPESA.length],
+          color: obterCorDespesaDistinta(indice),
           text: `${item.area} / ${item.subarea}`,
           area: item.area,
           subarea: item.subarea,
@@ -1402,12 +1216,23 @@ export default function Dashboard() {
     dados: PieAreaItem[],
     indiceSelecionado: number,
     aoSelecionar: (indice: number) => void,
+    usarGraficoRosca = false,
+    testIDGraficoRosca?: string,
   ) => {
     const itemSelecionadoValido = indiceSelecionado >= 0 && indiceSelecionado < dados.length;
     const itemSelecionado = itemSelecionadoValido ? dados[indiceSelecionado] : null;
     const valorTotal = dados.reduce((acumulador, item) => acumulador + item.value, 0);
-    const valorMaximo = dados.reduce((acumulador, item) => (item.value > acumulador ? item.value : acumulador), 0);
     const percentualSelecionado = itemSelecionado && valorTotal > 0 ? (itemSelecionado.value / valorTotal) * 100 : 0;
+    const indiceRoscaAtivo = itemSelecionadoValido ? indiceSelecionado : 0;
+    const itemRoscaAtivo = dados[indiceRoscaAtivo] ?? null;
+    const percentualRoscaAtivo =
+      itemRoscaAtivo && valorTotal > 0 ? (itemRoscaAtivo.value / valorTotal) * 100 : 0;
+    const tamanhoGraficoRosca = width > 1200 ? 228 : width > 980 ? 210 : width > 768 ? 194 : 178;
+    const espessuraGraficoRosca = width < 480 ? 18 : 22;
+    const diametroCentroRosca = Math.max(
+      tamanhoGraficoRosca - espessuraGraficoRosca * 2 - 10,
+      84,
+    );
 
     return (
       <View>
@@ -1429,6 +1254,73 @@ export default function Dashboard() {
         >
           {dados.length > 0 ? (
             <>
+              {usarGraficoRosca && itemRoscaAtivo ? (
+                <View
+                  style={{
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: COLORS.borderColor,
+                    backgroundColor: COLORS.bgTertiary,
+                    paddingVertical: 10,
+                    paddingHorizontal: 10,
+                  }}
+                >
+                  <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                    <GraficoRoscaCategoriasSvg
+                      testID={testIDGraficoRosca}
+                      largura={tamanhoGraficoRosca}
+                      altura={tamanhoGraficoRosca}
+                      segmentos={dados.map((item) => ({
+                        valor: Math.max(item.value, 0.01),
+                        cor: item.color,
+                      }))}
+                      indiceAtivo={indiceRoscaAtivo}
+                      espessuraAnel={espessuraGraficoRosca}
+                      onSelecionarIndice={aoSelecionar}
+                    />
+                    <View
+                      style={{
+                        position: 'absolute',
+                        width: diametroCentroRosca,
+                        height: diametroCentroRosca,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: COLORS.borderColor,
+                        backgroundColor: COLORS.bgSecondary,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        paddingHorizontal: 8,
+                      }}
+                    >
+                      <Text
+                        numberOfLines={1}
+                        style={{ color: COLORS.textSecondary, fontSize: 10 }}
+                      >
+                        {itemRoscaAtivo.subarea}
+                      </Text>
+                      <Text
+                        style={{
+                          color: itemRoscaAtivo.color,
+                          fontSize: 12,
+                          fontWeight: '700',
+                          marginTop: 3,
+                        }}
+                      >
+                        {formatarValorPorIdioma(itemRoscaAtivo.value)}
+                      </Text>
+                      <Text
+                        style={{
+                          color: COLORS.textSecondary,
+                          fontSize: 10,
+                          marginTop: 2,
+                        }}
+                      >
+                        {`${percentualRoscaAtivo.toFixed(percentualRoscaAtivo < 10 ? 1 : 0)}%`}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ) : null}
               {itemSelecionado ? (
                 <View
                   style={{
@@ -1543,6 +1435,25 @@ export default function Dashboard() {
     return t(`dashboard.widgets.${id}`);
   };
 
+  const obterSubtituloWidget = (id: WidgetId) => t(`dashboard.subtitulosWidgets.${id}`);
+
+  const obterIconeWidget = (id: WidgetId): keyof typeof MaterialCommunityIcons.glyphMap => {
+    if (id === 'comprasResumoRapido') return 'view-dashboard-outline';
+    if (id === 'comprasEvolucaoMensal') return 'chart-bell-curve-cumulative';
+    if (id === 'comprasTipos') return 'shape-outline';
+    if (id === 'comprasProdutosTop') return 'medal-outline';
+    if (id === 'comprasUltimasCompras') return 'timeline-clock-outline';
+    if (id === 'comprasUltimosDesejos') return 'heart-outline';
+    if (id === 'comprasVariacaoPrecos') return 'chart-line-variant';
+    if (id === 'comprasEconomiaPotencial') return 'cash-minus';
+    if (id === 'graficoAnual') return 'chart-areaspline';
+    if (id === 'balancoGeral') return 'wallet-outline';
+    if (id === 'ultimasTransacoes') return 'swap-horizontal';
+    if (id === 'resumo') return 'finance';
+    if (id === 'graficoReceitasAreaSubarea') return 'chart-pie';
+    return 'chart-arc';
+  };
+
   const renderWidget = (id: WidgetId) => {
     if (id === 'resumo') {
       return (
@@ -1619,34 +1530,72 @@ export default function Dashboard() {
         dadosPieAreaSubareaDespesas,
         indiceDespesaSelecionada,
         setIndiceDespesaSelecionada,
+        true,
+        'dashboard-despesas-area-subarea-rosca',
       );
     }
 
     if (id === 'graficoAnual') {
-      const dadosReceitas = dadosAnuais.map((item) => ({ value: normalizarValorSerieAnual(item.receitas), label: item.mes }));
-      const dadosDespesas = dadosAnuais.map((item) => ({ value: normalizarValorSerieAnual(item.despesas), label: item.mes }));
-      const dadosReembolsos = dadosAnuais.map((item) => ({ value: normalizarValorSerieAnual(item.reembolsos), label: item.mes }));
-      const dadosEstornos = dadosAnuais.map((item) => ({ value: normalizarValorSerieAnual(item.estornos), label: item.mes }));
-      const maiorValorSeries = Math.max(
-        0,
-        ...dadosReceitas.map((item) => item.value),
-        ...dadosDespesas.map((item) => item.value),
-        ...dadosReembolsos.map((item) => item.value),
-        ...dadosEstornos.map((item) => item.value),
-      );
-      const maximoEscalaAnual = maiorValorSeries > 0
-        ? Number((Math.ceil((maiorValorSeries * 1.15) / 10) * 10).toFixed(2))
-        : 10;
+      const dadosReceitas = dadosAnuais.map((item) => normalizarValorSerieAnual(item.receitas));
+      const dadosDespesas = dadosAnuais.map((item) => normalizarValorSerieAnual(item.despesas));
+      const dadosReembolsos = dadosAnuais.map((item) => normalizarValorSerieAnual(item.reembolsos));
+      const dadosEstornos = dadosAnuais.map((item) => normalizarValorSerieAnual(item.estornos));
+      const indiceMesAtual = new Date().getMonth();
+      const larguraGraficoAnual = larguraGraficoAnualDisponivel > 0
+        ? Math.max(larguraGraficoAnualDisponivel - 4, 240)
+        : Math.max(width - (width < 768 ? 80 : 104), 240);
       const legendaSeries = [
         { chave: 'receitas' as const, cor: COLORS.success, titulo: t('dashboard.cards.receitas') },
         { chave: 'despesas' as const, cor: COLORS.error, titulo: t('dashboard.cards.despesas') },
         { chave: 'reembolsos' as const, cor: COLORS.info, titulo: t('dashboard.cards.reembolsos') },
         { chave: 'estornos' as const, cor: COLORS.warning, titulo: t('dashboard.cards.estornos') },
       ];
-      const espacamentoGraficoAnual = Math.max(
-        (Math.max(larguraPlotGraficoAnual - 24, 220)) / Math.max(dadosAnuais.length - 1, 1),
-        14,
-      );
+      const seriesGraficoAnual: SerieGraficoLinhaAnual[] = [
+        {
+          chave: 'receitas',
+          rotulo: t('dashboard.cards.receitas'),
+          cor: COLORS.success,
+          valores: dadosReceitas,
+          visivel: seriesVisiveis.receitas,
+          preencherArea: seriesVisiveis.receitas,
+          espessuraLinha: 3,
+          opacidadeInicioArea: 0.16,
+          opacidadeFimArea: 0.03,
+        },
+        {
+          chave: 'despesas',
+          rotulo: t('dashboard.cards.despesas'),
+          cor: COLORS.error,
+          valores: dadosDespesas,
+          visivel: seriesVisiveis.despesas,
+          preencherArea: seriesVisiveis.despesas,
+          espessuraLinha: 3,
+          opacidadeInicioArea: 0.12,
+          opacidadeFimArea: 0.02,
+        },
+        {
+          chave: 'reembolsos',
+          rotulo: t('dashboard.cards.reembolsos'),
+          cor: COLORS.info,
+          valores: dadosReembolsos,
+          visivel: seriesVisiveis.reembolsos,
+          preencherArea: false,
+          espessuraLinha: 2.8,
+        },
+        {
+          chave: 'estornos',
+          rotulo: t('dashboard.cards.estornos'),
+          cor: COLORS.warning,
+          valores: dadosEstornos,
+          visivel: seriesVisiveis.estornos,
+          preencherArea: false,
+          espessuraLinha: 2.8,
+        },
+      ];
+      const formatadorCompacto = new Intl.NumberFormat(idiomaAtual, {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+      });
 
       return (
         <View>
@@ -1687,101 +1636,54 @@ export default function Dashboard() {
               }}
               style={{ width: '100%' }}
             >
-              <LineChart
-                data={dadosReceitas}
-                data2={dadosDespesas}
-                data3={dadosReembolsos}
-                data4={dadosEstornos}
-                parentWidth={larguraContainerGraficoAnual}
-                width={larguraPlotGraficoAnual}
-                height={280}
-                spacing={espacamentoGraficoAnual}
-                initialSpacing={12}
-                endSpacing={12}
-                adjustToWidth
-                curved
-                isAnimated
-                animationDuration={700}
-                noOfSections={4}
-                maxValue={maximoEscalaAnual}
-                disableScroll
-                yAxisThickness={0}
-                xAxisThickness={1}
-                xAxisColor={COLORS.borderColor}
-                rulesColor={COLORS.borderColor}
-                yAxisTextStyle={{ color: COLORS.textSecondary, fontSize: 11 }}
-                xAxisLabelTextStyle={{ color: COLORS.textSecondary, fontSize: 11 }}
-                color1={COLORS.success}
-                color2={COLORS.error}
-                color3={COLORS.info}
-                color4={COLORS.warning}
-                thickness1={seriesVisiveis.receitas ? 3 : 0}
-                thickness2={seriesVisiveis.despesas ? 3 : 0}
-                thickness3={seriesVisiveis.reembolsos ? 3 : 0}
-                thickness4={seriesVisiveis.estornos ? 3 : 0}
-                dataPointsColor1={COLORS.success}
-                dataPointsColor2={COLORS.error}
-                dataPointsColor3={COLORS.info}
-                dataPointsColor4={COLORS.warning}
-                dataPointsRadius1={3}
-                dataPointsRadius2={3}
-                dataPointsRadius3={3}
-                dataPointsRadius4={3}
-                hideDataPoints1={!seriesVisiveis.receitas}
-                hideDataPoints2={!seriesVisiveis.despesas}
-                hideDataPoints3={!seriesVisiveis.reembolsos}
-                hideDataPoints4={!seriesVisiveis.estornos}
-                startFillColor1={COLORS.success}
-                endFillColor1={COLORS.success}
-                startFillColor2={COLORS.error}
-                endFillColor2={COLORS.error}
-                startFillColor3={COLORS.info}
-                endFillColor3={COLORS.info}
-                startFillColor4={COLORS.warning}
-                endFillColor4={COLORS.warning}
-                startOpacity1={seriesVisiveis.receitas ? 0.16 : 0}
-                endOpacity1={seriesVisiveis.receitas ? 0.03 : 0}
-                startOpacity2={seriesVisiveis.despesas ? 0.12 : 0}
-                endOpacity2={seriesVisiveis.despesas ? 0.02 : 0}
-                startOpacity3={seriesVisiveis.reembolsos ? 0.12 : 0}
-                endOpacity3={seriesVisiveis.reembolsos ? 0.02 : 0}
-                startOpacity4={seriesVisiveis.estornos ? 0.12 : 0}
-                endOpacity4={seriesVisiveis.estornos ? 0.02 : 0}
-                areaChart={seriesVisiveis.receitas}
-                areaChart2={seriesVisiveis.despesas}
-                areaChart3={seriesVisiveis.reembolsos}
-                areaChart4={seriesVisiveis.estornos}
-                pointerConfig={{
-                  activatePointersOnLongPress: false,
-                  activatePointersInstantlyOnTouch: true,
-                  persistPointer: true,
-                  showPointerStrip: true,
-                  pointerStripColor: COLORS.borderAccent,
-                  pointerStripWidth: 1,
-                  stripOverPointer: true,
-                  pointerColor: COLORS.accent,
-                  radius: 4,
-                  pointerLabelWidth: 180,
-                  pointerLabelHeight: 120,
-                  shiftPointerLabelY: -8,
-                  autoAdjustPointerLabelPosition: true,
-                  pointerLabelComponent: (items: any[]) => {
-                    const mes = items?.find((item) => item?.label)?.label ?? '';
-                    const receita = seriesVisiveis.receitas ? (items?.[0]?.value ?? 0) : null;
-                    const despesa = seriesVisiveis.despesas ? (items?.[1]?.value ?? 0) : null;
-                    const reembolso = seriesVisiveis.reembolsos ? (items?.[2]?.value ?? 0) : null;
-                    const estorno = seriesVisiveis.estornos ? (items?.[3]?.value ?? 0) : null;
-
-                    return (
-                      <View style={{ backgroundColor: COLORS.bgPrimary, borderWidth: 1, borderColor: COLORS.borderAccent, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, minWidth: 170 }}>
-                        <Text style={{ color: COLORS.textPrimary, fontSize: 11, fontWeight: '700', marginBottom: 6 }}>{mes}</Text>
-                        {receita !== null ? <Text style={{ color: COLORS.success, fontSize: 10 }}>{t('dashboard.cards.receitas')}: {formatarValorPorIdioma(receita)}</Text> : null}
-                        {despesa !== null ? <Text style={{ color: COLORS.error, fontSize: 10, marginTop: 2 }}>{t('dashboard.cards.despesas')}: {formatarValorPorIdioma(despesa)}</Text> : null}
-                        {reembolso !== null ? <Text style={{ color: COLORS.info, fontSize: 10, marginTop: 2 }}>{t('dashboard.cards.reembolsos')}: {formatarValorPorIdioma(reembolso)}</Text> : null}
-                        {estorno !== null ? <Text style={{ color: COLORS.warning, fontSize: 10, marginTop: 2 }}>{t('dashboard.cards.estornos')}: {formatarValorPorIdioma(estorno)}</Text> : null}
-                      </View>
-                    );
-                  },
+              <GraficoLinhaAnualSvg
+                testID="dashboard-grafico-anual-svg"
+                largura={larguraGraficoAnual}
+                altura={alturaGraficoAnual}
+                rotulosEixoX={dadosAnuais.map((item) => item.mes)}
+                series={seriesGraficoAnual}
+                indiceDestaque={indiceMesAtual}
+                corIndiceDestaque={COLORS.warning}
+                formatarValorEixoY={(valor) => formatadorCompacto.format(valor)}
+                obterConteudoTooltip={(indice) => {
+                  const mes = dadosAnuais[indice]?.mes ?? '';
+                  const linhas = [
+                    {
+                      chave: 'receitas' as const,
+                      ativo: seriesVisiveis.receitas,
+                      cor: COLORS.success,
+                      rotulo: t('dashboard.cards.receitas'),
+                      valor: dadosReceitas[indice] ?? 0,
+                    },
+                    {
+                      chave: 'despesas' as const,
+                      ativo: seriesVisiveis.despesas,
+                      cor: COLORS.error,
+                      rotulo: t('dashboard.cards.despesas'),
+                      valor: dadosDespesas[indice] ?? 0,
+                    },
+                    {
+                      chave: 'reembolsos' as const,
+                      ativo: seriesVisiveis.reembolsos,
+                      cor: COLORS.info,
+                      rotulo: t('dashboard.cards.reembolsos'),
+                      valor: dadosReembolsos[indice] ?? 0,
+                    },
+                    {
+                      chave: 'estornos' as const,
+                      ativo: seriesVisiveis.estornos,
+                      cor: COLORS.warning,
+                      rotulo: t('dashboard.cards.estornos'),
+                      valor: dadosEstornos[indice] ?? 0,
+                    },
+                  ]
+                    .filter((item) => item.ativo)
+                    .map((item) => ({
+                      rotulo: item.rotulo,
+                      valor: formatarValorPorIdioma(item.valor),
+                      cor: item.cor,
+                    }));
+                  return { titulo: mes, linhas };
                 }}
               />
             </View>
@@ -1997,6 +1899,10 @@ export default function Dashboard() {
   const renderizarCardWidget = (id: WidgetId, moduloId: ModuloDashboardId) => {
     const posicaoNoModulo = obterPosicaoWidgetNoModulo(id, moduloId);
     const quantidadeNoModulo = widgetCardsPorModulo[moduloId].length;
+    const tituloWidget = obterTituloWidget(id);
+    const subtituloWidget = obterSubtituloWidget(id);
+    const possuiSubtitulo = !subtituloWidget.startsWith('dashboard.subtitulosWidgets.');
+    const iconeWidget = obterIconeWidget(id);
     const webProps: any =
       Platform.OS === 'web'
         ? {
@@ -2027,17 +1933,74 @@ export default function Dashboard() {
         : {};
 
     return (
-      <View key={id} {...webProps} testID={`dashboard-widget-${id}`} style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: widgetArrastando === id ? COLORS.borderAccent : COLORS.borderColor, borderRadius: 12, padding: 14, opacity: widgetArrastando === id ? 0.72 : 1 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <Text style={{ color: COLORS.textPrimary, fontSize: 12, fontWeight: '700' }}>
-            {t('dashboard.widget')}: {obterTituloWidget(id)}
-          </Text>
+      <View
+        key={id}
+        {...webProps}
+        testID={`dashboard-widget-${id}`}
+        style={{
+          backgroundColor: COLORS.bgTertiary,
+          borderWidth: 1,
+          borderColor: widgetArrastando === id ? COLORS.borderAccent : COLORS.borderColor,
+          borderRadius: 14,
+          padding: width < 768 ? 12 : 14,
+          opacity: widgetArrastando === id ? 0.72 : 1,
+          shadowColor: COLORS.accent,
+          shadowOpacity: 0.12,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 6 },
+          elevation: 2,
+        }}
+      >
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, flex: 1, paddingRight: 8 }}>
+            <View style={{ width: 24, height: 24, borderRadius: 999, borderWidth: 1, borderColor: COLORS.borderColor, backgroundColor: COLORS.bgSecondary, alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialCommunityIcons name={iconeWidget} size={12} color={COLORS.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' }}>
+                {tituloWidget}
+              </Text>
+              {possuiSubtitulo ? (
+                <Text numberOfLines={2} style={{ color: COLORS.textSecondary, fontSize: 10, marginTop: 3 }}>
+                  {subtituloWidget}
+                </Text>
+              ) : null}
+            </View>
+          </View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TouchableOpacity testID={`dashboard-widget-${id}-cima`} onPress={() => moverWidgetNoModulo(id, moduloId, 'cima')} disabled={posicaoNoModulo <= 0} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: posicaoNoModulo <= 0 ? COLORS.bgTertiary : COLORS.bgSecondary, borderWidth: 1, borderColor: COLORS.borderColor }}>
-              <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{'\u2191'}</Text>
+            <TouchableOpacity
+              testID={`dashboard-widget-${id}-cima`}
+              onPress={() => moverWidgetNoModulo(id, moduloId, 'cima')}
+              disabled={posicaoNoModulo <= 0}
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: 8,
+                backgroundColor: posicaoNoModulo <= 0 ? COLORS.bgTertiary : COLORS.bgSecondary,
+                borderWidth: 1,
+                borderColor: COLORS.borderColor,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: COLORS.textPrimary, fontSize: 11 }}>{'\u2191'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity testID={`dashboard-widget-${id}-baixo`} onPress={() => moverWidgetNoModulo(id, moduloId, 'baixo')} disabled={posicaoNoModulo < 0 || posicaoNoModulo === quantidadeNoModulo - 1} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: posicaoNoModulo < 0 || posicaoNoModulo === quantidadeNoModulo - 1 ? COLORS.bgTertiary : COLORS.bgSecondary, borderWidth: 1, borderColor: COLORS.borderColor }}>
-              <Text style={{ color: COLORS.textPrimary, fontSize: 12 }}>{'\u2193'}</Text>
+            <TouchableOpacity
+              testID={`dashboard-widget-${id}-baixo`}
+              onPress={() => moverWidgetNoModulo(id, moduloId, 'baixo')}
+              disabled={posicaoNoModulo < 0 || posicaoNoModulo === quantidadeNoModulo - 1}
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: 8,
+                backgroundColor: posicaoNoModulo < 0 || posicaoNoModulo === quantidadeNoModulo - 1 ? COLORS.bgTertiary : COLORS.bgSecondary,
+                borderWidth: 1,
+                borderColor: COLORS.borderColor,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: COLORS.textPrimary, fontSize: 11 }}>{'\u2193'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -2048,10 +2011,15 @@ export default function Dashboard() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.bgPrimary }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.bgPrimary, overflow: 'visible' }}>
       <Cabecalho titulo={t('dashboard.titulo')} />
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 104 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+      <ScrollView
+        style={{ flex: 1, zIndex: 0 }}
+        contentContainerStyle={{ padding: width < 768 ? 16 : 24, paddingBottom: width < 768 ? 120 : 104 }}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
         <View style={{ backgroundColor: COLORS.bgTertiary, padding: 20, borderRadius: 12, borderWidth: 1, borderColor: COLORS.borderColor, marginBottom: 16 }}>
           <Text style={{ color: COLORS.accent, fontSize: 18, fontWeight: '700', marginBottom: 6 }}>{t('dashboard.globalTitle')}</Text>
           <Text style={{ color: COLORS.textSecondary, fontSize: 13, lineHeight: 20 }}>{t('dashboard.globalDescription')}</Text>

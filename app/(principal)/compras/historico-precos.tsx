@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LineChart } from 'react-native-gifted-charts';
 import { CampoSelect } from '../../../src/componentes/comuns/CampoSelect';
 import { CampoTexto } from '../../../src/componentes/comuns/CampoTexto';
 import { Botao } from '../../../src/componentes/comuns/Botao';
+import {
+  GraficoLinhaAnualSvg,
+  type SerieGraficoLinhaAnual,
+} from '../../../src/componentes/comuns/dashboard/GraficoLinhaAnualSvg';
 import { usarTraducao } from '../../../src/hooks/usarTraducao';
 import { listarHistoricoItensCompraApi } from '../../../src/servicos/compras';
 import { HistoricoItemCompra, UnidadeMedidaItemCompra } from '../../../src/tipos/compras.tipos';
@@ -214,74 +217,58 @@ export default function HistoricoItensCompraTela() {
                     style={{ backgroundColor: COLORS.bgTertiary, borderWidth: 1, borderColor: COLORS.borderColor, borderRadius: 10, padding: 10 }}
                   >
                     <Text style={{ color: COLORS.textPrimary, fontSize: 12, fontWeight: '700', marginBottom: 8 }}>{t('compras.historico.graficoEvolucao')}</Text>
-                    {extrairSerieHistorica(item).length > 0 ? (
-                      larguraGraficos[`${item.produtoId}-${item.unidade}`] > 0 ? (
+                    {(() => {
+                      const serieHistorica = extrairSerieHistorica(item);
+                      if (!serieHistorica.length) {
+                        return <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.historico.semSerieHistorica')}</Text>;
+                      }
+
+                      const larguraContainer = Math.max(larguraGraficos[`${item.produtoId}-${item.unidade}`] - 40, 220);
+                      if (larguraContainer <= 0) return null;
+
+                      const quantidadePontos = Math.max(serieHistorica.length, 1);
+                      const espacamentoMinimo = 64;
+                      const larguraMinimaComScroll = (quantidadePontos - 1) * espacamentoMinimo + 36;
+                      const larguraFinalGrafico = larguraMinimaComScroll > larguraContainer ? larguraMinimaComScroll : larguraContainer;
+                      const rotulosSerie = serieHistorica.map((ponto) => formatarDataPorIdioma(ponto.data));
+                      const seriesGrafico: SerieGraficoLinhaAnual[] = [
+                        {
+                          chave: 'historico-preco',
+                          rotulo: t('compras.historico.tooltipValor'),
+                          cor: COLORS.accent,
+                          valores: serieHistorica.map((ponto) => Number(ponto.valor.toFixed(2))),
+                          preencherArea: true,
+                          espessuraLinha: 3,
+                          opacidadeInicioArea: 0.2,
+                          opacidadeFimArea: 0.03,
+                        },
+                      ];
+
+                      return (
                         <ScrollView style={{ maxHeight: 240 }} showsVerticalScrollIndicator={false} nestedScrollEnabled>
                           <ScrollView horizontal showsHorizontalScrollIndicator nestedScrollEnabled>
-                            <LineChart
-                              data={extrairSerieHistorica(item).map((ponto) => ({ value: Number(ponto.valor.toFixed(2)), label: formatarDataPorIdioma(ponto.data) }))}
-                              height={220}
-                              parentWidth={Math.max(larguraGraficos[`${item.produtoId}-${item.unidade}`] - 32, 220)}
-                              width={(() => {
-                                const larguraContainer = Math.max(larguraGraficos[`${item.produtoId}-${item.unidade}`] - 40, 220);
-                                const quantidadePontos = Math.max(extrairSerieHistorica(item).length, 1);
-                                const espacamentoMinimo = 64;
-                                const larguraMinimaComScroll = (quantidadePontos - 1) * espacamentoMinimo + 36;
-                                return larguraMinimaComScroll > larguraContainer ? larguraMinimaComScroll : larguraContainer;
-                              })()}
-                              spacing={(() => {
-                                const larguraContainer = Math.max(larguraGraficos[`${item.produtoId}-${item.unidade}`] - 40, 220);
-                                const quantidadePontos = Math.max(extrairSerieHistorica(item).length, 1);
-                                if (quantidadePontos <= 1) return 0;
-                                const espacamentoMinimo = 64;
-                                const larguraMinimaComScroll = (quantidadePontos - 1) * espacamentoMinimo + 36;
-                                const larguraFinal = larguraMinimaComScroll > larguraContainer ? larguraMinimaComScroll : larguraContainer;
-                                return (larguraFinal - 36) / (quantidadePontos - 1);
-                              })()}
-                              initialSpacing={8}
-                              endSpacing={0}
-                              curved
-                              areaChart
-                              color1={COLORS.accent}
-                              startFillColor1={COLORS.accent}
-                              endFillColor1={COLORS.accent}
-                              startOpacity1={0.2}
-                              endOpacity1={0.03}
-                              thickness1={3}
-                              yAxisThickness={0}
-                              xAxisThickness={1}
-                              xAxisColor={COLORS.borderColor}
-                              rulesColor={COLORS.borderColor}
-                              yAxisTextStyle={{ color: COLORS.textSecondary, fontSize: 10 }}
-                              xAxisLabelTextStyle={{ color: COLORS.textSecondary, fontSize: 10 }}
-                              formatYLabel={(valor: string) => formatarValorPorIdioma(Number(valor))}
-                              dataPointsColor1={COLORS.accent}
-                              dataPointsRadius1={3}
-                              pointerConfig={{
-                                activatePointersInstantlyOnTouch: true,
-                                persistPointer: true,
-                                pointerColor: COLORS.accent,
-                                pointerStripColor: COLORS.borderAccent,
-                                pointerLabelWidth: 160,
-                                pointerLabelHeight: 70,
-                                pointerLabelComponent: (dados: Array<{ value?: number; label?: string }>) => (
-                                  <View style={{ backgroundColor: COLORS.bgPrimary, borderWidth: 1, borderColor: COLORS.borderAccent, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10 }}>
-                                    <Text style={{ color: COLORS.textPrimary, fontSize: 11, fontWeight: '700' }}>
-                                      {t('compras.historico.tooltipData')}: {dados?.[0]?.label ?? '-'}
-                                    </Text>
-                                    <Text style={{ color: COLORS.accent, fontSize: 11, marginTop: 4 }}>
-                                      {t('compras.historico.tooltipValor')}: {formatarValorPorIdioma(dados?.[0]?.value ?? 0)}
-                                    </Text>
-                                  </View>
-                                ),
-                              }}
+                            <GraficoLinhaAnualSvg
+                              testID={`historico-precos-grafico-${item.produtoId}-${item.unidade}`}
+                              largura={larguraFinalGrafico}
+                              altura={220}
+                              rotulosEixoX={rotulosSerie}
+                              series={seriesGrafico}
+                              formatarValorEixoY={(valor) => formatarValorPorIdioma(valor)}
+                              obterConteudoTooltip={(indice) => ({
+                                titulo: `${t('compras.historico.tooltipData')}: ${rotulosSerie[indice] ?? '-'}`,
+                                linhas: [
+                                  {
+                                    rotulo: t('compras.historico.tooltipValor'),
+                                    valor: formatarValorPorIdioma(serieHistorica[indice]?.valor ?? 0),
+                                    cor: COLORS.accent,
+                                  },
+                                ],
+                              })}
                             />
                           </ScrollView>
                         </ScrollView>
-                      ) : null
-                    ) : (
-                      <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{t('compras.historico.semSerieHistorica')}</Text>
-                    )}
+                      );
+                    })()}
                   </View>
                 ) : null}
               </View>

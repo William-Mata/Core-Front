@@ -45,6 +45,7 @@
     "avisos": "Notices",
     "sistemaGestao": "Management System",
     "navegacao": "Navigation",
+    "abrir": "Open menu",
     "sair": "Logout"
   },
   "acoes": {
@@ -81,7 +82,7 @@
     "titulo": "Dashboard",
     "globalTitle": "Global Dashboard",
     "globalDescription": "Finance module consolidation with reorderable widgets and latest transactions.",
-    "reordenarHint": "Reorder widgets by drag-and-drop (web) or by ?/? buttons.",
+    "reordenarHint": "Reorder widgets by drag-and-drop (web) or with up/down buttons.",
     "widget": "Widget",
     "resumoFinanceiro": "Financial Summary",
     "graficoPorTipo": "Financial Chart by Type",
@@ -120,14 +121,24 @@
       "graficoDespesasAreaSubarea": "Expenses by Area and Subarea",
       "graficoAnual": "Annual Chart",
       "balancoGeral": "Overall Balance",
-      "comprasResumoRapido": "Purchases Summary",
-      "comprasEvolucaoMensal": "Monthly Purchases Trend",
-      "comprasTipos": "Purchases by Category",
+      "comprasResumoRapido": "Monthly summary",
+      "comprasEvolucaoMensal": "Annual evolution",
+      "comprasTipos": "Categories",
       "comprasProdutosTop": "Most Purchased Products",
       "comprasUltimasCompras": "Latest Purchases",
       "comprasUltimosDesejos": "Latest Wishlist Items",
       "comprasVariacaoPrecos": "Price Variation",
       "comprasEconomiaPotencial": "Potential Savings"
+    },
+    "subtitulosWidgets": {
+      "comprasResumoRapido": "Main purchase indicators for the current month",
+      "comprasEvolucaoMensal": "Monthly behavior from January to December",
+      "comprasTipos": "Spend distribution by category",
+      "comprasProdutosTop": "Ranking of most recurrent products",
+      "comprasUltimasCompras": "Recent purchase activity",
+      "comprasUltimosDesejos": "Recently added wishlist items",
+      "comprasVariacaoPrecos": "Price oscillation with trend signal",
+      "comprasEconomiaPotencial": "Potential savings opportunities"
     },
     "modulos": {
       "financeiro": {
@@ -136,7 +147,7 @@
       "compras": {
         "titulo": "Purchases"
       },
-      "resumoWidgets": "{{quantidade}} configured widgets",
+      "resumoWidgets": "{{quantidade}} widgets",
       "semWidgetsConfigurados": "No widgets configured."
     },
     "compras": {
@@ -149,13 +160,31 @@
       "economiaPotencialDescricao": "Sum of opportunities calculated from the lowest recorded prices.",
       "erroCarregamento": "Could not load purchases data.",
       "semDados": "No purchases data to display.",
+      "totalAnual": "Annual total",
+      "mediaMensal": "Monthly average",
+      "maiorMes": "Best month",
+      "menorMes": "Lowest month",
+      "mesAtualDestaque": "Current month: {{mes}}",
+      "top1Destaque": "Most recurrent product",
+      "percentualRanking": "{{percentual}} of leader",
+      "total": "Total",
+      "categoriaPrincipal": "Top category",
+      "quantidadeItens": "{{quantidade}} items",
+      "quantidadeListas": "{{quantidade}} lists",
+      "variacaoMesAnterior": "{{tendencia}} vs previous month ({{variacao}})",
       "resumoMensal": "{{itens}} purchased items · {{listas}} completed lists",
       "resumoTipoCompra": "{{percentual}} of total · {{itens}} items",
       "resumoVariacaoPreco": "Latest: {{ultimo}} · lowest: {{menor}} · average: {{media}}",
       "resumoEconomiaProduto": "Latest: {{ultimo}} · lowest: {{menor}}",
+      "tendencia": {
+        "alta": "Uptrend",
+        "baixa": "Downtrend",
+        "estavel": "Stable"
+      },
       "statusDesejo": {
         "pendente": "Pending",
-        "selecionado": "Selected"
+        "selecionado": "Selected",
+        "convertido": "Converted"
       },
       "categorias": {
         "mercado": "Market",

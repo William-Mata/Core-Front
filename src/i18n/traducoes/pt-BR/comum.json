@@ -45,6 +45,7 @@
     "avisos": "Avisos",
     "sistemaGestao": "Sistema de Gestão",
     "navegacao": "Navegação",
+    "abrir": "Abrir menu",
     "sair": "Sair"
   },
   "acoes": {
@@ -81,7 +82,7 @@
     "titulo": "Dashboard",
     "globalTitle": "Dashboard Global",
     "globalDescription": "Consolidação do módulo Financeiro com widgets reordenáveis e visão das últimas transações.",
-    "reordenarHint": "Reordene os widgets por arrastar e soltar (web) ou pelos botões ↑/↓.",
+    "reordenarHint": "Reordene os widgets por arrastar e soltar (web) ou pelos botoes de subir/descer.",
     "widget": "Widget",
     "resumoFinanceiro": "Resumo Financeiro",
     "graficoPorTipo": "Gráfico Financeiro por Tipo",
@@ -120,14 +121,24 @@
       "graficoDespesasAreaSubarea": "Despesas por Área e Subárea",
       "graficoAnual": "Gráfico Anual",
       "balancoGeral": "Balanço Geral",
-      "comprasResumoRapido": "Resumo de Compras",
-      "comprasEvolucaoMensal": "Evolução Mensal de Compras",
-      "comprasTipos": "Compras por Categoria",
-      "comprasProdutosTop": "Produtos Mais Comprados",
+      "comprasResumoRapido": "Resumo do mês",
+      "comprasEvolucaoMensal": "Evolução anual",
+      "comprasTipos": "Categorias",
+      "comprasProdutosTop": "Produtos mais comprados",
       "comprasUltimasCompras": "Últimas Compras",
       "comprasUltimosDesejos": "Últimos Desejos",
-      "comprasVariacaoPrecos": "Variação de Preços",
-      "comprasEconomiaPotencial": "Economia Potencial"
+      "comprasVariacaoPrecos": "Variação de preços",
+      "comprasEconomiaPotencial": "Economia potencial"
+    },
+    "subtitulosWidgets": {
+      "comprasResumoRapido": "Indicadores principais de compras no mês atual",
+      "comprasEvolucaoMensal": "Comportamento mensal de janeiro a dezembro",
+      "comprasTipos": "Distribuição de gastos por categoria",
+      "comprasProdutosTop": "Ranking dos itens com maior recorrência",
+      "comprasUltimasCompras": "Atividade recente de compras",
+      "comprasUltimosDesejos": "Wishlist adicionada recentemente",
+      "comprasVariacaoPrecos": "Oscilação de preços com tendência",
+      "comprasEconomiaPotencial": "Oportunidades de economia identificadas"
     },
     "modulos": {
       "financeiro": {
@@ -136,7 +147,7 @@
       "compras": {
         "titulo": "Compras"
       },
-      "resumoWidgets": "{{quantidade}} widgets configurados",
+      "resumoWidgets": "{{quantidade}} widgets",
       "semWidgetsConfigurados": "Nenhum widget configurado."
     },
     "compras": {
@@ -149,13 +160,31 @@
       "economiaPotencialDescricao": "Soma das oportunidades calculadas pelos menores preços registrados.",
       "erroCarregamento": "Não foi possível carregar os dados de compras.",
       "semDados": "Sem dados de compras para exibir.",
+      "totalAnual": "Total anual",
+      "mediaMensal": "Média mensal",
+      "maiorMes": "Maior mês",
+      "menorMes": "Menor mês",
+      "mesAtualDestaque": "Mês atual: {{mes}}",
+      "top1Destaque": "Produto mais recorrente",
+      "percentualRanking": "{{percentual}} do líder",
+      "total": "Total",
+      "categoriaPrincipal": "Categoria em destaque",
+      "quantidadeItens": "{{quantidade}} itens",
+      "quantidadeListas": "{{quantidade}} listas",
+      "variacaoMesAnterior": "{{tendencia}} vs mês anterior ({{variacao}})",
       "resumoMensal": "{{itens}} itens comprados · {{listas}} listas concluídas",
       "resumoTipoCompra": "{{percentual}} do total · {{itens}} itens",
       "resumoVariacaoPreco": "Último: {{ultimo}} · menor: {{menor}} · média: {{media}}",
       "resumoEconomiaProduto": "Último: {{ultimo}} · menor: {{menor}}",
+      "tendencia": {
+        "alta": "Alta",
+        "baixa": "Baixa",
+        "estavel": "Estável"
+      },
       "statusDesejo": {
         "pendente": "Pendente",
-        "selecionado": "Selecionado"
+        "selecionado": "Selecionado",
+        "convertido": "Convertido"
       },
       "categorias": {
         "mercado": "Mercado",

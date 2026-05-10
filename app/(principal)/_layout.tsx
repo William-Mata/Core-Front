@@ -1,6 +1,7 @@
 import { Stack, usePathname, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Modal as RNModal, Pressable, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { usarAutenticacaoStore } from '../../src/store/usarAutenticacaoStore';
 import { usarLayoutStore } from '../../src/store/usarLayoutStore';
 import { Modal } from '../../src/componentes/comuns/Modal';
@@ -158,18 +159,21 @@ export default function PrincipalLayout() {
 
   return (
     <>
-      <View style={{ flex: 1, flexDirection: 'row', backgroundColor: COLORS.bgPrimary }}>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={{ flex: 1, flexDirection: 'row', backgroundColor: COLORS.bgPrimary }}>
         {exibirMenu ? <MenuLateral modulosAtivos={usuario?.modulosAtivos} rotaAtual={rotaAtual} /> : null}
 
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0, overflow: 'visible', position: 'relative', zIndex: 0 }}>
           <Stack screenOptions={{ headerShown: false }} />
         </View>
-      </View>
+      </SafeAreaView>
 
       {!exibirMenu ? (
         <RNModal visible={mostrarMenuMovel} animationType="fade" transparent onRequestClose={fecharMenuMovel}>
-          <View style={{ flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.55)' }}>
-            <View style={{ width: 280, maxWidth: '82%', height: '100%', backgroundColor: COLORS.bgSecondary }}>
+          <SafeAreaView
+            edges={['right', 'bottom', 'left']}
+            style={{ flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.55)', position: 'relative', zIndex: 10000, elevation: 100 }}
+          >
+            <View style={{ width: 280, maxWidth: '82%', height: '100%', backgroundColor: COLORS.bgSecondary, zIndex: 10020, elevation: 102 }}>
               <MenuLateral
                 modulosAtivos={usuario?.modulosAtivos}
                 rotaAtual={rotaAtual}
@@ -178,7 +182,7 @@ export default function PrincipalLayout() {
               />
             </View>
             <Pressable style={{ flex: 1 }} onPress={fecharMenuMovel} />
-          </View>
+          </SafeAreaView>
         </RNModal>
       ) : null}
 

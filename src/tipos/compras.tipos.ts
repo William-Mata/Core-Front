@@ -99,6 +99,77 @@ export interface SugestaoItemCompra {
   marcadorCor: string;
 }
 
+export interface ComprasDashboardKpis {
+  totalGastoMes: number;
+  planejamentosAtivos: number;
+  itensCompradosMes: number;
+  desejosPendentes: number;
+  economiaPotencialMes: number;
+  possuiEconomiaPotencial: boolean;
+}
+
+export interface ComprasDashboardEvolucaoMensal {
+  chaveMes: string;
+  rotuloMes: string;
+  valorTotal: number;
+  quantidadeItens: number;
+  listasFinalizadas: number;
+}
+
+export interface ComprasDashboardTipoCompra {
+  categoria: string;
+  rotulo: string;
+  valorTotal: number;
+  percentual: number;
+  quantidadeItens: number;
+}
+
+export interface ComprasDashboardProdutoMaisComprado {
+  descricao: string;
+  quantidade: number;
+}
+
+export interface ComprasDashboardUltimaCompra {
+  id: string;
+  descricao: string;
+  valor: number;
+  data: string;
+  planejamento: string;
+  corMarcador: string;
+}
+
+export interface ComprasDashboardUltimoDesejo {
+  id: string;
+  descricao: string;
+  valorEstimado: number;
+  data: string;
+  status: 'pendente' | 'convertido';
+}
+
+export interface ComprasDashboardVariacaoPreco {
+  id: string;
+  produto: string;
+  ultimoPreco: number;
+  menorPreco: number;
+  maiorPreco: number;
+  mediaPreco: number;
+  percentualVariacao: number;
+  potencialEconomiaUnitaria: number;
+}
+
+export interface ComprasDashboardEconomiaPotencialProduto {
+  id: string;
+  produto: string;
+  economiaUnitaria: number;
+  ultimoPreco: number;
+  menorPreco: number;
+}
+
+export interface ComprasDashboardEconomiaPotencial {
+  economiaPotencialTotal: number;
+  produtosComMelhorEconomia: ComprasDashboardEconomiaPotencialProduto[];
+}
+
 export interface ResumoListaCompra {
   totalLista: number;
   totalComprado: number;
